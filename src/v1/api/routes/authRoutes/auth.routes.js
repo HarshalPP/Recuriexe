@@ -3,8 +3,10 @@ import {register , login , updateProfile , userProfile , verifyUser , verifyMail
 
 import { IsAuthenticated , verifyEmployeeToken } from "../../middleware/authicationmiddleware.js";
 
-import {newEmployeeLogin , updateEmployee , updateEmployeeById , getAllJoiningEmployee , getAllEmploye  , getEmployeeById , getAllEmployeeInfo,
-        getEmployeeCount , employeeTreeHierarchy ,allEmployeDetail,  SuperAdminRegister ,  SuperAdminUpdate , createNewEmployee , getAllEmployeeInfodata , employeeActiveInactive } from "../../controllers/authController/newEmployeeLogin.js"
+import {newEmployeeLogin , updateEmployee , updateEmployeeById , getAllJoiningEmployee , getAllEmploye  , 
+        getEmployeeById , getAllEmployeeInfo , getEmployeeCount , employeeTreeHierarchy ,allEmployeDetail, 
+         SuperAdminRegister ,  SuperAdminUpdate , createNewEmployee , getAllEmployeeInfodata , 
+         employeeActiveInactive , addNewEmployee } from "../../controllers/authController/newEmployeeLogin.js"
 
 import {registerSuperAdmin , loginSuperAdmin} from "../../controllers/authController/superAdmin.controller.js"
 import { registerUser } from "../../controllers/authController/user.controller.js"
@@ -28,6 +30,7 @@ router.post("/employeelogin" , newEmployeeLogin)
 router.post("/employee/update" ,  verifyEmployeeToken ,updateEmployee)
 router.post("/emplyee/updateEmployeeById/:id" , verifyEmployeeToken , updateEmployeeById)
 router.get("/newjoinee" ,  verifyEmployeeToken , getAllJoiningEmployee)
+router.post("/addNewEmployee" ,verifyEmployeeToken ,addNewEmployee)
 router.get("/getAllEmployee" , verifyEmployeeToken , getAllEmploye)
 router.get("/getAllEmployeeInfodata", verifyEmployeeToken, getAllEmployeeInfodata) // GET all employee info
 router.get('/getEmployeeById/:id', getEmployeeById); // GET by ID

@@ -1355,3 +1355,72 @@ export const employeeActiveInactive = async (req, res) => {
     return unknownError(res, error);
   }
 };
+
+export const addNewEmployee = async (req, res) => {
+  try {
+    const {
+      userName,
+      email,
+      password,
+      mobileNo,
+      employeName,
+      roleId, 
+    } = req.body;
+
+    // ✅ 1. Validation
+    if (!userName || !email || !password || !mobileNo || !employeName) {
+      return badRequest(res, "userName, email, password, mobileNo, and employeName are required.");
+    }
+
+    // ✅ 2. Check if email already exists
+    const existingUser = await employeModel.findOne({ email });
+    if (existingUser) {
+      return badRequest(res, "Email already exists.");
+    }
+
+
+    const existinguserName = await employeModel.findOne({ userName });
+    if (existinguserName) {
+      return badRequest(res, "userName already exists.");
+    }
+    // ✅ 3. Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ 4. Role validation if roleId is given
+    let roleIds = [];
+    if (roleId) {
+      const roleExists = await roleModel.findById(roleId);
+      if (!roleExists) {
+        return badRequest(res, "Provided roleId does not exist.");
+      }
+      roleIds.push(roleId);
+    }
+
+    // ✅ 5. Create employee
+    const newEmployee = new employeModel({
+      userName: userName.trim(),
+      email: email.trim(),
+      password: hashedPassword,
+      mobileNo,
+      employeName: employeName.trim(),
+      UserType: ["User"], // default
+      roleId: roleIds,
+    });
+
+    await newEmployee.save();
+
+    return success(res, "Employee created successfully", {
+      employeId: newEmployee._id,
+      employeName: newEmployee.employeName,
+      email: newEmployee.email,
+      mobileNo: newEmployee.mobileNo,
+      userName: newEmployee.userName,
+      UserType: newEmployee.UserType,
+      roleId: newEmployee.roleId,
+    });
+
+  } catch (error) {
+    console.error("Error adding employee:", error);
+    return unknownError(res, error.message);
+  }
+};

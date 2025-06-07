@@ -16,6 +16,7 @@ import {
   getOrganizationById,
   updateOrganization,
   deleteOrganization,
+  getCurrencyList
 } from "../../controllers/OrganizationController/organizationType.controller.js"
 
 import { verifyEmployeeToken } from "../../middleware/authicationmiddleware.js";
@@ -36,6 +37,7 @@ router.post("/organization", createOrganization);
 router.get("/organization",  verifyEmployeeToken ,getAllOrganizations);
 router.get("/organization/:id", getOrganizationById);
 router.post("/updateOrganizationType/:id", updateOrganization);
+router.get("/getCurrency",getCurrencyList)
 // router.post("/deleteOrganizationType/:id", deleteOrganization);
 
 export default router;

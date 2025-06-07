@@ -10,7 +10,7 @@ export const createPermission = async (req, res) => {
   try {
     const payload = {
       ...req.body,
-      organizationId: req.user.organizationId // or req.body.organizationId if passed directly
+      organizationId: req.employee.organizationId // or req.body.organizationId if passed directly
     };
 
     const permission = await createPermissionService(payload);

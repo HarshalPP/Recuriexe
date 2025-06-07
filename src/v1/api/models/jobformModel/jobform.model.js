@@ -12,10 +12,10 @@ const jobApplyModelSchema = new Schema(
       ref: "Organization",
       default: null,
     },
-    candidateId:{type:ObjectId , ref:"User" ,  default:null},
-    name: { type: String },
-    mobileNumber: { type: String },
-    emailId: { type: String },
+    candidateId: { type: ObjectId, ref: "User", default: null },
+    name: { type: String, default: "" },
+    mobileNumber: { type: String, default: "" },
+    emailId: { type: String, default: "" },
     password: { type: String, default: null },
     highestQualification: { type: String },
     university: { type: String },
@@ -25,6 +25,7 @@ const jobApplyModelSchema = new Schema(
     state: { type: String },
     city: { type: String },
     pincode: { type: String },
+    internalReferenceName: { type: String, default: "" },
     skills: { type: String },
     resume: { type: String },
     salarySlip: { type: String },
@@ -40,6 +41,7 @@ const jobApplyModelSchema = new Schema(
     reasonLeaving: { type: String, default: "" },
     totalExperience: { type: Number, default: null },
     currentCTC: { type: String, default: null },
+    expectedCTC : { type: String, default: null },
     currentLocation: { type: String, default: "" },
     preferredLocation: { type: String, default: "" },
     gapIfAny: { type: String, default: "" },
@@ -53,15 +55,16 @@ const jobApplyModelSchema = new Schema(
       ref: "interviewDetails",
       default: null,
     },
-    InterviewDetailsIds:[{
-        type: ObjectId,
-        ref: "interviewDetails",
-        default: null,
+    InterviewDetailsIds: [{
+      type: ObjectId,
+      ref: "interviewDetails",
+      default: null,
     }],
     recommendedByID: { type: ObjectId, ref: "employee", default: null },
     jobFormType: {
       type: String,
       enum: ["recommended", "request"],
+      default:'request'
     },
     branchId: { type: ObjectId, ref: "newbranch" },
     positionWebsite: { type: String, default: "" },
@@ -190,15 +193,50 @@ const jobApplyModelSchema = new Schema(
       default: "active",
     },
 
-    Joining_Status:{
-      type:String,
-      default:"active"
+    Joining_Status: {
+      type: String,
+      default: "active"
 
     },
 
-    AI_Result:{
-      type:String,
-    }
+
+    Remark:{
+      type: String,
+      default: ""
+    },
+
+
+     JobType:{
+     type: String,
+    },
+
+    // AI Result //
+
+    AI_Result: {
+      type: String,
+    },
+
+    AI_Screeing_Result: {
+      type: String,
+      default:"Pending"
+    },
+
+    // not still analize ( open button for analize )
+    AI_Screeing_Status: {
+      type: String,
+      default: "Pending"  // Completed
+    },
+
+    AI_Score:{
+     type:Number
+    },
+
+    AI_Confidence:{
+      type:Number
+    },
+
+    immediatejoiner: { type: Boolean, default: false },
+     agreePrivacyPolicy : {type : Boolean , default : false },
   },
   { timestamps: true }
 );

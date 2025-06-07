@@ -106,8 +106,9 @@ Return only valid JSON.
 
 
 
+
 export const generateDepartmentPrompt = (inputText) => {
-  return `You are an intelligent organization structure parser. From the input text below, extract and return all departments and their sub-departments in clean, valid JSON format.
+  return `
 
 Input Text:
 """
@@ -136,7 +137,7 @@ Return JSON strictly in the following format:
 📝 Notes:
 - Only include departments and their sub-departments.
 - Always use the field names: "name" and "subDepartments".
-- ⚠️ Only provide **up to 3 subDepartments per department*
+- ⚠️ Only provide **up to 4 subDepartments per department*
 - Return an array of departments. Each must have a unique name.
 - Return empty array for subDepartments if none exist.
 - Do not add text outside of the JSON block.

@@ -51,8 +51,7 @@ const organizationSchema = new mongoose.Schema(
 
         abbreviation: { type: String, default: "" }, // NEW
     domain: { type: String, default: "" }, // NEW
-    defaultCurreny: { type: String, default: "" }, // NEW
-
+    defaultCurreny: {    type: mongoose.Schema.Types.ObjectId, default: null , ref :"currency"}, // NEW
     registeredAddress: { type: String, default: "" }, // NEW
     haveGSTIN: { type: Boolean, default: false }, // NEW
     GSTNumber: { type: String, default: "" }, // NEW

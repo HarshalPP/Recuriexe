@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
+import jobPostingsetting from "../../models/settingModel/jobPostsetting.model.js"
 
 const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
+import moment from "moment-timezone";
 
 const jobPostingModelSchema = new Schema(
   {
@@ -12,6 +14,11 @@ const jobPostingModelSchema = new Schema(
       type:ObjectId,
       ref:'employeeType',
       default:null
+    },
+
+    jobPostId:{
+      type:String,
+
     },
 
     organizationId: { type: ObjectId, ref: "Organization", default: null },
@@ -53,6 +60,10 @@ const jobPostingModelSchema = new Schema(
     budgetType: {
       type: String,
       enum: ["Monthly", "LPA"],
+    },
+
+    JobType:{
+     type: String,
     },
 
     budgetId : { type: ObjectId, ref: "DepartmentBudget", default: null },
@@ -114,6 +125,8 @@ const jobPostingModelSchema = new Schema(
       ref: "newworklocation",
       default: null,
     },
+    
+
 
    jobDescriptionId: { type: ObjectId, ref: "jobDescription", default: null },
     vacencyRequestId:{type: ObjectId, ref: "vacancyRequest", default: null},
@@ -122,9 +135,61 @@ const jobPostingModelSchema = new Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    jobPostExpired : { type :Boolean , default : false },
+    expiredDate : {type :Date ,default :null },
+    numberOfApplicant : { type :Number , default :0},
+    totalApplicants : { type :Number , default :0},
   },
   { timestamps: true }
 );
+
+
+jobPostingModelSchema.pre("save", async function (next) {
+  try {
+    if (this.jobPostId) return next();
+
+    const organizationId = this.organizationId;
+
+    let setting = await jobPostingsetting.findOne({ organizationId });
+
+    if (!setting) {
+      setting = new jobPostingsetting({ organizationId });
+      await setting.save();
+    }
+
+    setting.PostIdCounter += 1;
+    await setting.save();
+
+    const parts = [];
+
+    if (setting.PostIdPrefix) {
+      parts.push(setting.PostIdPrefix);
+    }
+
+    if (setting.PostIdUseDate && setting.PostIdDateFormat) {
+      parts.push(moment().format(setting.PostIdDateFormat));
+    }
+
+    if (setting.PostIdUseRandom && setting.PostIdRandomLength > 0) {
+      const random = Math.floor(Math.random() * Math.pow(10, setting.PostIdRandomLength))
+        .toString()
+        .padStart(setting.PostIdRandomLength, "0");
+      parts.push(random);
+    }
+
+    parts.push(setting.PostIdCounter.toString().padStart(setting.PostIdPadLength, "0"));
+
+    if (setting.PostIdSuffix) {
+      parts.push(setting.PostIdSuffix);
+    }
+
+    this.jobPostId = parts.join("");
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 const jobPostModel = model("jobPost", jobPostingModelSchema);
 

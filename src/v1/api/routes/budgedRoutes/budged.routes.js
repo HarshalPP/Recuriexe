@@ -3,7 +3,7 @@ const router = express.Router()
 
 import {setOrganizationBudget , UpdateOrganizationBudget ,  getOrganization , allocateDepartmentBudget ,
      getDepartmentWiseBudgets , updateDepartmentBudget , getBudgetDashboard , getBudgetAnalytics ,
-      manBudgetDashboardApi , getSetBudgetDesingation
+      manBudgetDashboardApi , getSetBudgetDesingation , manBudgetDashboard , budgetVerify
      } from "../../controllers/budgedController/budged.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
@@ -16,8 +16,10 @@ router.get("/getOrganization" , verifyEmployeeToken , getOrganization)
 
 
 router.post("/getBudgetDetail" , verifyEmployeeToken , getSetBudgetDesingation)
-// Budged with Department wise //
 
+router.get('/manBudgetDashboard' ,verifyEmployeeToken , manBudgetDashboard)
+// Budged with Department wise //
+router.get("/budgetVerify", verifyEmployeeToken , budgetVerify)
 router.post("/allocateDepartmentBudget" , verifyEmployeeToken , allocateDepartmentBudget)
 router.get("/budgetDashboard" , verifyEmployeeToken , manBudgetDashboardApi)
 router.get("/getDepartmentWiseBudgets" , verifyEmployeeToken , getDepartmentWiseBudgets)

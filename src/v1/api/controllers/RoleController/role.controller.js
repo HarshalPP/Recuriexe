@@ -30,10 +30,10 @@ export async function roleAdd(req, res) {
 
     const data = await roleModel.findOne({ roleName: req.body.roleName });
     if (data) {
-      badRequest(res, "Role name is already exist");
+      return badRequest(res, "Role name is already exist");
     }
     const roleDetail = await roleModel.create({ ...req.body, organizationId, createdBy: id });
-    success(res, "Role Added Successful", roleDetail);
+    return success(res, "Role Added Successful", roleDetail);
     // await roleGoogleSheet(roleDetail);
   } catch (error) {
     console.log(error);
@@ -324,5 +324,22 @@ export async function getCollectionRoleEmploye(req, res) {
   } catch (error) {
     console.error("Error in getEmployeesByRole:", error);
     return unknownError(res, error);
+  }
+}
+
+
+export async function roleDetail(req, res) {
+  try {
+
+    const { roleId } = req.query;
+    if(!roleId){
+      return badRequest(res , "role Id required")
+    }
+    const roleDetail = await roleModel.findById(roleId)
+    
+   return success(res, `Role Detail`, roleDetail);
+  } catch (error) {
+    // console.log(error);
+   return unknownError(res, error);
   }
 }

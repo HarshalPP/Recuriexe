@@ -23,6 +23,7 @@ import shift from "./routes/ShiftRoutes/shift.routes.js"
 import Qualification from "./routes/QualificationRoutes/qualification.routes.js"
 import PortalsetUp from "./routes/portalsetUpRoutes/portalsetUp.routes.js"
 import formStagesetUP from "./routes/formStageRoutes/formstage.routes.js"
+import templete from "./routes/templeteRoutes/templete.routes.js"
 
 
 // Budged //
@@ -115,7 +116,7 @@ router.use("/policy",policyRoute)
 router.use("/expenseRole",expenseRoleRoute)
 router.use("/userExpense",userExpenseRoute)
 router.use('/favorite',favoriteRouter)
-
+router.use("/templete" , templete)
 
 // Add API routes here for REGISTER //
 

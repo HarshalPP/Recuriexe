@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import bcrypt from "bcrypt";
 import roleModel from "../../models/RoleModel/role.model.js";
 import employeeModel from "../../models/employeemodel/employee.model.js";
+import currencyModel from "../../models/currencyModel/currency.model.js"
 
 // // Organization Type //
 // // Create Type
@@ -221,7 +222,20 @@ export const getAllOrganizations = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
-
+{
+        $lookup: {
+          from: "currencies",
+          localField: "defaultCurreny",
+          foreignField: "_id",
+          as: "currenyDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$currenyDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
       // Lookup promoter language preference
       {
         $lookup: {
@@ -362,6 +376,18 @@ export const getAllOrganizations = async (req, res) => {
             ]
           },
           
+          defaultCurreny : {
+            $cond: [
+              { $ne: ["$currenyDetail", null] },
+              {
+                _id: "$currenyDetail._id",
+                name: "$currenyDetail.name",
+                icon: "$currenyDetail.icon"
+              },
+              { _id: null, name: "" }
+            ]
+          },
+          
           // Format typeOfSector
           typeOfSector: {
             $cond: [
@@ -474,6 +500,7 @@ export const getAllOrganizations = async (req, res) => {
           typeOfOrganizationDetail: 0,
           // defaultCurrenyDetail:0,
           typeOfIndustryDetail: 0,
+          currenyDetail:0,
           typeOfSectorDetail: 0,
           promoterLanguageDetail: 0,
           promoterQualificationDetail: 0,
@@ -497,7 +524,8 @@ export const getOrganizationById = async (req, res) => {
       .populate("userId", "name email").populate("promoterDetail.languagePreferenceId", "name")
       .populate("promoterDetail.qualificationId", "name")
       .populate("managementDetail.languagePreferenceId", "name")
-      .populate("managementDetail.qualificationId", "name");
+      .populate("managementDetail.qualificationId", "name")
+      .populate("defaultCurreny", "name icon");
       // .populate("defaultCurrenyId", "name")
       
       if (!org) return notFound(res, "Organization not found");
@@ -539,3 +567,77 @@ export const deleteOrganization = async (req, res) => {
 };
 
 
+export const getCurrencyList = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let matchStatus = {};
+
+    if (status && status !== "all") {
+      matchStatus.status = status; 
+    } else if (!status || status === "active") {
+      matchStatus.status = "active";
+    }
+
+    const currencyList = await currencyModel.find(matchStatus);
+
+    return success(res, "Currency list", currencyList);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
+
+
+
+
+// var currencySeedData = [
+//   { code: "USD", name: "United States Dollar", symbol: "$" },
+//   { code: "EUR", name: "Euro", symbol: "€" },
+//   { code: "INR", name: "Indian Rupee", symbol: "₹" },
+//   { code: "GBP", name: "British Pound Sterling", symbol: "£" },
+//   { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+//   { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+//   { code: "CAD", name: "Canadian Dollar", symbol: "$" },
+//   { code: "AUD", name: "Australian Dollar", symbol: "$" },
+//   { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+//   { code: "SGD", name: "Singapore Dollar", symbol: "$" },
+//   { code: "NZD", name: "New Zealand Dollar", symbol: "$" },
+//   { code: "ZAR", name: "South African Rand", symbol: "R" },
+//   { code: "AED", name: "United Arab Emirates Dirham", symbol: "د.إ" },
+//   { code: "SAR", name: "Saudi Riyal", symbol: "ر.س" },
+//   { code: "HKD", name: "Hong Kong Dollar", symbol: "$" },
+//   { code: "SEK", name: "Swedish Krona", symbol: "kr" },
+//   { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
+//   { code: "DKK", name: "Danish Krone", symbol: "kr" },
+//   { code: "THB", name: "Thai Baht", symbol: "฿" },
+//   { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
+//   { code: "KRW", name: "South Korean Won", symbol: "₩" },
+//   { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
+//   { code: "PHP", name: "Philippine Peso", symbol: "₱" },
+//   { code: "BDT", name: "Bangladeshi Taka", symbol: "৳" }
+// ];
+
+
+// export const getCurrencyList = async (req, res) => {
+//   try {
+//     const existing = await CurrencyModel.find({});
+//     if (existing.length > 0) {
+//       return res.status(400).json({ message: "Currency data already seeded." });
+//     }
+
+//     const currencies = currencySeedData.map((item) => ({
+//       name: item.code,
+//       icon: item.symbol,
+//       status: "active",
+//     }));
+
+//     const saved = await CurrencyModel.insertMany(currencies);
+//     return res.status(200).json({
+//       message: "Currency data seeded successfully.",
+//       data: saved,
+//     });
+//   } catch (error) {
+//     console.error("Error seeding currency data:", error);
+//     return res.status(500).json({ message: "Failed to seed currency data." });
+//   }
+// };

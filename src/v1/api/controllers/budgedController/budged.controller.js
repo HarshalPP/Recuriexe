@@ -3,6 +3,7 @@ import BudgetModel from "../../models/budgedModel/budged.model.js"
 import designationModel from "../../models/designationModel/designation.model.js";
 import organizationModel from "../../models/organizationModel/organization.model.js";
 import departmentModel from "../../models/deparmentModel/deparment.model.js";
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import {
   success,
   unknownError,
@@ -11,6 +12,7 @@ import {
   notFound
 } from "../../formatters/globalResponse.js"
 import mongoose from "mongoose";
+const ObjectId = mongoose.Types.ObjectId;
 
 // 1. Set organization budget
 export const setOrganizationBudget = async (req, res) => {
@@ -92,14 +94,9 @@ export const getOrganization = async (req, res) => {
     if (!findOrganization) {
       return success(res, "OrganizationBudged not found", [])
     }
-
     return success(res, "fetch Organization Successfully", findOrganization)
-
-
   } catch (error) {
-
-    return UnknownError(res, error)
-
+    return unknownError(res, error)
   }
 }
 
@@ -847,11 +844,23 @@ export const manBudgetDashboardApi = async (req, res) => {
           desingationId: "$desingationId",
           numberOfEmployees: { $ifNull: ["$numberOfEmployees", 0] },
           allocatedBudget: { $ifNull: ["$allocatedBudget", 0] },
+          // perEmployeeLPA: {
+          //   $cond: [
+          //     { $eq: ["$numberOfEmployees", 0] },
+          //     0,
+          //     { $divide: ["$allocatedBudget", "$numberOfEmployees"] }
+          //   ]
+          // },
           perEmployeeLPA: {
             $cond: [
               { $eq: ["$numberOfEmployees", 0] },
               0,
-              { $divide: ["$allocatedBudget", "$numberOfEmployees"] }
+              {
+                $divide: [
+                  { $divide: ["$allocatedBudget", "$numberOfEmployees"] },
+                  100000
+                ]
+              }
             ]
           }
         }
@@ -873,7 +882,7 @@ export const manBudgetDashboardApi = async (req, res) => {
               desingationId: "$desingationId",
               numberOfEmployees: "$numberOfEmployees",
               allocatedBudget: "$allocatedBudget",
-              perEmployeeLPA: "$perEmployeeLPA"
+              perEmployeeLPA: "$perEmployeeLPA",
             }
           }
         }
@@ -970,3 +979,452 @@ export const getSetBudgetDesingation = async (req, res) => {
     return unknownError(res, "error ", { error: error.message });
   }
 };
+
+
+///------------------------------------------------------------------------------------------------------
+
+// Get Budget Analytics Overview
+// export const manBudgetDashboard = async (req, res) => {
+//   try {
+//     const { year = new Date().getFullYear(), period = 7, organizationId } = req.query;
+
+//     const periodInDays = parseInt(period);
+//     if (isNaN(periodInDays) || periodInDays <= 0) {
+//       return badRequest(res, "Invalid period value. Must be a positive number.");
+//     }
+
+//     const endDate = new Date();
+//     const startDate = new Date();
+//     startDate.setDate(endDate.getDate() - periodInDays);
+
+//     // Build match criteria
+//     const matchCriteria = {
+//       status: "active",
+//       createdAt: { $gte: startDate, $lte: endDate }
+//     };
+
+//     if (organizationId) {
+//       matchCriteria.organizationId = organizationId;
+//     }
+
+//     // Get budget analytics using aggregation
+//     const analytics = await BudgetModel.aggregate([
+//       { $match: matchCriteria },
+//       {
+//         $group: {
+//           _id: null,
+//           totalAllocatedBudget: { $sum: "$allocatedBudget" },
+//           totalUsedBudget: { $sum: "$usedBudget" },
+//           totalEmployees: { $sum: "$numberOfEmployees" },
+//           departmentCount: { $sum: 1 },
+//           avgAllocatedBudget: { $avg: "$allocatedBudget" },
+//           avgUsedBudget: { $avg: "$usedBudget" }
+//         }
+//       }
+//     ]);
+
+//     const data = analytics[0] || {
+//       totalAllocatedBudget: 0,
+//       totalUsedBudget: 0,
+//       totalEmployees: 0,
+//       departmentCount: 0,
+//       avgAllocatedBudget: 0,
+//       avgUsedBudget: 0
+//     };
+
+//     // Calculate derived metrics
+//     const budgetRemaining = data.totalAllocatedBudget - data.totalUsedBudget;
+//     const avgPayPerEmployee = data.totalEmployees > 0 
+//       ? (data.totalUsedBudget / data.totalEmployees).toFixed(2)
+//       : 0;
+
+//     const result = {
+//       annualAllocation: data.totalAllocatedBudget,
+//       budgetUtilized: data.totalUsedBudget,
+//       budgetRemaining,
+//       totalEmployees: data.totalEmployees,
+//       avgPayPerEmployee: parseFloat(avgPayPerEmployee),
+//       departmentCount: data.departmentCount,
+//       period: periodInDays,
+//       year: parseInt(year)
+//     };
+
+//     return success(res, "Budget DashBoard", result);
+//   } catch (error) {
+//     console.error('Error in :', error);
+//     return unknownError(res, "Error ",error);
+//   }
+// };
+
+export const manBudgetDashboard = async (req, res) => {
+  try {
+    const { year = new Date().getFullYear(), period = 7, } = req.query;
+    const periodInDays = parseInt(period);
+
+const organizationId = req.employee.organizationId
+
+    if(!organizationId){
+      return badRequest(res , "invalid token organizationId not found")
+    }
+    if (isNaN(periodInDays) || periodInDays <= 0) {
+      return badRequest(res, "Invalid period value. Must be a positive number.");
+    }
+
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - periodInDays);
+
+    // Build match criteria
+    const matchCriteria = {
+      status: "active",
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+
+    if (organizationId) {
+      matchCriteria.organizationId = new ObjectId(organizationId)
+    }
+
+    // Get overall budget analytics
+    const analytics = await BudgetModel.aggregate([
+      { $match: matchCriteria },
+      {
+        $group: {
+          _id: null,
+          totalAllocatedBudget: { $sum: "$allocatedBudget" },
+          totalUsedBudget: { $sum: "$usedBudget" },
+          totalEmployees: { $sum: "$numberOfEmployees" },
+          departmentCount: { $sum: 1 },
+          avgAllocatedBudget: { $avg: "$allocatedBudget" },
+          avgUsedBudget: { $avg: "$usedBudget" }
+        }
+      }
+    ]);
+
+    const data = analytics[0] || {
+      totalAllocatedBudget: 0,
+      totalUsedBudget: 0,
+      totalEmployees: 0,
+      departmentCount: 0,
+      avgAllocatedBudget: 0,
+      avgUsedBudget: 0
+    };
+
+    // Get Budget Overdrawn Departments (usedBudget > allocatedBudget)
+    let overdrawnDepartments = [];
+
+    overdrawnDepartments = await BudgetModel.aggregate([
+      {
+        $match: {
+          ...matchCriteria,
+          $expr: {
+            $and: [
+              { $gt: ["$usedBudget", "$allocatedBudget"] },
+              { $gt: ["$allocatedBudget", 0] }
+            ]
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "desingationId",
+          foreignField: "_id",
+          as: "designation"
+        }
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "designation.departmentId",
+          foreignField: "_id",
+          as: "departmentDetail"
+        }
+      },
+      //  {
+      //       $lookup: {
+      //         from: 'newdepartments',
+      //         let: { subDeptId: '$designation.subDepartmentId' },
+      //         pipeline: [
+      //           {
+      //             $match: {
+      //               $expr: {
+      //                 $gt: [
+      //                   {
+      //                     $size: {
+      //                       $filter: {
+      //                         input: '$subDepartments',
+      //                         as: 'sub',
+      //                         cond: { $eq: ['$$sub._id', '$$subDeptId'] }
+      //                       }
+      //                     }
+      //                   },
+      //                   0
+      //                 ]
+      //               }
+      //             }
+      //           }
+      //         ],
+      //         as: 'sunDepartmentDetail'
+      //       }
+      //     },
+
+      {
+        $addFields: {
+          budgetOverdraw: { $subtract: ["$usedBudget", "$allocatedBudget"] },
+          overdrawPercentage: {
+            $cond: {
+              if: { $gt: ["$allocatedBudget", 0] },
+              then: {
+                $round: [
+                  {
+                    $multiply: [
+                      {
+                        $divide: [
+                          { $subtract: ["$usedBudget", "$allocatedBudget"] },
+                          "$allocatedBudget"
+                        ]
+                      },
+                      100
+                    ]
+                  },
+                  2
+                ]
+              },
+              else: 0
+            }
+          }
+        }
+      },
+      // {
+      //     $addFields: {
+      //       subDepartment: {
+      //         $first: {
+      //           $filter: {
+      //             input: "$sunDepartmentDetail.subDepartments",
+      //             as: "sub",
+      //             cond: { $eq: ["$$sub._id", "$departmentId"] }
+      //           }
+      //         }
+      //       }
+      //     }
+      //   },
+      {
+        $project: {
+          designationName: { $arrayElemAt: ["$designation.name", 0] },
+          departmentName: { $arrayElemAt: ["$departmentDetail.name", 0] },
+          // subDepartmentName: { $arrayElemAt: ["$sunDepartmentDetail.name", 0] },
+          //  subDepartmentName: "$subDepartmentName.name",
+          isSubDepartment: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $ifNull: ["$department.subDepartments", []] } }, 0] },
+                  { $ne: [{ $arrayElemAt: ["$department.subDepartments.subDepartmentName", 0] }, null] }
+                ]
+              },
+              then: true,
+              else: false
+            }
+          },
+          numberOfEmployees: 1,
+          usedBudget: 1,
+          allocatedBudget: 1,
+          budgetOverdraw: 1,
+          overdrawPercentage: 1
+        }
+      },
+      {
+        $addFields: {
+          displayName: {
+            $cond: {
+              if: "$isSubDepartment",
+              then: "$subDepartmentName",
+              else: "$departmentName"
+            }
+          }
+        }
+      },
+      { $sort: { budgetOverdraw: -1 } }
+    ]);
+
+    // Get Budget Under-utilized Departments (usedBudget < allocatedBudget)
+    const underUtilizedDepartments = await BudgetModel.aggregate([
+      {
+        $match: {
+          ...matchCriteria,
+          $expr: { $lt: ["$usedBudget", "$allocatedBudget"] }
+        }
+      },
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "desingationId",
+          foreignField: "_id",
+          as: "designation"
+        }
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "designation.departmentId",
+          foreignField: "_id",
+          as: "department"
+        }
+      },
+      {
+        $addFields: {
+          budgetUnderUtilized: { $subtract: ["$allocatedBudget", "$usedBudget"] },
+          utilizationPercentage: {
+            $round: [
+              {
+                $multiply: [
+                  { $divide: ["$usedBudget", "$allocatedBudget"] },
+                  100
+                ]
+              },
+              2
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          designationName: { $arrayElemAt: ["$designation.name", 0] },
+          departmentName: { $arrayElemAt: ["$department.name", 0] },
+          // subDepartmentName: { $arrayElemAt: ["$department.subDepartments.name", 0] },
+          // isSubDepartment: {
+          //   $cond: {
+          //     if: { 
+          //       $and: [
+          //         { $gt: [{ $size: { $ifNull: ["$department.subDepartments", []] } }, 0] },
+          //         { $ne: [{ $arrayElemAt: ["$department.subDepartments.subDepartmentName", 0] }, null] }
+          //       ]
+          //     },
+          //     then: true,
+          //     else: false
+          //   }
+          // },
+          numberOfEmployees: 1,
+          usedBudget: 1,
+          allocatedBudget: 1,
+          budgetUnderUtilized: 1,
+          utilizationPercentage: 1
+        }
+      },
+      {
+        $addFields: {
+          displayName: {
+            $cond: {
+              if: "$isSubDepartment",
+              then: "$subDepartmentName",
+              else: "$departmentName"
+            }
+          }
+        }
+      },
+      { $sort: { budgetUnderUtilized: -1 } }
+    ]);
+
+    // Calculate derived metrics
+    const budgetRemaining = data.totalAllocatedBudget - data.totalUsedBudget;
+    const avgPayPerEmployee = data.totalEmployees > 0
+      ? (data.totalUsedBudget / data.totalEmployees).toFixed(2)
+      : 0;
+
+
+    const result = {
+      // Overall Statistics
+      annualAllocation: data.totalAllocatedBudget,
+      budgetUtilized: data.totalUsedBudget,
+      budgetRemaining,
+      totalEmployees: data.totalEmployees,
+      avgPayPerEmployee: parseFloat(avgPayPerEmployee),
+      departmentCount: data.departmentCount,
+      period: periodInDays,
+      year: parseInt(year),
+
+      // Budget Analysis Lists
+      budgetOverdrawn: {
+        count: overdrawnDepartments.length,
+        totalOverdraw: overdrawnDepartments.reduce((sum, dept) => sum + (dept.budgetOverdraw || 0), 0),
+        departments: overdrawnDepartments.map(dept => ({
+          designationName: dept.designationName || "",
+          departmentName: dept.departmentName || "",
+          // subDepartmentName: dept.subDepartmentName || null,
+          // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
+          // isSubDepartment: dept.isSubDepartment || false,
+          numberOfEmployees: dept.numberOfEmployees || 0,
+          usedBudget: dept.usedBudget || 0,
+          allocatedBudget: dept.allocatedBudget || 0,
+          budgetOverdraw: dept.budgetOverdraw || 0,
+          overdrawPercentage: dept.overdrawPercentage || 0
+        }))
+      },
+
+      budgetUnderUtilized: {
+        count: underUtilizedDepartments.length,
+        totalUnderUtilized: underUtilizedDepartments.reduce((sum, dept) => sum + (dept.budgetUnderUtilized || 0), 0),
+        departments: underUtilizedDepartments.map(dept => ({
+          designationName: dept.designationName || "",
+          departmentName: dept.departmentName || "",
+          // subDepartmentName: dept.subDepartmentName || null,
+          // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
+          // isSubDepartment: dept.isSubDepartment || false,
+          numberOfEmployees: dept.numberOfEmployees || 0,
+          usedBudget: dept.usedBudget || 0,
+          allocatedBudget: dept.allocatedBudget || 0,
+          budgetUnderUtilized: dept.budgetUnderUtilized || 0,
+          utilizationPercentage: dept.utilizationPercentage || 0
+        }))
+      }
+    };
+
+    return success(res, "Budget Dashboard", result);
+
+  } catch (error) {
+    console.error('Error in manBudgetDashboard:', error);
+    return unknownError(res, "Error in budget dashboard", error);
+  }
+};
+
+export const budgetVerify = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const { subDepartmentId, desingationId } = req.query
+
+    if (!subDepartmentId) {
+      return badRequest(res, "sub Department Id Is Required");
+    }
+
+    if (!desingationId) {
+      return badRequest(res, "desingation Id Is Required");
+    }
+
+    if (!organizationId) {
+      return badRequest(res, "organization Id Is Required Invalid Token");
+    }
+
+    const findBudget = await BudgetModel.findOne({
+      departmentId: subDepartmentId,
+      organizationId: organizationId,
+      desingationId: desingationId
+    });
+
+    if (!findBudget || findBudget.allocatedBudget === 0 || findBudget.numberOfEmployees === 0) {
+      return badRequest(res, "Please set budget first");
+    }
+
+    const budgetData = {
+      allocatedBudget: findBudget.allocatedBudget,
+      usedBudget: findBudget.usedBudget,
+      allocatedBudgetLPA: (findBudget.allocatedBudget / 100000).toFixed(2),
+      usedBudgetLPA: (findBudget.usedBudget / 100000).toFixed(2),
+      numberOfEmployees: findBudget.numberOfEmployees,
+    };
+
+    return success(res, "budget Detail", budgetData)
+  } catch (error) {
+    console.error("Error adding job post:", error);
+    return unknownError(res, error);
+  }
+}

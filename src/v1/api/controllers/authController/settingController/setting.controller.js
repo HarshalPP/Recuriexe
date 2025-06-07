@@ -68,3 +68,31 @@ export const candidatesettings = async (req, res) => {
         return UnknownError(res , "Interval server error")
     }
   };
+
+
+
+
+  // Jobpost //
+  export const getJobPostSettings = async (req, res) => {
+  try {
+    const settings = await settingService.getJobPostSetting();
+    return success(res, "Fetched job post settings", settings);
+  } catch (error) {
+    return UnknownError(res, "Internal server error");
+  }
+};
+
+
+
+// jOB POST //
+export const updateJobPostSettings = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId || null;
+    const updated = await settingService.updateJobPostSetting(req.body, organizationId);
+    return success(res, "Updated job post settings successfully", updated);
+  } catch (error) {
+    console.log(error);
+    return UnknownError(res, "Internal server error");
+  }
+};
+

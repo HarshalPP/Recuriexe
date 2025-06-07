@@ -1,7 +1,11 @@
 import express from "express";
 const router = express.Router();
 
-import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken , getPostDashBoard , jobPostAddDirect } from "../../controllers/jobpostController/jobpost.controller.js"
+import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken , getPostManDashBoard ,
+     jobPostAddDirect  ,
+      getDashboardAnalytics,
+      assignJobPostIdsToOldPosts
+     } from "../../controllers/jobpostController/jobpost.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 
@@ -10,7 +14,9 @@ router.post("/jobPostAddDirect" , verifyEmployeeToken , jobPostAddDirect)
 // router.post("/jobPostAddDirect " , getAllJobPostwithoutToken)
 router.get("/getAllJobPost"  , getAllJobPost)
 router.post("/updatePost/:id" , verifyEmployeeToken , updateJobPost)
-router.get("/dashboard" , getPostDashBoard)
+router.get("/manDashboard" ,verifyEmployeeToken , getPostManDashBoard)
+router.get("/getDashboardAnalytics",verifyEmployeeToken , getDashboardAnalytics)
+router.get("/assignJobPostIdsToOldPosts" , verifyEmployeeToken , assignJobPostIdsToOldPosts)
 
  
 export default router;

@@ -9,6 +9,7 @@ import {
   getAllRoleByType,
   getCollectionRoleEmploye,
   getRoleDropDown,
+  roleDetail,
 } from "../../controllers/RoleController/role.controller.js"
 
 
@@ -21,7 +22,7 @@ import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authica
 
 
 
-router.post("/addPermission", createPermission);
+router.post("/addPermission", verifyEmployeeToken , createPermission);
 router.get("/gerPermission", getAllPermissions);
 router.post("/deletePermission/:id", deletePermission);
 
@@ -31,6 +32,7 @@ router.get("/getAllRole", verifyEmployeeToken, getAllRole);
 router.post("/roleUpdate",verifyEmployeeToken, updateRole);
 router.post("/activeOrInactive",verifyEmployeeToken, roleActiveOrInactive);
 router.get("/getAllRoleByType", getAllRoleByType);
+router.get("/detail", verifyEmployeeToken , roleDetail)
 router.get("/collectionRoleEmploye", getCollectionRoleEmploye);
 
 export default router;

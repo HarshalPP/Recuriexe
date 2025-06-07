@@ -191,6 +191,7 @@ export const getAllDepartments = async (req) => {
         subDepartmentName: sub.name,
         isSubDepartment: true,
         isActive: sub.isActive,
+        createdAt: dept.createdAt,
       }));
     });
 
@@ -199,6 +200,7 @@ export const getAllDepartments = async (req) => {
     return returnFormatter(false, error.message);
   }
 };
+
 
 export const departmentDropDown = async (req) => {
   try {

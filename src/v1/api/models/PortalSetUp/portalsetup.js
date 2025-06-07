@@ -130,6 +130,15 @@ const candidateSchema = new Schema(
     bannerPhoto: { type: String, default: "" },
     mainHeaderText: { type: String, default: "" },
     headerText: { type: String, default: "" },
+    whyJoinOrganization : {type:Boolean , default :true},
+    tipsForApplying : {type :Boolean , default:true},
+    proTip : {
+      proTipTitle : {type :String, default:""},
+      appliGuidelinesTitle :{type:String , default : ""}
+    },
+    minDaysBetweenApplications: {type :Number , default : null},
+    maxApplicationsPerEmployee :{type :Number , default : null},
+    resumeTemplate : { type :String , default : ""},
   },
   {
     timestamps: true,

@@ -101,7 +101,7 @@ import {generateDepartmentPrompt} from "../../prompt/resumeprompt.js"
 import AIConfigModel from "../../models/AiModel/ai.model.js"
 
 import newDepartmentModel from "../../models/deparmentModel/deparment.model.js";
-
+import OrganizationModel from "../../models/organizationModel/organization.model.js";
 import {
   badRequest,
   success,
@@ -280,31 +280,34 @@ export const deactivateDepartmentById = async (req, res) => {
 
 export const DeparmentGemini = async (req, res) => {
   try {
+    const orgainizationId = req.employee.organizationId;
 
-    const checkAnalizercheck = await AIConfigModel.findOne({title:"Department Analizer" , enableAIResumeParsing:true})
+    const findOrganization = await OrganizationModel.findById(orgainizationId)
+      .populate({ path: 'typeOfIndustry', select: 'name' })
+      .populate({ path: 'typeOfSector', select: 'name' })
+      .select('typeOfIndustry typeOfSector');
 
-    if(!checkAnalizercheck){
-      return badRequest(res , "Deparment Analizer is OFF ")
+    if (!findOrganization || !findOrganization.typeOfIndustry || !findOrganization.typeOfSector) {
+      return badRequest(res, "Missing industry or sector data for the organization");
     }
-    
-    // 🔸 Define a default organization structure (instead of taking input from client)
-const inputText = `
-  Various departments:
-  - Engineering: Includes Frontend, Backend, Full Stack, QA, DevOps, Data Engineering, Cloud Infrastructure, Mobile Development, AI/ML, Security Engineering.
-  - Marketing: Includes SEO, Content, Social Media, Email Marketing, Brand Management, Market Research, Event Management, Public Relations.
-  - Sales: Includes B2B, B2C, Channel Partners, Customer Success, Inside Sales, Field Sales, Sales Operations.
-  - HR: Handles Recruitment, Employee Engagement, Learning & Development, Payroll, Benefits Administration, Performance Management, Employee Relations, HR Analytics, Diversity & Inclusion.
-  - Finance: Manages Accounting, Budgeting, Tax, Auditing, Financial Planning & Analysis, Payroll Accounting, Expense Management.
-  - Legal: Includes Compliance, Contract Management, Intellectual Property, Corporate Governance, Risk Management.
-  - Product: Includes Product Management, UX/UI Design, Product Marketing, Business Analysis, User Research.
-  - Customer Support: Includes Technical Support, Customer Service, Escalation Management, Customer Experience, Service Quality.
-  - IT: Includes Network Administration, Security, Helpdesk, Systems Administration, IT Asset Management, Software Development Support.
-  - Operations: Includes Logistics, Procurement, Facilities Management, Vendor Management, Process Improvement, Supply Chain.
-  - Admin: Includes Office Management, Reception, Travel Coordination, Event Planning, Record Keeping.
-  - Research & Development: Includes Innovation Labs, Prototype Development, Scientific Research, Testing & Validation.
-  - Training & Development: Focused on employee skill-building, onboarding programs, certifications, leadership development.
-  - Quality Assurance: Includes Manual Testing, Automation Testing, Compliance Audits, Process Quality.
-  - Business Intelligence: Includes Data Analytics, Reporting, Dashboard Development, Data Governance.
+
+    const industryName = findOrganization.typeOfIndustry.name;
+    const sectorName = findOrganization.typeOfSector.name;
+
+    const checkAnalizercheck = await AIConfigModel.findOne({
+      title: "Department Analizer",
+      enableAIResumeParsing: true
+    });
+
+    if (!checkAnalizercheck) {
+      return badRequest(res, "Deparment Analizer is OFF");
+    }
+
+    // 🔹 Dynamic Input Prompt based on Organization
+    const inputText = `
+The company operates in the "${industryName}" industry and focuses on the "${sectorName}" sector.
+
+Based on this context, generate a structured list of major departments and their respective sub-departments typically found in such organizations. Ensure the department names are clear and sub-departments are logically grouped. The output should be suitable for organizational structuring and HRMS system setup.
 `;
 
 
@@ -316,11 +319,13 @@ const inputText = `
     }
 
     return success(res, "Department structure generated successfully", aiResult);
+
   } catch (error) {
     console.error("❌ DeparmentGemini Error:", error.message);
     return unknownError(res, "Failed to generate department structure.");
   }
 };
+
   
 
 // Bulk create //
@@ -502,5 +507,38 @@ export const getDepartmentCandidantSide = async (req, res) => {
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
+  }
+};
+
+
+
+
+export const toggleSubDepartmentStatus = async (req, res) => {
+  try {
+    const { departmentId, subDepartmentId, isActive } = req.query;
+
+    // if (typeof isActive !== 'boolean') {
+    // return badRequest(res, "isActive must be a boolean value");
+    // }
+
+    const department = await newDepartmentModel.findOneAndUpdate(
+      {
+        _id: departmentId,
+        "subDepartments._id": subDepartmentId
+      },
+      {
+        $set: { "subDepartments.$.isActive": isActive }
+      },
+      { new: true }
+    );
+
+    if (!department) {
+      return badRequest(res, "Department or sub-department not found");
+    }
+
+   return success(res, "Sub-department status updated successfully", department);
+
+  } catch (err) {
+   return unknownError(res, err.message);
   }
 };

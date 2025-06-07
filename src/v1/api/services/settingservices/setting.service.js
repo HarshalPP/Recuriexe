@@ -1,5 +1,6 @@
 import setting from "../../models/settingModel/setting.model.js"
 import settingcandidate from "../../models/settingModel/candidatesetting.model.js"
+import Postsettingcandidate from "../../models/settingModel/jobPostsetting.model.js"
 
 
 // get setting //
@@ -21,7 +22,6 @@ const getsetting = async()=>{
         return error;
     }
 }
-
 
 // Update settings
 const updateSettings = async (data) => {
@@ -65,8 +65,6 @@ const updatecandidatesetting = async (data) => {
 };
 
 
-
-
   // get candidate setting //
 
   const candidatesetting = async()=>{
@@ -89,10 +87,52 @@ const updatecandidatesetting = async (data) => {
   }
 
 
+  // Job candidate //
+
+const updateJobPostSetting = async (data, organizationId) => {
+  let settings = await Postsettingcandidate.findOne({ organizationId });
+
+  if (!settings) {
+    // Ensure organizationId is included in data for creation
+    settings = await Postsettingcandidate.create({ ...data, organizationId });
+    return settings;
+  }
+
+  const updatedSetting = await Postsettingcandidate.findByIdAndUpdate(
+    settings._id,
+    { $set: data },
+    { new: true }
+  );
+
+  return updatedSetting;
+};
+
+
+
+
+const getJobPostSetting = async () => {
+  try {
+    let settings = await Postsettingcandidate.findOne();
+    if (!settings) {
+      settings = new Postsettingcandidate(); // Use default values from schema
+      await settings.save();
+    }
+
+    return settings;
+  } catch (error) {
+    console.log(error);
+    return error;
+  }
+};
+
+
+
 
   export default {
     getsetting,
     updateSettings,
     candidatesetting,
-    updatecandidatesetting
+    updatecandidatesetting,
+    updateJobPostSetting,
+    getJobPostSetting
   };

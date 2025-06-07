@@ -351,6 +351,66 @@ export const jobApplyFormStatusChange = async (req, res) => {
   }
 };
 
+
+// Resume Shortlisted //
+
+export const changeResumeShortlistedStatus = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return serverValidation(res, {
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const { ids, resumeShortlisted , Remark} = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return badRequest(res, "IDs should be a non-empty array");
+    }
+
+    for (const id of ids) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return badRequest(res, `Invalid ID: ${id}`);
+      }
+    }
+
+    const validStatuses = ["shortlisted", "notshortlisted", "hold", "active"];
+    if (!resumeShortlisted || !validStatuses.includes(resumeShortlisted)) {
+      return badRequest(
+        res,
+        `resumeShortlisted must be one of: ${validStatuses.join(", ")}`
+      );
+    }
+
+    const candidates = await jobApplyFormModel.find({ _id: { $in: ids } });
+    if (candidates.length === 0) {
+      return badRequest(res, "No valid candidates found for provided IDs");
+    }
+
+    const bulkOps = candidates.map((candidate) => ({
+      updateOne: {
+        filter: { _id: candidate._id },
+        update: {
+          $set: {
+            resumeShortlisted,
+            Remark
+          },
+        },
+      },
+    }));
+
+    await jobApplyFormModel.bulkWrite(bulkOps);
+
+    const updatedCandidates = await jobApplyFormModel.find({ _id: { $in: ids } });
+
+    return success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
+
   //  Reschdeule Interview
 
   export const rescheduleHrInterview = async(req,res)=>{

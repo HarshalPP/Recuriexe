@@ -11,7 +11,7 @@ const departmentBudgetSchema = new mongoose.Schema({
 
   desingationId: {
     type: ObjectId,
-    ref: 'newdesignation', // Referencing the Designation model
+    ref: 'newdesignation',
     default: null
   },
 
@@ -26,7 +26,10 @@ const departmentBudgetSchema = new mongoose.Schema({
     required: true,
     default:0,
   },
-
+    usedBudget: {
+    type: Number,
+    default:0,
+  },
   numberOfEmployees: {
     type: Number,
     required: true,
@@ -40,8 +43,9 @@ const departmentBudgetSchema = new mongoose.Schema({
   },
 
 
-    createdBy: { type: ObjectId, ref: "employee" },
+    createdBy: { type: ObjectId, ref: "employee"  ,default: null },
     updatedBy: { type: ObjectId, ref: "employee", default: null },
+    
   // employmentTypeId: {
   //   type: ObjectId,
   //   ref: "employmentType",

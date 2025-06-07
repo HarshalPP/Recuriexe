@@ -36,8 +36,12 @@ app.use(logger);
 
 
 // Built-in parsers
-app.use(urlencoded({ extended: false }));
-app.use(json());
+// app.use(urlencoded({ extended: false }));
+// app.use(json());
+
+
+app.use(urlencoded({ extended: true, limit: '50mb' }));
+app.use(json({ limit: '50mb' }));
 app.use(passport.initialize());
 
 

@@ -15,8 +15,35 @@ import employeemodel from "../../models/employeemodel/employee.model.js"
 import { UnknownError } from "postmark/dist/client/errors/Errors.js";
 import aiModel from "../../models/AiModel/ai.model.js";
 import mongoose from "mongoose";
+const ObjectId = mongoose.Types.ObjectId;
 import mailSwitchesModel from "../../models/mailModel/mailSwitch.model.js"
 import designationModel from "../../models/designationModel/designation.model.js";
+import cron from 'node-cron';
+import ScreeningResultModel from "../../models/screeningResultModel/screeningResult.model.js";
+import portalsetUpModel  from "../../models/PortalSetUp/portalsetup.js"
+import organizationModel from "../../models/organizationModel/organization.model.js"
+import dayjs from 'dayjs';
+
+// Run at 11:59 PM every day
+cron.schedule("59 23 * * *", async () => {
+  try {
+    const now = new Date();
+    // Find and update all job posts whose expiredDate has passed and are not yet marked expired
+    const result = await jobPostModel.updateMany(
+      {
+        expiredDate: { $lt: now },
+        jobPostExpired: false
+      },
+      { $set: { jobPostExpired: true } }
+    );
+
+    console.log(`Today Job Expire ${result.modifiedCount}`);
+  } catch (error) {
+    console.error("Error running job expiry cron:", error);
+  }
+});
+
+
 
 //   import jobFormGoogleSheet from "../../../helpers/jobFormGoogleSheet.js"; // adjust path
 //   import jobFormGoogleSheet from "../../../helpers/jobFormGoogleSheet.js"; // adjust path
@@ -25,48 +52,221 @@ import designationModel from "../../models/designationModel/designation.model.js
 // Apply Job form //
 
 
+// export const jobApplyFormAdd = async (req, res) => {
+//   try {
+//     let token = req.user._id;
+//     const userId = req.user._id;
+
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         errorName: "serverValidation",
+//         errors: errors.array(),
+//       });
+//     }
+
+//     // ⛔ Prevent duplicate application for same job
+//     const alreadyApplied = await jobApply.findOne({
+//       candidateId: userId,
+//       jobPostId: req.body.jobPostId,
+//     });
+
+//     //  const organizationId = req.employee.organizationId
+//     if (alreadyApplied) {
+//       return badRequest(res, "You have already applied for this job.");
+//     }
+
+//     // Check if the user has applied for any position within the last 2 months
+//     // const recentApplication = await jobApply.findOne({
+//     //   mobileNumber: req.body.mobileNumber,
+//     //   createdAt: { $gte: new Date(currentTime - twoMonthsInMilliseconds) },
+//     // });
+
+//     // if (recentApplication) {
+//     //   return badRequest(
+//     //     res,
+//     //     "You can reapply for any job only after 2 months from your last application."
+//     //   );
+//     // }
+
+//     if (!req.body.resume) {
+//       return badRequest(res, "Please Upload Resume before apply...")
+//     }
+
+//     let fieldsToProcess = [
+//       "name",
+//       "emailId",
+//       "currentDesignation",
+//       "selectPosition",
+//       "lastOrganization",
+//       "currentLocation",
+//       "preferredLocation",
+//     ];
+//     fieldsToProcess.forEach((field) => {
+//       if (req.body[field]) {
+//         req.body[field] = req.body[field].trim();
+//       }
+//     });
+
+//     const candidateMobileNumber = req.body.mobileNumber;
+//     req.body.candidateId = token;
+
+//     // === AI SCREENING LOGIC STARTS HERE ===
+
+//     const jobPost = await jobPostModel.findById(req.body.jobPostId).lean();
+//     if (!jobPost) {
+//       return badRequest(res, "Job post not found.");
+//     }
+
+//     const finddesingnation = await designationModel.findById(jobPost.designationId).lean();
+//     if (!finddesingnation) {
+//       return badRequest(res, "Designation not found for this job post.");
+//     }
+
+
+
+//     req.body.departmentId = jobPost.departmentId;
+//     req.body.subDepartmentId = jobPost.subDepartmentId;
+//     req.body.position = finddesingnation.name;
+//     req.body.branchId = jobPost.branchId[0]; // Assuming branchId is an array, taking the first element
+
+//     const vacancyRequest = await vacancyRequestModel.findOne({ jobPostId: req.body.jobPostId }).lean();
+
+
+//     const aiScreeningEnabled =
+//       jobPost?.AI_Screening == "true" || vacancyRequest?.AI_Screening == "true";
+
+//     const requiredPercentage = Math.max(
+//       jobPost?.AI_Percentage || 0,
+//       vacancyRequest?.AI_Percentage || 0
+//     );
+
+//     const aiConfig = await aiModel.findOne({ title: 'AI Screening', enableAIResumeParsing: true });
+
+//     if (aiScreeningEnabled) {
+//       if (!aiConfig) {
+//         console.warn("AI screening is enabled but the AI configuration is missing (title: 'AI Screening', enableAIResumeParsing: true). Skipping screening.");
+//         req.body.AI_Result = "false";
+//       } else {
+//         const aiResult = await screenApplicant(req.body.jobPostId, req.body.resume);
+
+//         if (!aiResult || aiResult.error || aiResult.status == 429) {
+//           req.body.AI_Result = "false";
+//         }
+//         else if (aiResult.matchPercentage < requiredPercentage) {
+//           return badRequest(
+//             res,
+//             `AI screening failed: Your resume match score is ${aiResult.matchPercentage}%. Required: ${requiredPercentage}%`
+//           );
+//         } else {
+//           req.body.AI_Result = "true";
+//           req.body.isEligible = aiResult.isEligible;
+//           req.body.matchPercentage = aiResult.matchPercentage;
+//           req.body.summary = aiResult.summary;
+//         }
+//       }
+//     }
+
+//     const jobFormInstance = new jobApply(req.body);
+//     const jobApplyForm = await jobFormInstance.save(); // triggers pre("save")
+
+
+//     if (jobApplyForm.jobFormType == "recommended") {
+//       await jobApply.findByIdAndUpdate(
+//         { _id: jobApplyForm._id },
+//         {
+//           status: "inProgress",
+//           resumeShortlisted: "shortlisted",
+//           recommendedByID: token.Id,
+//         },
+//         { new: true }
+//       );
+//     }
+
+//     //   await jobFormGoogleSheet(jobApplyForm);
+//     success(res, "Job Applied Successfully", jobApplyForm);
+
+//     // const jobAapplyMail = await mailSwitchesModel.findOne({organizationId:new mongoose.Types.ObjectId(organizationId)});
+//     const jobAapplyMail = await mailSwitchesModel.findOne({});
+//     if (jobAapplyMail?.masterMailStatus && jobAapplyMail?.hrmsMail.hrmsMail && jobAapplyMail?.hrmsMail.jobApplyMail) {
+//       await sendThankuEmail(req.body.emailId, req.body.name, req.body.position);
+//       // console.log('Sending email to HR:')
+//     }
+
+//   } catch (error) {
+
+//     console.log(error, "heroo");
+//     unknownError(res, error);
+
+//   }
+// }
+
+
 export const jobApplyFormAdd = async (req, res) => {
   try {
-    let token = req.user._id;
-    const userId = req.user._id;
 
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        errorName: "serverValidation",
-        errors: errors.array(),
-      });
+    const { emailId, jobPostId, resume ,name, } = req.body;
+// not hanlde organization 
+    const organizationFind = await organizationModel.findOne().select('name')
+// not hanlde organization 
+const portalsetUpDetail = await portalsetUpModel.findOne().select('maxApplicationsPerEmployee minDaysBetweenApplications')
+
+
+    if (!jobPostId) {
+      return badRequest(res, "Job post Id required.");
     }
 
-    // ⛔ Prevent duplicate application for same job
-    const alreadyApplied = await jobApply.findOne({
-      candidateId: userId,
-      jobPostId: req.body.jobPostId,
-    });
-
-    //  const organizationId = req.employee.organizationId
-    if (alreadyApplied) {
-      return badRequest(res, "You have already applied for this job.");
+    const jobPost = await jobPostModel.findById(jobPostId).lean();
+    if (!jobPost) {
+      return badRequest(res, "Job post not found.");
     }
 
-    // Check if the user has applied for any position within the last 2 months
-    // const recentApplication = await jobApply.findOne({
-    //   mobileNumber: req.body.mobileNumber,
-    //   createdAt: { $gte: new Date(currentTime - twoMonthsInMilliseconds) },
+    if (jobPost.applicantsCount >= jobPost.numberOfApplicant) {
+      return badRequest(res, "This job is no longer accepting applications.");
+    }
+    // const alreadyApplied = await jobApply.findOne({
+    //   emailId,
+    //   jobPostId: jobPostId,
     // });
 
-    // if (recentApplication) {
-    //   return badRequest(
-    //     res,
-    //     "You can reapply for any job only after 2 months from your last application."
-    //   );
+    // if (alreadyApplied) {
+    //   return badRequest(res, "You have already applied for this job.");
     // }
 
-    if (!req.body.resume) {
-      return badRequest(res, "Please Upload Resume before apply...")
+if (portalsetUpDetail) {
+  const maxApplications = portalsetUpDetail.maxApplicationsPerEmployee;
+  const minDaysGap = portalsetUpDetail.minDaysBetweenApplications;
+
+  const now = new Date();
+  const minDate = new Date(now);
+  minDate.setDate(minDate.getDate() - minDaysGap);
+
+  // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
+  const recentApplications = await jobApply.find({
+    emailId,
+    jobPostId: jobPostId,
+    createdAt: { $gte: minDate }
+  }).sort({ createdAt: -1 });
+
+  // 🚫 Too many applications within restricted period
+  if (recentApplications.length >= maxApplications) {
+    const lastAppliedAt = new Date(recentApplications[0].createdAt);
+    const nextAllowedDate = new Date(lastAppliedAt);
+    nextAllowedDate.setDate(nextAllowedDate.getDate() + minDaysGap);
+    
+    const daysLeft = Math.ceil((nextAllowedDate - now) / (1000 * 60 * 60 * 24));
+
+ return badRequest(
+  res,
+`Not eligible to apply. Try again after ${daysLeft} day(s) on ${nextAllowedDate.toDateString()}.`
+);
+  }
+}
+    if (!resume) {
+      return badRequest(res, "Please upload your resume before applying.");
     }
 
-    let fieldsToProcess = [
+    const fieldsToProcess = [
       "name",
       "emailId",
       "currentDesignation",
@@ -81,98 +281,57 @@ export const jobApplyFormAdd = async (req, res) => {
       }
     });
 
-    const candidateMobileNumber = req.body.mobileNumber;
-    req.body.candidateId = token;
-
-    // === AI SCREENING LOGIC STARTS HERE ===
-
-    const jobPost = await jobPostModel.findById(req.body.jobPostId).lean();
-    if (!jobPost) {
-      return badRequest(res, "Job post not found.");
-    }
-
     const finddesingnation = await designationModel.findById(jobPost.designationId).lean();
     if (!finddesingnation) {
       return badRequest(res, "Designation not found for this job post.");
     }
 
-
-
     req.body.departmentId = jobPost.departmentId;
     req.body.subDepartmentId = jobPost.subDepartmentId;
     req.body.position = finddesingnation.name;
-    req.body.branchId = jobPost.branchId[0]; // Assuming branchId is an array, taking the first element
+    req.body.branchId = jobPost.branchId[0];
+    req.body.JobType= jobPost.JobType || ""
+    req.body.jobFormType = "request"
 
-    const vacancyRequest = await vacancyRequestModel.findOne({ jobPostId: req.body.jobPostId }).lean();
 
+    // Save the job application
+    const jobFormInstance = new jobApply(req.body);
+    const jobApplyForm = await jobFormInstance.save();
 
-    const aiScreeningEnabled =
-      jobPost?.AI_Screening == "true" || vacancyRequest?.AI_Screening == "true";
+    // ✅ Check if number of applicants reaches the limit
+    const totalApplications = await jobApply.countDocuments({
+      jobPostId: jobPostId
+    });
 
-    const requiredPercentage = Math.max(
-      jobPost?.AI_Percentage || 0,
-      vacancyRequest?.AI_Percentage || 0
+    const updatedJobPost = await jobPostModel.findByIdAndUpdate(
+      jobPostId,
+      { $inc: { totalApplicants: 1 } },
+      { new: true }
     );
 
-    const aiConfig = await aiModel.findOne({ title: 'AI Screening', enableAIResumeParsing: true });
+  if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
+  await jobPostModel.findByIdAndUpdate(jobPostId, {
+    jobPostExpired: true,
+  });
+}
 
-    if (aiScreeningEnabled) {
-      if (!aiConfig) {
-        console.warn("AI screening is enabled but the AI configuration is missing (title: 'AI Screening', enableAIResumeParsing: true). Skipping screening.");
-        req.body.AI_Result = "false";
-      } else {
-        const aiResult = await screenApplicant(req.body.jobPostId, req.body.resume);
-
-        if (!aiResult || aiResult.error || aiResult.status == 429) {
-          req.body.AI_Result = "false";
-        }
-        else if (aiResult.matchPercentage < requiredPercentage) {
-          return badRequest(
-            res,
-            `AI screening failed: Your resume match score is ${aiResult.matchPercentage}%. Required: ${requiredPercentage}%`
-          );
-        } else {
-          req.body.AI_Result = "true";
-          req.body.isEligible = aiResult.isEligible;
-          req.body.matchPercentage = aiResult.matchPercentage;
-          req.body.summary = aiResult.summary;
-        }
-      }
-    }
-
-    const jobFormInstance = new jobApply(req.body);
-    const jobApplyForm = await jobFormInstance.save(); // triggers pre("save")
-
-
-    if (jobApplyForm.jobFormType == "recommended") {
-      await jobApply.findByIdAndUpdate(
-        { _id: jobApplyForm._id },
-        {
-          status: "inProgress",
-          resumeShortlisted: "shortlisted",
-          recommendedByID: token.Id,
-        },
-        { new: true }
-      );
-    }
-
-    //   await jobFormGoogleSheet(jobApplyForm);
     success(res, "Job Applied Successfully", jobApplyForm);
 
-    // const jobAapplyMail = await mailSwitchesModel.findOne({organizationId:new mongoose.Types.ObjectId(organizationId)});
-    const jobAapplyMail = await mailSwitchesModel.findOne({});
-    if (jobAapplyMail?.masterMailStatus && jobAapplyMail?.hrmsMail.hrmsMail && jobAapplyMail?.hrmsMail.jobApplyMail) {
-      await sendThankuEmail(req.body.emailId, req.body.name, req.body.position);
-      // console.log('Sending email to HR:')
+    const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
+    if (
+      jobApplyMailSwitch?.masterMailStatus &&
+      jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
+      jobApplyMailSwitch?.hrmsMail?.jobApplyMail
+    ) {
+      await sendThankuEmail(emailId, name.toUpperCase() , jobPost?.position , organizationFind?.name?.toUpperCase());
     }
-
   } catch (error) {
-
-    console.log(error, "heroo");
+    console.error("Error in :", error);
     unknownError(res, error);
-
   }
-}
+};
+
+
 
 
 // Get JobApplyed  details //
@@ -414,9 +573,16 @@ export const getAllJobApplied = async (req, res) => {
           mobileNumber: 1,
           emailId: 1,
           resume: 1,
-
-
-
+          AI_Screeing_Result: 1,
+          AI_Screeing_Status: 1,
+          AI_Score: 1,
+          AI_Confidence: 1,
+          jobPostId: 1,
+          resumeShortlisted:1,
+          Remark: 1,
+          JobType:1,
+          currentCTC:1,
+          expectedCTC:1,
           // highestQualification: 1,
           // university: 1,
           // graduationYear: 1,
@@ -1128,20 +1294,39 @@ export const getJobFormSendManagerReview = async (req, res) => {
 export const getDashboardSummary = async (req, res) => {
   try {
 
-
-
-    const { year = new Date().getFullYear() } = req.query;
+    const { year = new Date().getFullYear(), period = "year" } = req.query;
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Create date range for the year
-    const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-    const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    let startDate, endDate;
+    const now = new Date();
+
+    if (period == "7days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 7);
+      endDate = now;
+    }
+    else if (period == "30days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 30);
+      endDate = now;
+    }
+    else {
+      // default: full year
+      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    }
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate }
     });
+
+
+    const scheduledInterviews = await jobApply.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate },
+      hrInterviewSchedule: "scheduled" // Assuming 'scheduled' is the status for interviews
+    })
 
     // Get count of applications in different stages
     const statusCounts = await jobApply.aggregate([
@@ -1183,24 +1368,62 @@ export const getDashboardSummary = async (req, res) => {
       }
     ]);
 
-    console.log("stat", startDate)
-    console.log("emd", endDate)
 
     // Calculate average time to hire
-    const timeToHireData = await jobApply.aggregate([
+  const timeToHireData = await jobApply.aggregate([
+  {
+    $match: {
+      createdAt: { $gte: startDate, $lte: endDate },
+      resumeShortlisted: "shortlisted"
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      totalShortlisted: { $sum: 1 }
+    }
+  }
+]);
+
+
+    // calcaulate the department //
+
+    const departmentCounts = await jobApply.aggregate([
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          status: "shortlisted", // hired
-          joiningDate: { $ne: null } // make sure they have an actual joining date
+          departmentId: { $ne: null }
         }
       },
       {
-        $project: {
-          timeToHire: {
+        $group: {
+          _id: "$departmentId"
+        }
+      },
+      {
+        $count: "totalDepartments"
+      }
+    ]);
+
+    // avarage response time for job applications
+    const avgResponse = await jobApply.aggregate([
+      {
+        $lookup: {
+          from: "jobposts", // your job post collection
+          localField: "jobPostId",
+          foreignField: "_id",
+          as: "jobDetails"
+        }
+      },
+      {
+        $unwind: "$jobDetails"
+      },
+      {
+        $addFields: {
+          responseTimeInDays: {
             $divide: [
-              { $subtract: ["$joiningDate", "$createdAt"] },
-              1000 * 60 * 60 * 24 // milliseconds to days
+              { $subtract: ["$createdAt", "$jobDetails.createdAt"] },
+              1000 * 60 * 60 * 24 // convert milliseconds to days
             ]
           }
         }
@@ -1208,20 +1431,40 @@ export const getDashboardSummary = async (req, res) => {
       {
         $group: {
           _id: null,
-          avgTimeToHire: { $avg: "$timeToHire" },
-          totalHired: { $sum: 1 }
+          averageResponseTime: { $avg: "$responseTimeInDays" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          averageResponseTime: { $round: ["$averageResponseTime", 2] } // Round to 2 decimal places
         }
       }
     ]);
+    const avgResponseTime = avgResponse[0]?.averageResponseTime || 0;
 
+    // Format the response
+    const departmentCount = departmentCounts[0]?.totalDepartments || 0;
+
+
+    // convertion Rate //
+
+    const totalApplication = await jobApply.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const totalHired = await jobApply.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: 'onBoarded' // or 'selected'
+    });
+
+    const conversionRate = totalApplication == 0 ? 0 : ((totalHired / totalApplication) * 100).toFixed(2);
 
     // calclulate Rejected candidates //
-
-
     const rejectedCandidates = await jobApply.aggregate([{
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        status: "reject" // rejected candidates
+        resumeShortlisted: "notshortlisted" // rejected candidates
       }
     },
     {
@@ -1382,105 +1625,127 @@ export const getDashboardSummary = async (req, res) => {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           position: { $exists: true, $ne: "" },
-          departmentId: { $ne: null }
-        }
-      },
-      {
-        $lookup: {
-          from: "newdepartments",
-          localField: "departmentId",
-          foreignField: "_id",
-          as: "departmentDetails"
-        }
-      },
-      {
-        $unwind: {
-          path: "$departmentDetails",
-          preserveNullAndEmptyArrays: true
+          departmentId: { $ne: null },
+          jobPostId: { $exists: true }
         }
       },
       {
         $group: {
-          _id: {
-            position: "$position",
-            departmentId: "$departmentId"
-          },
-          departmentName: { $first: "$departmentDetails.name" },
+          _id: "$jobPostId",
           count: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: "jobposts", // replace with actual job posts collection
+          localField: "_id",
+          foreignField: "_id",
+          as: "jobPost"
+        }
+      },
+      { $unwind: "$jobPost" },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "jobPost.departmentId",
+          foreignField: "_id",
+          as: "departmentDetails"
+        }
+      },
+      { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          daysSincePosted: {
+            $dateDiff: {
+              startDate: "$jobPost.createdAt",
+              endDate: new Date(),
+              unit: "day"
+            }
+          }
         }
       },
       {
         $sort: { count: -1 }
       },
-      {
-        $limit: 10 
-      },
+      { $limit: 5 },
       {
         $project: {
-          _id: 0,
-          position: "$_id.position",
-          departmentId: "$_id.departmentId",
-          departmentName: { $ifNull: ["$departmentName", "OTHERS"] },
-          applications: "$count"
+          position: "$jobPost.position",
+          departmentName: "$departmentDetails.name",
+          applications: "$count",
+          daysSincePosted: 1
         }
       }
     ]);
 
 
-
+    // Cold positions (less than 5 applications)
     const coldPositions = await jobApply.aggregate([
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           position: { $exists: true, $ne: "" },
-          departmentId: { $ne: null }
-        }
-      },
-      {
-        $lookup: {
-          from: "newdepartments",
-          localField: "departmentId",
-          foreignField: "_id",
-          as: "departmentDetails"
-        }
-      },
-      {
-        $unwind: {
-          path: "$departmentDetails",
-          preserveNullAndEmptyArrays: true
+          departmentId: { $ne: null },
+          jobPostId: { $exists: true }
         }
       },
       {
         $group: {
-          _id: {
-            position: "$position",
-            departmentId: "$departmentId"
-          },
-          departmentName: { $first: "$departmentDetails.name" },
+          _id: "$jobPostId",
           count: { $sum: 1 }
         }
       },
       {
-        $match: {
-          count: { $lte: 5 } // you can adjust the threshold here
+        $lookup: {
+          from: "jobposts",
+          localField: "_id",
+          foreignField: "_id",
+          as: "jobPost"
         }
+      },
+      { $unwind: "$jobPost" },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "jobPost.departmentId",
+          foreignField: "_id",
+          as: "departmentDetails"
+        }
+      },
+      { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          daysSincePosted: {
+            $dateDiff: {
+              startDate: "$jobPost.createdAt",
+              endDate: new Date(),
+              unit: "day"
+            }
+          }
+        }
+      },
+      {
+        $match: { count: { $lte: 5 } } // cold threshold
       },
       {
         $sort: { count: 1 }
       },
+       {
+    $limit: 5
+  },
       {
         $project: {
-          _id: 0,
-          position: "$_id.position",
-          departmentId: "$_id.departmentId",
-          departmentName: { $ifNull: ["$departmentName", "OTHERS"] },
-          applications: "$count"
+          position: "$jobPost.position",
+          departmentName: "$departmentDetails.name",
+          applications: "$count",
+          daysSincePosted: 1
         }
       }
     ]);
 
 
-        // Get applications by department
+
+    // Get applications by department
     const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate);
 
 
@@ -1548,19 +1813,23 @@ export const getDashboardSummary = async (req, res) => {
     return success(res, "Dashboard summary retrieved successfully", {
       overview: {
         totalApplications,
-        totalShorlisted: timeToHireData[0]?.totalHired || 0,
+        totalShortlisted :timeToHireData[0]?.totalShortlisted || 0,
         totalRejected: rejectedCandidates[0]?.totalRejected || 0,
         applicationsLast7Days: appsLast7Days || 0,
         rejectedLast7Days: rejectedLast7Days || 0,
+        avgResponseTime: avgResponseTime || 0,
+        scheduledInterviews: scheduledInterviews || 0,
+        departmentCounts: departmentCount,
+        conversionRate: conversionRate || 0,
         totalHiredCandidate: HireData[0]?.totalHired || 0,
         avgTimeToShortlisted: timeToHireData[0]?.avgTimeToHire ? Number(timeToHireData[0].avgTimeToHire.toFixed(1)) : 0,
         ShortlistedAVG: timeToHireData[0]?.totalHired ?
           Number(((timeToHireData[0].totalHired / totalApplications) * 100).toFixed(2)) : 0
       },
 
-        hotPositions: hotPositions,
-        coldPositions: coldPositions,
-        departments: applicationsByDepartment,
+      hotPositions: hotPositions,
+      coldPositions: coldPositions,
+      departments: applicationsByDepartment,
 
 
       monthOverMonth: {
@@ -1807,7 +2076,7 @@ const getApplicationsByStatus = async (startDate, endDate) => {
     },
     {
       $group: {
-        _id: "$status",
+        _id: "$resumeShortlisted",
         count: { $sum: 1 }
       }
     }
@@ -2088,6 +2357,727 @@ const mapStatusToFriendlyName = (status) => {
 
   return statusMap[status] || status;
 };
+
+
+
+
+// get candidate data //
+
+
+export const AnalizedCandidate = async (req, res) => {
+  try {
+    const candidates = await jobApply.aggregate([
+      {
+        $match: {
+          AI_Screeing_Status: "Completed",
+          AI_Screeing_Result: { $in: ["Rejected", "Approved"] }
+        }
+      },
+      {
+        $lookup: {
+          from: "jobposts", // Your job collection
+          localField: "jobPostId",
+          foreignField: "_id",
+          as: "job"
+        }
+      },
+      { $unwind: "$job" },
+      {
+        $group: {
+          _id: "$job._id",
+          position: { $first: "$job.position" },
+          applicationsCount: { $sum: 1 },
+          averageScore: { $avg: "$AI_Score" },
+          candidates: {
+            $push: {
+              _id: "$_id",
+              name: "$name",
+              email: "$emailId",
+              AI_Score: "$AI_Score",
+              AI_Confidence: "$AI_Confidence",
+              appliedDate: "$createdAt",
+              confidence: "$AI_Confidence",
+              resume:"$resume"
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          averageScore: { $round: ["$averageScore", 2] }
+        }
+      },
+      { $sort: { position: 1 } }
+    ]);
+
+    // Flatten all candidates across positions
+    const allCandidates = candidates.flatMap(job => job.candidates || []);
+
+    const totalCandidates = allCandidates.length;
+    const highScorers = allCandidates.filter(c => c.AI_Score >= 90).length;
+    const avgAIScore =
+      totalCandidates > 0
+        ? Math.round(
+            allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) / totalCandidates
+          )
+        : 0;
+
+    return success(res, {
+      candidates,
+      summary: {
+        totalCandidates,
+        highScorers,
+        avgAIScore
+      }
+    });
+  } catch (error) {
+    console.error("Error in AnalizedCandidate:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+
+// get Deep Analized data //
+
+export const DeepAnalize = async (req, res) => {
+  try {
+    const Id = req.params.id;
+    if (!Id) {
+      return badRequest(res, "Candidate Id not provided");
+    }
+
+    let finddata = await ScreeningResultModel.findOne({ candidateId: Id }).lean(); // Convert to plain object
+    if (!finddata) {
+      return success(res, "Screen Result not found");
+    }
+
+    const findResume = await jobApply.findById(Id).select('resume').lean();
+
+    // Merge resume if it exists
+    if (findResume && findResume.resume) {
+      finddata.resume = findResume.resume;
+    }
+
+    return success(res, "fetch Screen Results", finddata);
+
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
+
+
+
+
+
+export const getDashboardOverview = async (req, res) => {
+  try {
+    const { period, startDate, endDate, department } = req.query;
+
+    const filter = {};
+
+    // Period-based filtering
+    if (period == '7d' || period == '30d') {
+      const days = parseInt(period.replace('d', ''));
+      filter.createdAt = {
+        $gte: dayjs().subtract(days, 'day').startOf('day').toDate(),
+        $lte: new Date()
+      };
+    } else if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (department) filter.department = department;
+
+    // Run all dashboard queries in parallel
+    const [
+      totalApplications,
+      approvedApplications,
+      rejectedApplications,
+      avgProcessingSpeed,
+      avgConfidence,
+      departmentStats
+    ] = await Promise.all([
+      ScreeningResultModel.countDocuments(filter),
+      ScreeningResultModel.countDocuments({ ...filter, decision: 'Approved' }),
+      ScreeningResultModel.countDocuments({ ...filter, decision: 'Rejected' }),
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        { $group: { _id: null, avgSpeed: { $avg: '$AI_Processing_Speed' } } }
+      ]),
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        { $group: { _id: null, avgConf: { $avg: '$AI_Confidence' } } }
+      ]),
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$department',
+            total: { $sum: 1 },
+            approved: {
+              $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] }
+            },
+            avgScore: { $avg: '$overallScore' }
+          }
+        },
+        {
+          $addFields: {
+            passRate: {
+              $cond: [
+                { $eq: ['$total', 0] },
+                0,
+                { $multiply: [{ $divide: ['$approved', '$total'] }, 100] }
+              ]
+            }
+          }
+        },
+        { $sort: { total: -1 } }
+      ])
+    ]);
+
+    const totalApps = totalApplications || 0;
+    const approved = approvedApplications || 0;
+    const rejected = rejectedApplications || 0;
+    const approvalRate = totalApps > 0 ? Math.round((approved / totalApps) * 100) : 0;
+    const rejectionRate = totalApps > 0 ? Math.round((rejected / totalApps) * 100) : 0;
+
+    const processingSpeed = avgProcessingSpeed[0]?.avgSpeed || 0;
+    const confidence = avgConfidence[0]?.avgConf || 0;
+
+    const dashboardData = {
+      keyMetrics: {
+        totalApplications: totalApps,
+        aiApproved: approved,
+        aiRejected: rejected,
+        processingSpeed: `${processingSpeed.toFixed(1)}s`
+      },
+      insights: {
+        interviewScheduled: 0,
+        aiConfidence: `${Math.round(confidence)}%`,
+        activeDepartments: departmentStats.length,
+        topSkillMatch: `${approvalRate}%`
+      },
+      analytics: {
+        accuracyRate: `${Math.round(confidence * 0.94)}%`,
+        highScorers: Math.round(approved * 0.6)
+      },
+      departmentPerformance: departmentStats.map(dept => ({
+        department: dept._id,
+        totalApps: dept.total,
+        approved: dept.approved,
+        Reject: dept.total - dept.approved,
+        passRate: `${Math.round(dept.passRate)}%`,
+        avgScore: Math.round(dept.avgScore || 0)
+      }))
+    };
+
+    return success(res, "AI Dashboard", dashboardData);
+
+  } catch (error) {
+    console.error('Dashboard Overview Error:', error);
+    return unknownError(res, error);
+  }
+};
+
+// Screening Analytics API  
+// export const getScreeningAnalytics = async (req, res) => {
+//   try {
+//     const { department, period = '30d' } = req.query;
+
+//     // Calculate date range
+//     const endDate = new Date();
+//     const startDate = new Date();
+
+//     switch (period) {
+//       case '7d':
+//         startDate.setDate(startDate.getDate() - 7);
+//         break;
+//       case '30d':
+//         startDate.setDate(startDate.getDate() - 30);
+//         break;
+//       case '90d':
+//         startDate.setDate(startDate.getDate() - 90);
+//         break;
+//       default:
+//         startDate.setDate(startDate.getDate() - 30);
+//     }
+
+//     const filter = {
+//       createdAt: { $gte: startDate, $lte: endDate }
+//     };
+//     if (department) filter.department = department;
+
+//     // Get analytics data
+//     const [
+//       rejectionReasons,
+//       skillsAnalysis,
+//       confidenceDistribution,
+//       trendsData
+//     ] = await Promise.all([
+//       // Top rejection reasons
+//       ScreeningResultModel.aggregate([
+//         { $match: { ...filter, decision: 'Rejected' } },
+//         { $unwind: '$rejectReason' },
+//         {
+//           $group: {
+//             _id: '$rejectReason.point',
+//             count: { $sum: 1 }
+//           }
+//         },
+//         { $sort: { count: -1 } },
+//         { $limit: 5 }
+//       ]),
+
+//       // Skills assessment radar
+//       ScreeningResultModel.aggregate([
+//         { $match: filter },
+//         {
+//           $group: {
+//             _id: null,
+//             technicalSkills: { $avg: '$breakdown.skillsMatch' },
+//             experienceSkills:{$avg :'$breakdown.experienceMatch'},
+//             communication: { $avg: '$breakdown.Communication_Skills' },
+//             leadership: { $avg: '$breakdown.Leadership_Initiative' },
+//             problemSolving: { $avg: '$breakdown.Project_Exposure' },
+//             adaptability: { $avg: '$breakdown.Learning_Ability' },
+//             teamwork: { $avg: '$breakdown.Cultural_Fit' }
+//           }
+//         }
+//       ]),
+
+//       // AI Confidence distribution
+//       ScreeningResultModel.aggregate([
+//         { $match: filter },
+//         {
+//           $bucket: {
+//             groupBy: '$AI_Confidence',
+//             boundaries: [0, 60, 80, 100],
+//             default: 'other',
+//             output: {
+//               count: { $sum: 1 },
+//               avgScore: { $avg: '$overallScore' }
+//             }
+//           }
+//         }
+//       ]),
+
+//       // Weekly trends
+//       ScreeningResultModel.aggregate([
+//         { $match: filter },
+//         {
+//           $group: {
+//             _id: { $dateToString: { format: "%Y-%U", date: "$createdAt" } },
+//             applications: { $sum: 1 },
+//             approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
+//             avgScore: { $avg: '$overallScore' }
+//           }
+//         },
+//         { $sort: { _id: 1 } }
+//       ])
+//     ]);
+
+//     // Process rejection reasons with percentages
+//     const totalRejections = rejectionReasons.reduce((sum, reason) => sum + reason.count, 0);
+//     const processedRejectionReasons = rejectionReasons.map(reason => ({
+//       reason: reason._id || 'Insufficient Experience',
+//       count: reason.count,
+//       percentage: totalRejections > 0 ? Math.round((reason.count / totalRejections) * 100) : 0
+//     }));
+
+//     // Default rejection reasons if no data
+//     const defaultRejectionReasons = [
+//       { reason: 'Insufficient Experience', count: 89, percentage: 32 },
+//       { reason: 'Skills Mismatch', count: 67, percentage: 24 },
+//       { reason: 'Poor Communication', count: 45, percentage: 16 },
+//       { reason: 'Cultural Fit', count: 34, percentage: 12 },
+//       { reason: 'Salary Expectations', count: 28, percentage: 10 }
+//     ];
+
+//     // Skills radar data
+//     const skillsData = skillsAnalysis[0] || {};
+//     const skillsRadar = {
+//       technicalSkills: Math.round(skillsData.technicalSkills || 85),
+//       experienceSkills:Math.round(skillsData.experienceSkills || 85),
+//       communication: Math.round(skillsData.communication || 72),
+//       leadership: Math.round(skillsData.leadership || 65),
+//       problemSolving: Math.round(skillsData.problemSolving || 78),
+//       adaptability: Math.round(skillsData.adaptability || 88),
+//       teamwork: Math.round(skillsData.teamwork || 80)
+
+//     };
+
+//     // Confidence distribution
+//     const confidenceData = confidenceDistribution.length > 0 ? confidenceDistribution : [
+//       { _id: 80, count: 74, avgScore: 88 },
+//       { _id: 60, count: 89, avgScore: 72 },
+//       { _id: 0, count: 58, avgScore: 45 }
+//     ];
+
+//     const totalAppsForConfidence = confidenceData.reduce((sum, conf) => sum + conf.count, 0);
+//     const processedConfidenceData = confidenceData.map(conf => ({
+//       range: conf._id === 80 ? '80-100%' : conf._id === 60 ? '60-79%' : '0-59%',
+//       count: conf.count,
+//       percentage: totalAppsForConfidence > 0 ? Math.round((conf.count / totalAppsForConfidence) * 100) : 0,
+//       avgScore: Math.round(conf.avgScore || 0)
+//     }));
+
+//     const analyticsData = {
+//       period,
+//       rejectionReasons: processedRejectionReasons.length > 0 ? processedRejectionReasons : defaultRejectionReasons,
+//       skillsRadar,
+//       confidenceDistribution: processedConfidenceData,
+
+//       trends: trendsData.map(trend => ({
+//         week: trend._id,
+//         applications: trend.applications,
+//         approved: trend.approved,
+//         approvalRate: trend.applications > 0 ? Math.round((trend.approved / trend.applications) * 100) : 0,
+//         avgScore: Math.round(trend.avgScore || 0)
+//       })),
+
+//       summary: {
+//         totalAnalyzed: totalAppsForConfidence,
+//         topRejectionReason: processedRejectionReasons[0]?.reason || 'Insufficient Experience',
+//         avgSkillScore: Math.round(Object.values(skillsRadar).reduce((a, b) => a + b, 0) / Object.keys(skillsRadar).length)
+//       }
+//     };
+
+//     return success(res , "analyticsData" , analyticsData)
+
+//   } catch (error) {
+//     console.error('Screening Analytics Error:', error);
+//     return unknownError(res , error)
+//   }
+// };
+
+
+
+// Enhanced Screening Analytics API  
+export const getScreeningAnalytics = async (req, res) => {
+  try {
+    const { department, period = '30d' } = req.query;
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case '7d':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+    }
+
+    const filter = {
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+    if (department) filter.department = department;
+
+    // Get analytics data
+    const [
+      rejectionReasons,
+      skillsAnalysis,
+      confidenceDistribution,
+      trendsData,
+      positionMetrics,
+      hotPositions,
+      coldPositions
+    ] = await Promise.all([
+      // Top rejection reasons
+      ScreeningResultModel.aggregate([
+        { $match: { ...filter, decision: 'Rejected' } },
+        { $unwind: '$rejectReason' },
+        {
+          $group: {
+            _id: '$rejectReason.point',
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 }
+      ]),
+
+      // Skills assessment radar
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            technicalSkills: { $avg: '$breakdown.skillsMatch' },
+            experienceSkills: { $avg: '$breakdown.experienceMatch' },
+            communication: { $avg: '$breakdown.Communication_Skills' },
+            leadership: { $avg: '$breakdown.Leadership_Initiative' },
+            problemSolving: { $avg: '$breakdown.Project_Exposure' },
+            adaptability: { $avg: '$breakdown.Learning_Ability' },
+            teamwork: { $avg: '$breakdown.Cultural_Fit' }
+          }
+        }
+      ]),
+
+      // AI Confidence distribution
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $bucket: {
+            groupBy: '$AI_Confidence',
+            boundaries: [0, 60, 80, 100],
+            default: 'other',
+            output: {
+              count: { $sum: 1 },
+              avgScore: { $avg: '$overallScore' }
+            }
+          }
+        }
+      ]),
+
+      // Weekly trends
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%U", date: "$createdAt" } },
+            applications: { $sum: 1 },
+            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
+            avgScore: { $avg: '$overallScore' }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]),
+
+      // Position Performance Matrix
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$position',
+            applications: { $sum: 1 },
+            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
+            avgScore: { $avg: '$overallScore' },
+            department: { $first: '$department' }
+          }
+        },
+        {
+          $addFields: {
+            passRate: {
+              $cond: [
+                { $gt: ['$applications', 0] },
+                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
+                0
+              ]
+            }
+          }
+        },
+        { $sort: { applications: -1, passRate: -1 } }
+      ]),
+
+      // Hot Positions (High volume, high success rate)
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$position',
+            applications: { $sum: 1 },
+            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
+            avgScore: { $avg: '$overallScore' },
+            department: { $first: '$department' }
+          }
+        },
+        {
+          $addFields: {
+            passRate: {
+              $cond: [
+                { $gt: ['$applications', 0] },
+                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
+                0
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            applications: { $gte: 5 }, // High volume threshold
+            passRate: { $gte: 70 }      // High success rate threshold
+          }
+        },
+        { $sort: { applications: -1, passRate: -1 } },
+        { $limit: 4 }
+      ]),
+
+      // Cold Positions (Low volume or low success rate)
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: '$position',
+            applications: { $sum: 1 },
+            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
+            avgScore: { $avg: '$overallScore' },
+            department: { $first: '$department' }
+          }
+        },
+        {
+          $addFields: {
+            passRate: {
+              $cond: [
+                { $gt: ['$applications', 0] },
+                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
+                0
+              ]
+            }
+          }
+        },
+        {
+          $match: {
+            $or: [
+              { applications: { $lt: 5 } }, // Low volume
+              { passRate: { $lt: 70 } }      // Low success rate
+            ]
+          }
+        },
+        { $sort: { applications: 1, passRate: 1 } },
+        { $limit: 4 }
+      ])
+    ]);
+
+    // Process rejection reasons with percentages
+    const totalRejections = rejectionReasons.reduce((sum, reason) => sum + reason.count, 0);
+    const processedRejectionReasons = rejectionReasons.map(reason => ({
+      reason: reason._id || 'Insufficient Experience',
+      count: reason.count,
+      percentage: totalRejections > 0 ? Math.round((reason.count / totalRejections) * 100) : 0
+    }));
+
+    // Default rejection reasons if no data
+    const defaultRejectionReasons = [
+      { reason: 'Insufficient Experience', count: 89, percentage: 32 },
+      { reason: 'Skills Mismatch', count: 67, percentage: 24 },
+      { reason: 'Poor Communication', count: 45, percentage: 16 },
+      { reason: 'Cultural Fit', count: 34, percentage: 12 },
+      { reason: 'Salary Expectations', count: 28, percentage: 10 }
+    ];
+
+    // Skills radar data
+    const skillsData = skillsAnalysis[0] || {};
+    const skillsRadar = {
+      technicalSkills: Math.round(skillsData.technicalSkills || 85),
+      experienceSkills: Math.round(skillsData.experienceSkills || 85),
+      communication: Math.round(skillsData.communication || 72),
+      leadership: Math.round(skillsData.leadership || 65),
+      problemSolving: Math.round(skillsData.problemSolving || 78),
+      adaptability: Math.round(skillsData.adaptability || 88),
+      teamwork: Math.round(skillsData.teamwork || 80)
+    };
+
+    // Confidence distribution
+    const confidenceData = confidenceDistribution.length > 0 ? confidenceDistribution : [
+      { _id: 80, count: 74, avgScore: 88 },
+      { _id: 60, count: 89, avgScore: 72 },
+      { _id: 0, count: 58, avgScore: 45 }
+    ];
+
+    const totalAppsForConfidence = confidenceData.reduce((sum, conf) => sum + conf.count, 0);
+    const processedConfidenceData = confidenceData.map(conf => ({
+      range: conf._id === 80 ? '80-100%' : conf._id === 60 ? '60-79%' : '0-59%',
+      count: conf.count,
+      percentage: totalAppsForConfidence > 0 ? Math.round((conf.count / totalAppsForConfidence) * 100) : 0,
+      avgScore: Math.round(conf.avgScore || 0)
+    }));
+
+    // Process position metrics for dashboard cards
+    const processedPositionMetrics = positionMetrics.map(pos => ({
+      position: pos._id,
+      department: pos.department,
+      applications: pos.applications,
+      approved: pos.approved,
+      passRate: Math.round(pos.passRate),
+      avgScore: Math.round(pos.avgScore || 0),
+      volume: pos.applications >= 70 ? 'High Volume' : pos.applications >= 5 ? 'Medium Volume' : 'Low Volume',
+      status: pos.passRate >= 70 ? 'Excellent' : pos.passRate >= 60 ? 'Good' : pos.passRate >= 40 ? 'Average' : 'Needs Attention'
+    }));
+
+    // Process hot positions
+    const processedHotPositions = hotPositions.map(pos => ({
+      position: pos._id,
+      department: pos.department,
+      applications: pos.applications,
+      passRate: Math.round(pos.passRate),
+      avgScore: Math.round(pos.avgScore || 0),
+      status: 'Trending'
+    }));
+
+    // Process cold positions  
+    const processedColdPositions = coldPositions.map(pos => ({
+      position: pos._id,
+      department: pos.department,
+      applications: pos.applications,
+      passRate: Math.round(pos.passRate),
+      avgScore: Math.round(pos.avgScore || 0),
+      status: 'Needs Attention'
+    }));
+
+    // Calculate dashboard summary metrics
+    const totalApplications = processedPositionMetrics.reduce((sum, pos) => sum + pos.applications, 0);
+    const totalApproved = processedPositionMetrics.reduce((sum, pos) => sum + pos.approved, 0);
+    const overallPassRate = totalApplications > 0 ? Math.round((totalApproved / totalApplications) * 100) : 0;
+
+    const analyticsData = {
+      period,
+      rejectionReasons: processedRejectionReasons.length > 0 ? processedRejectionReasons : defaultRejectionReasons,
+      skillsRadar,
+      confidenceDistribution: processedConfidenceData,
+
+      trends: trendsData.map(trend => ({
+        week: trend._id,
+        applications: trend.applications,
+        approved: trend.approved,
+        approvalRate: trend.applications > 0 ? Math.round((trend.approved / trend.applications) * 100) : 0,
+        avgScore: Math.round(trend.avgScore || 0)
+      })),
+
+      dashboard: {
+        hotPositions: processedHotPositions.slice(0, 4),
+        coldPositions: processedColdPositions.slice(0, 4),
+        positionMatrix: {
+          highVolume: processedPositionMetrics.filter(pos => pos.applications >= 5),
+          lowVolume: processedPositionMetrics.filter(pos => pos.applications < 20)
+        }
+      },
+
+      summary: {
+        totalAnalyzed: totalAppsForConfidence,
+        totalApplications,
+        totalApproved,
+        overallPassRate,
+        topRejectionReason: processedRejectionReasons[0]?.reason || 'Insufficient Experience',
+        avgSkillScore: Math.round(Object.values(skillsRadar).reduce((a, b) => a + b, 0) / Object.keys(skillsRadar).length),
+        hotPositionsCount: processedHotPositions.length,
+        coldPositionsCount: processedColdPositions.length,
+        topPerformingPosition: processedPositionMetrics[0]?.position || 'N/A',
+        avgPassRate: processedPositionMetrics.length > 0 
+          ? Math.round(processedPositionMetrics.reduce((sum, pos) => sum + pos.passRate, 0) / processedPositionMetrics.length)
+          : 0
+      }
+    };
+
+    return success(res, "analyticsData", analyticsData);
+
+  } catch (error) {
+    console.error('Screening Analytics Error:', error);
+    return unknownError(res, error);
+  }
+};
+
 
 
 
