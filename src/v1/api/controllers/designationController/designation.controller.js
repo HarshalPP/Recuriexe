@@ -7,6 +7,7 @@ import {
   import deparmentModel from "../../models/deparmentModel/deparment.model.js"
   import designationModel from "../../models/designationModel/designation.model.js";
   import mongoose from "mongoose";
+  import budgetModel from "../../models/budgedModel/budged.model.js"
   
   import {
     addDesignation,
@@ -642,7 +643,21 @@ export const createBulkDesignations = async (req, res) => {
     // ✅ Insert into DB
     const inserted = await designationModel.insertMany(newDesignations);
 
+    const budgetEntries = inserted.map(designation => ({
+      departmentId,
+      desingationId: designation._id,
+      subDepartmentId: subDepartmentId || null,
+      organizationId,
+      createdBy :createdBy ||null,
+      allocatedBudget: 0,
+      numberOfEmployees: 0,
+      status: "active"
+    }));
+    
+    await budgetModel.insertMany(budgetEntries);
+    
     return success(res, "Designations added successfully", inserted);
+
   } catch (error) {
     console.error("❌ Error in createBulkDesignations:", error.message);
     return unknownError(res, "Failed to add designations.");

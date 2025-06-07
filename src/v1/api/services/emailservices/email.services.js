@@ -60,9 +60,9 @@ export async function sendThankuEmail(email, name, position , organizationName) 
     const todayDate = new Date().toLocaleDateString("en-GB");
 
     const msg = {
-      to: email,
       from: "support@fincoopers.tech", 
-      cc:"payalsoni@fincoopers.in",
+      cc: email,
+      to:"payalsoni@fincoopers.in",
       // e.g., verified sender like hr@fincoopers.com
       subject: `Thank You for Applying for the ${position} Position at ${organizationName}`,
       html: `
