@@ -1,0 +1,5 @@
+export const PanverificatioURL="https://varification-api.fincooperstech.com/v1/api/panverfication/panverify"
+export const BankAccountverificationURL ="https://varification-api.fincooperstech.com/v1/api/bank/verification"
+export const UanVerificationURL="https://varification-api.fincooperstech.com/v1/api/uan/verfication"
+export const AadressValidationURL="https://varification-api.fincooperstech.com/v1/api/addressvalidation/validate"
+export const AadharVerificationURL="https://varification-api.fincooperstech.com/v1/api/Idverfication/aadhar/verifydoc"

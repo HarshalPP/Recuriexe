@@ -1,0 +1,328 @@
+import {
+  success,
+  unknownError,
+  serverValidation,
+  badRequest,
+} from "../../formatters/globalResponse.js";
+import { validationResult } from "express-validator";
+import mongoose from "mongoose";
+import roleModel from "../../models/RoleModel/role.model.js";
+import employeeModel from "../../models/employeemodel/employee.model.js";
+// import { roleGoogleSheet } from "./masterGoogleSheet.controller.js";
+
+const ObjectId = mongoose.Types.ObjectId;
+
+// ------------------Admin Master Add Role---------------------------------------
+export async function roleAdd(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const { id,  organizationId } = req.employee;
+    if (req.body.roleName) {
+      req.body.roleName = req.body.roleName;
+    }
+
+    const data = await roleModel.findOne({ roleName: req.body.roleName });
+    if (data) {
+      badRequest(res, "Role name is already exist");
+    }
+    const roleDetail = await roleModel.create({ ...req.body, organizationId, createdBy: id });
+    success(res, "Role Added Successful", roleDetail);
+    // await roleGoogleSheet(roleDetail);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+
+// ------------------Admin Master Role "active" or "inactive" updated---------------------------------------
+
+// export async function roleActiveOrInactive(req, res) {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return serverValidation(res, {
+//         errorName: "serverValidation",
+//         errors: errors.array(),
+//       });
+//     }
+
+//     const id = req.body.id;
+//     const status = req.body.status;
+
+//     if (!id || id.trim() === "") {
+//       return badRequest(res, "ID is required and cannot be empty");
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return badRequest(res, "Invalid ID");
+//     }
+
+//     // Fetch the role by ID
+//     const role = await roleModel.findById(id);
+//     if (!role) {
+//       return badRequest(res, "Role not found");
+//     }
+
+//    // Check if any employee in the same organization is using this role
+//     const isRoleAssigned = await employeeModel.exists({
+//       organizationId,
+//       roleId: id,
+//     });
+
+
+
+//     const protectedRoles = ["superadmin", "admin", "user"];
+//     const roleName = role.roleName?.toLowerCase();
+
+//     // Prevent inactivating protected roles
+//     if (status === "inactive" && protectedRoles.includes(roleName)) {
+//       return badRequest(res, `Cannot inactivate '${role.roleName}' role`);
+//     }
+
+//     if (status === "active" || status === "inactive") {
+//       const roleUpdateStatus = await roleModel.findByIdAndUpdate(
+//         { _id: id },
+//         { status: status },
+//         { new: true }
+//       );
+//       success(
+//         res,
+//         `Role ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+//         roleUpdateStatus
+//       );
+//     } else {
+//       return badRequest(res, "Status must be 'active' or 'inactive'");
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     unknownError(res, error);
+//   }
+// }
+
+export async function roleActiveOrInactive(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return serverValidation(res, {
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const id = req.body.id;
+    const status = req.body.status;
+
+    if (!id || id.trim() === "") {
+      return badRequest(res, "ID is required and cannot be empty");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return badRequest(res, "Invalid ID");
+    }
+
+    // Fetch the role by ID
+    const role = await roleModel.findById(id);
+    if (!role) {
+      return badRequest(res, "Role not found");
+    }
+
+    const { organizationId } = req.employee;
+
+    // Check if any employee in the same organization is using this role
+    const isRoleAssigned = await employeeModel.exists({
+      organizationId,
+      roleId: id,
+    });
+
+    if (status === "inactive") {
+      const protectedRoles = ["superadmin", "admin", "user"];
+      const roleName = role.roleName?.toLowerCase();
+
+      if (protectedRoles.includes(roleName)) {
+        return badRequest(res, `Cannot inactivate '${role.roleName}' role`);
+      }
+
+      if (isRoleAssigned) {
+        return badRequest(res, "Cannot inactivate this role as it is assigned to one or more employees");
+      }
+    }
+
+    if (status === "active" || status === "inactive") {
+      const roleUpdateStatus = await roleModel.findByIdAndUpdate(
+        { _id: id },
+        { status: status },
+        { new: true }
+      );
+      success(
+        res,
+        `Role ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+        roleUpdateStatus
+      );
+    } else {
+      return badRequest(res, "Status must be 'active' or 'inactive'");
+    }
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+
+
+// ------------------Admin Master Update Role Name Role ---------------------------------------
+
+export async function updateRole(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    let { roleId, ...updateFields } = req.body;
+
+    // Check if the role being updated is SuperAdmin
+    const existingRole = await roleModel.findById(roleId);
+    if (!existingRole) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    if (existingRole.roleName.toLowerCase() === "superadmin") {
+      return res
+        .status(400)
+        .json({ message: "Cannot update the SuperAdmin role" });
+    }
+
+    // Clean and format the roleName if present
+    if (typeof updateFields.roleName === "string") {
+      updateFields.roleName = updateFields.roleName.trim().toLowerCase();
+    }
+
+    const updateData = await roleModel
+      .findByIdAndUpdate(roleId, updateFields, { new: true })
+      .populate("permissions");
+    success(res, "Updated Role", updateData);
+    // await roleGoogleSheet(updateData);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+
+// ------------------Admin Master Get All Role---------------------------------------
+export async function getAllRole(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+    const { id,  organizationId } = req.employee;
+
+    const roleDetail = await roleModel
+      .find({ organizationId })
+      .collation({ locale: "en", strength: 3 })
+      .sort({ roleName: 1 })
+      .populate("permissions")
+      .populate("organizationId","name");
+    success(res, "All Roles", roleDetail);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+
+
+//---------------------- role drop donw-----------------------------------------
+export async function getRoleDropDown(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+    const {  organizationId } = req.employee;
+
+    const {status} = req.query
+
+    const roleList = await roleModel.find({ organizationId : new mongoose.Types.ObjectId(organizationId) , status:status?status:'active' }).select('roleName status')
+
+    success(res, "Role List", roleList);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+// ------------------Admin Master Get Role By Type---------------------------------------
+export async function getAllRoleByType(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const { roleType } = req.query;
+    const roleDetail = await roleModel.find({
+      status: "active",
+      roleName: roleType,
+    });
+    success(res, `${roleType} List`, roleDetail);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
+
+// -----------------GET ROLE :- "visit" , "collection" List Employee List----------------
+export async function getCollectionRoleEmploye(req, res) {
+  try {
+    const targetRoles = await roleModel.find(
+      { roleName: { $in: ["visit", "collection"] } },
+      { _id: 1, roleName: 1 }
+    );
+
+    if (!targetRoles.length) {
+      return badRequest(res, "No matching roles found");
+    }
+
+    const roleIds = targetRoles.map((role) => role._id);
+
+    const employees = await employeeModel.find(
+      { roleId: { $in: roleIds }, status: "active" },
+      { _id: 1, employeName: 1, employeUniqueId: 1 }
+    );
+
+    if (!employees.length) {
+      return badRequest(res, "No employees found with these roles");
+    }
+
+    const response = {
+      totalCount: employees.length,
+      employees: employees.map((emp) => ({
+        _id: emp._id,
+        employeeName: emp.employeName,
+        employeeUniqueId: emp.employeUniqueId,
+      })),
+    };
+
+    return success(res, "Employees fetched successfully", response);
+  } catch (error) {
+    console.error("Error in getEmployeesByRole:", error);
+    return unknownError(res, error);
+  }
+}

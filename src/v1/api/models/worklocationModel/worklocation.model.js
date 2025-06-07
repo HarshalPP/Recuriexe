@@ -1,0 +1,42 @@
+import mongoose from "mongoose";
+
+const { Schema, model } = mongoose;
+const { ObjectId } = Schema;
+
+const workLocationSchema = new Schema(
+  {
+    name: { type: String, required: [true, "work location is required"] },
+    branchId: {
+      type: ObjectId,
+      ref: "newbranch",
+      required: [true, "Branch is required"],
+    },
+    location: {
+      type: { type: String, default: "Point" },
+      coordinates: { type: [Number], required: true },
+    },
+    createdBy: { type: ObjectId, ref: "employee" },
+    updatedBy: { type: ObjectId, ref: "employee", default: null },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    status: {
+      type: String,
+      enum: ["aproove", "pending", "reject"],
+      default: "pending",
+    },
+    organizationId: {
+      type: ObjectId,
+      ref: "Organization",
+      default: null,
+    },
+  },
+  { timestamps: true }
+);
+
+workLocationSchema.index({ location: "2dsphere" });
+
+const workLocationModel = model("newworklocation", workLocationSchema);
+
+export default workLocationModel;
