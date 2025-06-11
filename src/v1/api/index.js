@@ -11,7 +11,7 @@ import Allocated from "./routes/AllocatedModule/Allocatedmodule.routes.js"
 import branch from "./routes/branchRoutes/branch.routes.js"
 import worklocation from "./routes/worklocationRoutes/worklocation.routes.js"
 import department from "./routes/departmentRoutes/deparment.routes.js"
-import designation from "./routes/designationRoutes/designation.controller.js"
+import designation from "./routes/designationRoutes/designation.routes.js"
 import employmentType from "./routes/employeeTypeRoutes/employeeType.routes.js"
 import employmentTypes from "./routes/employeementTypeRoutes/employeementtype.routes.js"
 import costcenter from "./routes/costRoutes/costcenter.routes.js"
@@ -73,7 +73,9 @@ import taskDetail from './routes/taskManagementRoute/task.routes.js'
 import notesDetail from './routes/notesRoutes/notes.routes.js'
 
 //  FILE SHARE STORE
-import fileShareDetail from './routes/fileShareRoutes/fileShare.routes.js'
+// import fileShareDetail from './routes/fileShareRoutes/fileShare.routes.js'
+import fileShareDetail from './routes/fileShareRoutes/newfileShare.routes.js'
+
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"
 
@@ -100,6 +102,13 @@ import policyRoute from './routes/expense/policy.route.js'
 import expenseRoleRoute from './routes/expense/expenseRole.route.js'
 import userExpenseRoute from './routes/expense/userExpense.route.js'
 import masterDropDownRouter from "./routes/masterDropDown/dropDown.routes.js"
+import PlanRouter from "./routes/PlanRutes/plan.routes.js"
+
+
+//
+import postRoutes from "./routes/Linkedin/post.routes.js"
+import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
+import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 
 //expense
 router.use("/expenseCategory",expenseCategoryRouter)
@@ -145,6 +154,7 @@ router.use("/qualification" , Qualification)
 router.use("/PortalsetUp" , PortalsetUp)
 router.use("/pinCode" , pinCodeRouter)
 router.use("/formStageset" , formStagesetUP)
+router.use("/masterPlan", PlanRouter)
 
 // --------- Tracking Routes ----------- //
 router.use("/tracking" ,tracking)
@@ -217,6 +227,11 @@ router.use("/subscription" , Subscription)
 // verify Docs
 
 router.use("/verifyDocs" ,  verifyDocs)
+
+// LinkedIn Posting
+router.use('/post', postRoutes);
+router.use('/linkedin', linkedinRoutes);
+router.use("/organizations", organizationRoutes);
 
 
 

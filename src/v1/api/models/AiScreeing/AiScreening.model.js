@@ -23,6 +23,8 @@ const ScreeningCriteriaSchema = new Schema({
     experience: {
         type: String,
     }
+},{
+    _id:true, // Ensure each criteria has its own unique ID
 });
 
 // Main AI Screening Schema

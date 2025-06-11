@@ -13,6 +13,35 @@ import employeeModel from "../../models/employeemodel/employee.model.js";
 const ObjectId = mongoose.Types.ObjectId;
 
 // ------------------Admin Master Add Role---------------------------------------
+// export async function roleAdd(req, res) {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         errorName: "serverValidation",
+//         errors: errors.array(),
+//       });
+//     }
+
+//     const { id,  organizationId } = req.employee;
+//     if (req.body.roleName) {
+//       req.body.roleName = req.body.roleName;
+//     }
+
+//     const data = await roleModel.findOne({ roleName: req.body.roleName });
+//     if (data) {
+//       return badRequest(res, "Role name is already exist");
+//     }
+//     const roleDetail = await roleModel.create({ ...req.body, organizationId, createdBy: id });
+//     return success(res, "Role Added Successful", roleDetail);
+//     // await roleGoogleSheet(roleDetail);
+//   } catch (error) {
+//     console.log(error);
+//     unknownError(res, error);
+//   }
+// }
+
+
 export async function roleAdd(req, res) {
   try {
     const errors = validationResult(req);
@@ -23,21 +52,51 @@ export async function roleAdd(req, res) {
       });
     }
 
-    const { id,  organizationId } = req.employee;
+    const { id, organizationId } = req.employee;
+
     if (req.body.roleName) {
-      req.body.roleName = req.body.roleName;
+      req.body.roleName = req.body.roleName.trim();
     }
 
-    const data = await roleModel.findOne({ roleName: req.body.roleName });
-    if (data) {
-      return badRequest(res, "Role name is already exist");
+    const existing = await roleModel.findOne({ roleName: req.body.roleName });
+    if (existing) {
+      return badRequest(res, "Role name already exists");
     }
-    const roleDetail = await roleModel.create({ ...req.body, organizationId, createdBy: id });
+
+    // If admin role, set all booleans (including nested) to true
+    if (req.body.roleName?.toLowerCase() === "admin") {
+      const roleDefaults = new roleModel(); // create a new empty instance to inspect all keys
+      const allKeys = Object.keys(roleDefaults.toObject());
+
+      allKeys.forEach(key => {
+        const value = roleDefaults[key];
+        if (typeof value === "boolean") {
+          req.body[key] = true;
+        } else if (typeof value === "object" && value !== null) {
+          // check nested objects like jobPostDashboard, jobApplications
+          const nested = {};
+          Object.keys(value).forEach(subKey => {
+            if (typeof value[subKey] === "boolean") {
+              nested[subKey] = true;
+            }
+          });
+          if (Object.keys(nested).length > 0) {
+            req.body[key] = nested;
+          }
+        }
+      });
+    }
+
+    const roleDetail = await roleModel.create({
+      ...req.body,
+      organizationId,
+      createdBy: id,
+    });
+
     return success(res, "Role Added Successful", roleDetail);
-    // await roleGoogleSheet(roleDetail);
   } catch (error) {
     console.log(error);
-    unknownError(res, error);
+    return unknownError(res, error);
   }
 }
 
@@ -192,28 +251,26 @@ export async function updateRole(req, res) {
     // Check if the role being updated is SuperAdmin
     const existingRole = await roleModel.findById(roleId);
     if (!existingRole) {
-      return res.status(404).json({ message: "Role not found" });
+      return badRequest(res ,"Role not found" );
     }
 
     if (existingRole.roleName.toLowerCase() === "superadmin") {
-      return res
-        .status(400)
-        .json({ message: "Cannot update the SuperAdmin role" });
-    }
-
+      return badRequest(res , "Cannot update the SuperAdmin role" );
+    } 
     // Clean and format the roleName if present
     if (typeof updateFields.roleName === "string") {
       updateFields.roleName = updateFields.roleName.trim().toLowerCase();
     }
+    updateFields.updateBy = req.employee.id
 
     const updateData = await roleModel
       .findByIdAndUpdate(roleId, updateFields, { new: true })
       .populate("permissions");
-    success(res, "Updated Role", updateData);
+   return success(res, "Updated Role", updateData);
     // await roleGoogleSheet(updateData);
   } catch (error) {
     console.log(error);
-    unknownError(res, error);
+    return unknownError(res, error);
   }
 }
 
@@ -259,10 +316,10 @@ export async function getRoleDropDown(req, res) {
 
     const roleList = await roleModel.find({ organizationId : new mongoose.Types.ObjectId(organizationId) , status:status?status:'active' }).select('roleName status')
 
-    success(res, "Role List", roleList);
+    return success(res, "Role List", roleList);
   } catch (error) {
     console.log(error);
-    unknownError(res, error);
+   return unknownError(res, error);
   }
 }
 // ------------------Admin Master Get Role By Type---------------------------------------
@@ -342,4 +399,30 @@ export async function roleDetail(req, res) {
     // console.log(error);
    return unknownError(res, error);
   }
+}
+
+export async function roleAssignToEmployee(req, res) {
+    try {
+        const { employeeId } = req.query;
+        const { roleId } = req.query;
+        // Validate input
+        if (!roleId) {
+            return badRequest(res, "Role ID is required.");
+        }
+        const employee = await employeeModel.findById(employeeId);
+        if (!employee) {
+            return notFound(res, "Employee not found.");
+        }
+        // Check if the role exists
+        const role = await roleModel.findById(roleId);
+        if (!role) {
+            return notFound(res, "Role not found.");
+        }
+        employee.roleId = roleId; // Assign the role
+        await employee.save();
+        return success(res,  "Role assigned successfully.", employee);
+    } catch (error) {
+        console.error("Error assigning role:", error);
+        return unknownError(res, error);
+    }
 }

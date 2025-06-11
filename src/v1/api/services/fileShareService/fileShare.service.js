@@ -171,7 +171,7 @@ export async function generateDownloadUrl(key, expiresIn = 3600) {
  */
 export async function streamFileDownload(key, res) {
   try {
-    if (!key) {
+    if (!key) { 
       return res.status(400).json(returnFormatter(false, "File key is required"));
     }
 

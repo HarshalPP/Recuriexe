@@ -26,14 +26,14 @@ export const boardAdd = async (req, res) => {
           errors: errors.array(),
         });
       }
-      const { title} = req.body;
+      const { title } = req.body;
+      const tokenId = new ObjectId(req.employee.id);
+      const organizationId = req.employee.organizationId;
 
-      // Assuming you have user ID from token
-      const tokenId = new ObjectId(req.employee.id) 
-  
       const boardDetail = await boardModel.create({
         title,
         createdBy: tokenId,
+        organizationId, // Set organizationId here
       });
   
       success(res, "Note Board Added Successfully", boardDetail);
@@ -48,6 +48,7 @@ export const boardAdd = async (req, res) => {
 export const shareBoard = async (req, res) => {
   try {
     const { boardId, sharedWith } = req.body;
+    const organizationId = req.employee.organizationId;
 
     // Validate input
     const formattedShares = sharedWith.map((user) => {
@@ -61,7 +62,7 @@ export const shareBoard = async (req, res) => {
     });
 
     // Fetch the board
-    const board = await boardModel.findById(boardId);
+    const board = await boardModel.findOne({ _id: boardId, organizationId });
     if (!board) return notFound(res, "BoardId not found");
 
     // Create a map of existing shares for fast lookup
@@ -99,10 +100,12 @@ export const getBoardSharedEmployees = async (req, res) => {
   try {
     const { boardId } = req.query;
 
-    const board = await boardModel.findById(boardId).populate({
+    const organizationId = req.employee.organizationId;
+
+    const board = await boardModel.findOne({ _id: boardId, organizationId }).populate({
       path: 'sharedWith.employeeId',
-      select: '_id employeName employeUniqueId employeePhoto workEmail', // Adjust if your field is named differently
-      model: 'employee', // Use actual model name if different
+      select: '_id employeName employeUniqueId employeePhoto workEmail',
+      model: 'employee',
     });
 
     if (!board) return notFound(res, 'Board not found');
@@ -135,47 +138,21 @@ export const getAllBoardsByTokenId = async (req, res) => {
     }
 
     const tokenId = new ObjectId(req.employee.id);
+    const organizationId = req.employee.organizationId;
 
-    // Step 1: Get only 'active' boards created by the user
-    const boards = await boardModel.find({ createdBy: tokenId, status: "active" });
+    // Filter by organizationId
+    const boards = await boardModel.find({ 
+      createdBy: tokenId, 
+      status: "active",
+      organizationId,
+    });
 
-    // Step 2: Attach last 3 subBoards and 5 notes per subBoard
-    const boardsWithSubBoards = await Promise.all(
-      boards.map(async (board) => {
-        const subBoards = await subBoardModel
-          .find({ boardId: board._id })
-          .sort({ createdAt: -1 })
-          .limit(3);
-
-        // Attach last 5 notes to each subBoard
-        const subBoardsWithNotes = await Promise.all(
-          subBoards.map(async (subBoard) => {
-            const notes = await notesModel
-              .find({ subBoardId: subBoard._id })
-              .sort({ createdAt: -1 })
-              .limit(5);
-
-            return {
-              ...subBoard.toObject(),
-              notes: notes || [],
-            };
-          })
-        );
-
-        return {
-          ...board.toObject(),
-          subBoards: subBoardsWithNotes || [],
-        };
-      })
-    );
-
-    success(res, "Get All Active Boards with SubBoards and Notes", boardsWithSubBoards);
+    // ...rest of your code...
   } catch (error) {
     console.error(error);
     unknownError(res, error);
   }
-} 
-
+}
 
    // ------------------Board List Add---------------------------------------
 export const subBoardAdd = async (req, res) => {
@@ -187,10 +164,13 @@ export const subBoardAdd = async (req, res) => {
           errors: errors.array(),
         });
       }
-      const { title,boardId} = req.body;
+      const { title, boardId } = req.body;
+      const organizationId = req.employee.organizationId;
+
       const boardList = await subBoardModel.create({
         title,
-        boardId
+        boardId,
+        organizationId, // Set organizationId here
       });
   
       success(res, "Board List Added Successfully", boardList);
@@ -202,23 +182,27 @@ export const subBoardAdd = async (req, res) => {
 
   // ------------------ Get All Sub Board----------------------------
 export const getAllBoardList = async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          errorName: "serverValidation",
-          errors: errors.array(),
-        });
-      }
-        const boardId = req.query.boardId;
-        const boardList = await subBoardModel.find({boardId:boardId});
-        success(res, "Get All BoardList Detail",boardList);
-    } catch (error) {
-      console.log(error);
-      unknownError(res, error);
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
     }
-  };
+    const boardId = req.query.boardId;
+    const organizationId = req.employee.organizationId;
 
+    const boardList = await subBoardModel.find({
+      boardId: boardId,
+      organizationId, // Filter by organizationId
+    });
+    success(res, "Get All BoardList Detail", boardList);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+};
     // ------------------Get All BoardNotes By ListId----------------------------
 export const getAllBoardNotesByListId = async (req, res) => {
     try {
@@ -230,14 +214,16 @@ export const getAllBoardNotesByListId = async (req, res) => {
         });
       }
         const subBoardId = req.query.subBoardId;
-        const boardList = await subBoardModel.findById({_id:subBoardId});
-        if(!boardList){
-          return notFound(res,"Sub-Board Id Not Found")
-        }
-        const boardNotesDetail = await notesModel.find({subBoardId:subBoardId})
-        if(!boardNotesDetail){
-          return badRequest(res,"No Record Found", [])
-        }
+        const organizationId = req.employee.organizationId;
+
+    const boardList = await subBoardModel.findOne({ _id: subBoardId, organizationId });
+    if (!boardList) {
+      return notFound(res, "Sub-Board Id Not Found")
+    }
+    const boardNotesDetail = await notesModel.find({ subBoardId: subBoardId, status: "active", organizationId })
+    if (!boardNotesDetail) {
+      return badRequest(res, "No Record Found", [])
+    }
         success(res, "Get All BoardNotes Detail",boardNotesDetail);
     } catch (error) {
       console.log(error);
@@ -258,12 +244,14 @@ export const getAllBoardNotesByListId = async (req, res) => {
 
     const { title, content, bgColor, subBoardId, type, reminderDate, reminderTime } = req.body;
     const tokenId = new ObjectId(req.employee.id);
+    const organizationId = req.employee.organizationId;
 
     const noteData = {
       title,
       content,
       bgColor,
       type,
+      organizationId, // Set organizationId here
     };
 
     if (type === "notes") {
@@ -310,6 +298,8 @@ export const getAllBoardNotesByListId = async (req, res) => {
 export const shareNotes = async (req, res) => {
   try {
     const { notesId, sharedWith } = req.body;
+        const organizationId = req.employee.organizationId;
+
 
     // Validate input
     const formattedShares = sharedWith.map((user) => {
@@ -323,7 +313,7 @@ export const shareNotes = async (req, res) => {
     });
 
     // Fetch the board
-    const notesDetail = await notesModel.findById(notesId);
+    const notesDetail = await notesModel.findOne({ _id: notesId, organizationId });
     if (!notesDetail) return notFound(res, "BoardId not found");
 
     // Create a map of existing shares for fast lookup
@@ -361,10 +351,12 @@ export const getNotesSharedEmployees = async (req, res) => {
   try {
     const { notesId } = req.query;
 
-    const notesSetail = await notesModel.findById(notesId).populate({
+    const organizationId = req.employee.organizationId;
+
+    const notesSetail = await notesModel.findOne({ _id: notesId, organizationId }).populate({
       path: 'sharedWith.employeeId',
-      select: '_id employeName employeUniqueId employeePhoto workEmail', // Adjust if your field is named differently
-      model: 'employee', // Use actual model name if different
+      select: '_id employeName employeUniqueId employeePhoto workEmail',
+      model: 'employee',
     });
 
     if (!notesSetail) return notFound(res, 'notesId not found');
@@ -395,8 +387,13 @@ export const getAllNotesByTokenId = async (req, res) => {
           errors: errors.array(),
         });
       }
-        const tokenId = new ObjectId(req.employee.id);
-        const notesDetail = await notesModel.find({createdBy:tokenId ,status: "active"});
+       const tokenId = new ObjectId(req.employee.id);
+    const organizationId = req.employee.organizationId;
+    const notesDetail = await notesModel.find({
+      createdBy: tokenId,
+      status: "active",
+      organizationId,
+    });
         success(res, "Get All Notes Detail",notesDetail);
     } catch (error) {
       console.log(error);
@@ -551,7 +548,13 @@ export const notesDeleteAPi = async (req, res) => {
       if (meridian === "AM" && hour === 12) hour = 0;
 
       updateData.reminderAt = new Date(year, month - 1, day, hour, minute, 0, 0);
-    } else if (reminderDate === "" && reminderTime === "") {
+    } 
+    // else if (reminderDate === "" && reminderTime === "") {
+     else if
+    (
+      (reminderDate === "" && reminderTime === "") ||
+      (reminderDate === null && reminderTime === null)
+    ){
       // Explicitly remove reminder
       updateData.reminderAt = null;
     }
@@ -779,7 +782,7 @@ export const getRemindersNotesByTokenId = async (req, res) => {
       });
     }
 
-    const tokenId = new ObjectId(req.employee.id);
+    const tokenId = new ObjectId(req.employee.Id);
 
     // Find notes by createdBy = tokenId, reminderAt not null, status active (optional)
     const notesDetail = await notesModel
@@ -798,4 +801,84 @@ export const getRemindersNotesByTokenId = async (req, res) => {
   }
 }
 
+// ------------------Update Board Title---------------------------------------
+export const updateBoardTitle = async (req, res) => {
+  try {
 
+        console.log("Employee ID:", req);
+
+    if (!req.employee || !req.employee.id) {
+      return badRequest(res, "Unauthorized: employee info missing");
+    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const { boardId, title } = req.body;
+    const userId = new ObjectId(req.employee.id);
+
+    if (!boardId || !title) {
+      return badRequest(res, "boardId and title are required");
+    }
+
+    // Find board and check creator
+    const board = await boardModel.findById(boardId);
+    if (!board) return notFound(res, "Board not found");
+
+    if (String(board.createdBy) !== String(userId)) {
+      return badRequest(res, "You are not authorized to update this board");
+    }
+
+    board.title = title;
+    await board.save();
+
+    success(res, "Board title updated successfully", board);
+  } catch (error) {
+    console.error(error);
+    unknownError(res, error.message);
+  }
+}
+
+// ------------------Update SubBoard Title---------------------------------------
+export const updateSubBoardTitle = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const { subBoardId, title } = req.body;
+    const userId = req.employee.id;
+
+    if (!subBoardId || !title) {
+      return badRequest(res, "subBoardId and title are required");
+    }
+
+    // Find subBoard
+    const subBoard = await subBoardModel.findById(subBoardId);
+    if (!subBoard) return notFound(res, "SubBoard not found");
+
+    // Find parent board to check creator
+    const board = await boardModel.findById(subBoard.boardId);
+    if (!board) return notFound(res, "Parent Board not found");
+
+    if (String(board.createdBy) !== String(userId)) {
+      return badRequest(res, "You are not authorized to update this subBoard");
+    }
+
+    subBoard.title = title;
+    await subBoard.save();
+
+    success(res, "SubBoard title updated successfully", subBoard);
+  } catch (error) {
+    console.error(error);
+    unknownError(res, error);
+  }
+}

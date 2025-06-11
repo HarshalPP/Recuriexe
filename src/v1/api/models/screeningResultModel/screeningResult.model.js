@@ -25,6 +25,7 @@ const RiskFactorSchema = new Schema({
 
 const ScreeningResultSchema = new Schema({
   jobPostId: { type: Schema.Types.ObjectId, ref: 'jobPosts', default:null },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'organizations',default:null },
   candidateId: { type: Schema.Types.ObjectId,default:null},
   position: { type: String, required: false },
   department: { type: String, required: false },

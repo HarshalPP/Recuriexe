@@ -13,6 +13,13 @@ const organizationSchema = new mongoose.Schema(
       default: null
     }],
 
+
+    PlanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Plan",
+      default: null
+    },
+
     name: { type: String ,default: "" },
     logo: { type: String, default: ""  },
     website: { type: String, default: ""  },

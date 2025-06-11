@@ -61,7 +61,11 @@ const employeSchema = new Schema(
         _id: false, // Disable automatic _id creation
       },
     ],
-    lastOrganization: { type: String, default: "" },
+   lastOrganization: {
+    type: [String],
+  default: []
+  },
+
     organizationId: { type: ObjectId, default: null, ref:"Organization" },
     currentDesignation: { type: String, default: "" },
     startDate: { type: Date, default: "" },

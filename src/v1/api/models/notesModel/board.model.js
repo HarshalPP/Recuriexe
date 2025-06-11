@@ -4,6 +4,9 @@ const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 
 const boardModelSchema = new Schema({
+     organizationId: { type: ObjectId, ref: "Organization", default :null },
+
+   
    createdBy:  {type:ObjectId, default:null},
    title:      { type: String,default:""},
    reminderAt: {type: Date,required: false},

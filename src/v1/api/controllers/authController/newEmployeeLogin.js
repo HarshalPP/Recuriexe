@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 
-import { success, badRequest, serverValidation, unknownError  , unauthorized} from "../../formatters/globalResponse.js"
+import { success, badRequest, serverValidation, unknownError, unauthorized } from "../../formatters/globalResponse.js"
 
 import employeModel from "../../models/employeemodel/employee.model.js"
 import departmentModel from "../../models/deparmentModel/deparment.model.js"
@@ -15,65 +15,68 @@ import roleModel from "../../models/RoleModel/role.model.js"
 import branchModel from "../../models/branchModel/branch.model.js"
 import taskModel from "../../models/taskManagement/task.model.js"
 import OrganizationModel from '../../models/organizationModel/organization.model.js';
-import {sendEmail} from  '../../Utils/sendEmail.js'
+import { sendEmail } from '../../Utils/sendEmail.js'
 import mongoose from "mongoose"
+import PlanModel from '../../models/PlanModel/Plan.model.js';
 
 export const newEmployeeLogin = async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return serverValidation(res, {
-          errorName: 'serverValidation',
-          errors: errors.array(),
-        });
-      }
-  
-      const { userName, password } = req.body;
-  
-      // Find employee with active status
-      const employee = await employeModel.findOne({
-        userName,
-        status: 'active',
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return serverValidation(res, {
+        errorName: 'serverValidation',
+        errors: errors.array(),
       });
-  
-      if (!employee) return badRequest(res, 'User Name Not Found.');
-  
-      // Verify password
-      const isMatch = await bcrypt.compare(password, employee.password);
-      if (!isMatch) return badRequest(res, 'Wrong password');
-  
-      // Fetch role names
-      const roleIds = Array.isArray(employee.roleId)
-        ? employee.roleId
-        : [employee.roleId];
-  
-      const roleDetails = await roleModel.find({ _id: { $in: roleIds } });
-      const roleNames = roleDetails.map(role => role.roleName);
-      // Generate JWT
-      const payload = {
-        Id: employee._id,
-        roleName: roleNames,
-        organizationId: employee.organizationId
-      };
-      console.log(payload,"payload<>")
-      const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN); // move secret to env in production
-  
-      // Build response
-      const data = {
-        employeId: `${employee._id}`,
-        userName: employee.employeName,
-        roleName: roleNames,
-        employeePhoto: employee.employeePhoto || null,
-        token,
-        trackingMode: 'active',
-      };
-  
-      return success(res, 'Employee Logged in successfully', data);
-    } catch (error) {
-      console.error('Employee login error:', error);
-      return unknownError(res, error);
     }
-  };
+
+    const { userName, password } = req.body;
+
+    // Find employee with active status
+    const employee = await employeModel.findOne({
+      userName,
+      status: 'active',
+    });
+
+    if (!employee) return badRequest(res, 'User Name Not Found.');
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, employee.password);
+    if (!isMatch) return badRequest(res, 'Wrong password');
+
+    // Fetch role names
+    const roleIds = Array.isArray(employee.roleId)
+      ? employee.roleId
+      : [employee.roleId];
+
+    const roleDetails = await roleModel.find({ _id: { $in: roleIds } });
+    const roleNames = roleDetails.map(role => role.roleName);
+    // Generate JWT
+    const payload = {
+      Id: employee._id,
+      roleName: roleNames,
+      roleId: roleDetails[0]._id,
+      organizationId: employee.organizationId
+    };
+    // console.log(payload,"payload<>")
+    const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN); // move secret to env in production
+
+    // Build response
+    const data = {
+      employeId: `${employee._id}`,
+      userName: employee.employeName,
+      roleName: roleNames,
+      roleId: roleDetails[0]._id,
+      employeePhoto: employee.employeePhoto || null,
+      token,
+      trackingMode: 'active',
+    };
+
+    return success(res, 'Employee Logged in successfully', data);
+  } catch (error) {
+    console.error('Employee login error:', error);
+    return unknownError(res, error);
+  }
+};
 
 
 
@@ -96,7 +99,7 @@ export const SuperAdminRegister = async (req, res) => {
       allocatedModule = []  // Expecting multiple ObjectIds
     } = req.body;
 
-      if (!Array.isArray(allocatedModule)) {
+    if (!Array.isArray(allocatedModule)) {
       return badRequest(res, 'Allocated Modules must be provided as an array.');
     }
 
@@ -262,8 +265,26 @@ export const createNewEmployee = async (req, res) => {
       });
     }
 
-    let { userName, email, password, roleId } = req.body;
+    let { userName, email, mobileNo, employeName, password, roleId, subDepartmentId, departmentId, designationId } = req.body;
     const organizationId = req.employee?.organizationId || null; // Get organizationId from authenticated user
+
+    const orgainizationDetail = await OrganizationModel.findById(organizationId).select('name');
+
+    // ✅ Check active plan for organization
+    const activePlan = await PlanModel.findOne({ organizationId: organizationId, isActive: true });
+    if (!activePlan) {
+      return badRequest(res, "No active plan found for this organization");
+    }
+
+
+    // ✅ Check number of job posts against plan limit
+    const currentJobPostCount = await employeModel.countDocuments({ organizationId: organizationId });
+    if (currentJobPostCount >= activePlan.NumberOfUsers) {
+      return badRequest(
+        res,
+        `Job post limit reached. Allowed: ${activePlan.NumberOfUsers}, Current: ${currentJobPostCount}. Please upgrade your plan.`
+      );
+    }
 
     // Check if user already exists
     const existingUser = await employeModel.findOne({ email });
@@ -273,7 +294,7 @@ export const createNewEmployee = async (req, res) => {
 
     // check if userName already exists //
 
-    const existingUserName = await employeModel.findOne({userName});
+    const existingUserName = await employeModel.findOne({ userName });
     if (existingUserName) {
       return badRequest(res, 'User Name already exists.');
     }
@@ -287,34 +308,91 @@ export const createNewEmployee = async (req, res) => {
       return badRequest(res, 'Role IDs are invalid.');
     }
 
-    // Create new employee
+    // Validate subDepartmentId, departmentId, designationId
+    if (subDepartmentId && !mongoose.Types.ObjectId.isValid(subDepartmentId)) {
+      return badRequest(res, 'Invalid subDepartmentId.');
+    }
+    if (departmentId && !mongoose.Types.ObjectId.isValid(departmentId)) {
+      return badRequest(res, 'Invalid departmentId.');
+    }
+    if (designationId && !mongoose.Types.ObjectId.isValid(designationId)) {
+      return badRequest(res, 'Invalid designationId.');
+    }
+
+    // Validate check on model by organizationId 
+    if(subDepartmentId){
+    const subDepartment = await departmentModel.findOne({'subDepartments._id': subDepartmentId, organizationId});
+      if (!subDepartment) {
+        return badRequest(res, 'Sub-department not found for this organization.');
+      }
+    }
+
+    if(departmentId){
+      const department = await departmentModel.findOne({ _id: departmentId, organizationId });
+      if (!department) {
+        return badRequest(res, 'Department not found for this organization.');
+      }
+    }
+    
+    if(designationId){
+      const designation = await designationModel.findOne({ _id: designationId, organizationId });
+      if (!designation) {
+        return badRequest(res, 'Designation not found for this organization.');
+      }
+    }
+
+    //   Create new employee
     const newEmployee = new employeModel({
       userName,
       email,
       password: hashedPassword,
       roleId,
+      mobileNo,
+      subDepartmentId, 
+      departmentId,
+       designationId,
+      employeName,
       status: 'active',
-      onboardingStatus:'enrolled',
-      organizationId: organizationId || null, // Include organizationId if available
+      UserType: ['User'],
+      onboardingStatus: 'enrolled',
+      organizationId: organizationId, // Include organizationId if available
     });
 
     await newEmployee.save();
 
     // Generate JWT
-    const payload = {
-      Id: newEmployee._id,
-      roleName: validRoles.map(r => r.roleName),
-      organizationId: organizationId || null, // Include organizationId if available
+    // const payload = {
+    //   Id: newEmployee._id,
+    //   roleName: validRoles.map(r => r.roleName),
+    //   organizationId: organizationId || null, // Include organizationId if available
+    // };
+
+    // const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN);
+
+
+
+
+    // Build response
+    const data = {
+      employeId: `${newEmployee._id}`,
+      userName: newEmployee.userName,
+      mobileNo: newEmployee.mobileNo,
+      employeName: newEmployee.employeName,
+      userName: newEmployee.userName,
+      email: newEmployee.email,
+      UserType: newEmployee.UserType,
+      // roleName: validRoles.map(r => r.roleName),
+      // employeePhoto: newEmployee.employeePhoto || null,
+      // token,
+      // trackingMode: 'active',
     };
-    
-    const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN);
 
-
+    success(res, 'New Employee Created Successfully', data);
     // Send welcome email with credentials
-await sendEmail({
-  to: email,
-  subject: '🎉 Welcome to Fincoopers Tech - Your Account Details',
-  html: `
+    await sendEmail({
+      to: email,
+      subject: `🎉 Welcome to ${orgainizationDetail.name} - Your Account Details`,
+      html: `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e8f0fe; padding: 50px 20px;">
       <div style="max-width: 650px; margin: auto; background: #ffffff; border-radius: 15px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08); overflow: hidden;">
         <div style="background-color: #4A90E2; padding: 30px; text-align: center;">
@@ -361,24 +439,8 @@ await sendEmail({
       </div>
     </div>
   `,
-});
+    });
 
-
-
-    // Build response
-    const data = {
-      employeId: `${newEmployee._id}`,
-      userName: newEmployee.userName,
-      roleName: validRoles.map(r => r.roleName),
-      employeePhoto: newEmployee.employeePhoto || null,
-      token,
-      trackingMode: 'active',
-    };
-
-
-
-
-    return success(res, 'New Employee Created Successfully', data);
   } catch (error) {
     console.error('Create New Employee Error:', error);
     return unknownError(res, error);
@@ -419,26 +481,26 @@ await sendEmail({
 
 export const getAllEmployeeInfodata = async (req, res) => {
   try {
-    const { search ,status  } = req.query;
-  const organizationId = req.employee.organizationId;
-  
+    const { search, status } = req.query;
+    const organizationId = req.employee.organizationId;
+
     const matchStage = {
-      status: status?status:"active",
+      status: status ? status : "active",
       organizationId: new mongoose.Types.ObjectId(organizationId)
     };
 
     // Initial search match stage
     const searchMatch = search
       ? {
-          $or: [
-            { userName: { $regex: search, $options: "i" } },
-            { employeName: { $regex: search, $options: "i" } },
-            { workEmail: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } },
-            { employeUniqueId: { $regex: search, $options: "i" } },
-            { "role.roleName": { $regex: search, $options: "i" } }
-          ]
-        }
+        $or: [
+          { userName: { $regex: search, $options: "i" } },
+          { employeName: { $regex: search, $options: "i" } },
+          { workEmail: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+          { employeUniqueId: { $regex: search, $options: "i" } },
+          { "role.roleName": { $regex: search, $options: "i" } }
+        ]
+      }
       : {};
 
     const employeDetail = await employeModel.aggregate([
@@ -454,6 +516,76 @@ export const getAllEmployeeInfodata = async (req, res) => {
       },
       { $unwind: { path: "$role", preserveNullAndEmptyArrays: true } },
 
+
+      {
+        $lookup: {
+          from: "newdesignations", // replace with your actual collection name
+          localField: "designationId",
+          foreignField: "_id",
+          as: "designation"
+        }
+      },
+      { $unwind: { path: "$designation", preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: "newdepartments", // replace with your actual collection name
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "department"
+        }
+      },
+      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+
+     {
+  $lookup: {
+    from: "newdepartments",
+    let: { subDeptId: "$subDepartmentId" },
+    pipeline: [
+      {
+        $match: {
+          $expr: {
+            $in: [
+              "$$subDeptId",
+              {
+                $map: {
+                  input: "$subDepartments",
+                  as: "sd",
+                  in: "$$sd._id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          matchedSubDept: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$subDepartments",
+                  as: "sd",
+                  cond: {
+                    $eq: ["$$sd._id", "$$subDeptId"]
+                  }
+                }
+              },
+              0
+            ]
+          }
+        }
+      }
+    ],
+    as: "subDepartment"
+  }
+},
+{
+  $unwind: {
+    path: "$subDepartment",
+    preserveNullAndEmptyArrays: true
+  }
+},
       // Search match
       ...(search ? [{ $match: searchMatch }] : []),
 
@@ -463,8 +595,13 @@ export const getAllEmployeeInfodata = async (req, res) => {
           employeName: 1,
           workEmail: 1,
           email: 1,
+          mobileNo:1,
           employeUniqueId: 1,
-          roleName: "$role.roleName"
+          roleName: "$role.roleName",
+          designation : "$designation.name",
+          subDepartmentName: "$subDepartment.matchedSubDept.name",
+          department: "$department.name",
+
         }
       },
       { $sort: { createdAt: -1 } }
@@ -481,7 +618,7 @@ export const getAllEmployeeInfodata = async (req, res) => {
 
 
 
-  
+
 // add this joining form //
 
 
@@ -496,8 +633,8 @@ export const updateEmployee = async (req, res) => {
       });
     }
 
-    let {  ...updateFields } = req.body;
-    const id=req.employee.id
+    let { ...updateFields } = req.body;
+    const id = req.employee.id
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return badRequest(res, "Valid ID is required");
     }
@@ -543,14 +680,14 @@ export const updateEmployee = async (req, res) => {
       "experienceLetter",
       "employmentProof",
     ];
-    
-    
+
+
     fileFields.forEach(field => {
       if (req.body[field]) {
         updateFields[field] = req.body[field]; // dynamic URL directly assigned
       }
     });
-    
+
 
     const employee = await employeModel.findById(id);
     if (!employee) return badRequest(res, "Employee Not Found");
@@ -1045,13 +1182,13 @@ export const getEmployeeById = async (req, res) => {
 };
 
 
-export async function getAllEmployeeInfo(req ,res) {
-    try {
-        const userData = await employeModel.find();
-        return success(res, "employee list", userData)
-    } catch (error) {
-        return unknownError(false, error.message)
-    }
+export async function getAllEmployeeInfo(req, res) {
+  try {
+    const userData = await employeModel.find();
+    return success(res, "employee list", userData)
+  } catch (error) {
+    return unknownError(false, error.message)
+  }
 }
 
 
@@ -1089,7 +1226,7 @@ export const getEmployeeCount = async (req, res) => {
 
     // Case-sensitive employeName filter
     if (req.query.employeName) {
-      query.employeName = new RegExp(`^${req.query.employeName}`,"i");
+      query.employeName = new RegExp(`^${req.query.employeName}`, "i");
     }
 
     query = { ...query, status: "active", onboardingStatus: "enrolled" };
@@ -1120,46 +1257,46 @@ export const getEmployeeCount = async (req, res) => {
     );
 
     const managerIdsSet = new Set(managers.map(m => m.reportingManagerId.toString()));
-      // Get pending task counts by employeeId
-      const pendingTasks = await taskModel.aggregate([
-        {
-          $match: {
-            employeeId: { $in: employeeDetails.map(emp => emp._id) },
-            assignBy: { $in: employeeDetails.map(emp => emp._id) },
-            status: "pending"
-          }
-        },
-        {
-          $group: {
-            _id: "$employeeId",
-            count: { $sum: 1 }
-          }
+    // Get pending task counts by employeeId
+    const pendingTasks = await taskModel.aggregate([
+      {
+        $match: {
+          employeeId: { $in: employeeDetails.map(emp => emp._id) },
+          assignBy: { $in: employeeDetails.map(emp => emp._id) },
+          status: "pending"
         }
-      ]);
-  
-      const taskCountMap = {};
-      pendingTasks.forEach(task => {
-        taskCountMap[task._id.toString()] = task.count;
-      });
+      },
+      {
+        $group: {
+          _id: "$employeeId",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
 
-      const employeesGroupedByManager = await employeModel.aggregate([
-        {
-          $match: {
-            reportingManagerId: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) }
-          }
-        },
-        {
-          $group: {
-            _id: "$reportingManagerId",
-            photos: { $push: "$employeePhoto" }
-          }
+    const taskCountMap = {};
+    pendingTasks.forEach(task => {
+      taskCountMap[task._id.toString()] = task.count;
+    });
+
+    const employeesGroupedByManager = await employeModel.aggregate([
+      {
+        $match: {
+          reportingManagerId: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) }
         }
-      ]);
-  
-      const managerPhotosMap = {};
-      employeesGroupedByManager.forEach(manager => {
-        managerPhotosMap[manager._id.toString()] = manager.photos;
-      });
+      },
+      {
+        $group: {
+          _id: "$reportingManagerId",
+          photos: { $push: "$employeePhoto" }
+        }
+      }
+    ]);
+
+    const managerPhotosMap = {};
+    employeesGroupedByManager.forEach(manager => {
+      managerPhotosMap[manager._id.toString()] = manager.photos;
+    });
 
     // Add manager: true/false to each employee
     const updatedEmployeeDetails = employeeDetails.map(emp => {
@@ -1169,9 +1306,9 @@ export const getEmployeeCount = async (req, res) => {
       const task = taskCountMap[empId] || 0;
 
       const employePhotoDetail = isManager
-      ? { employePhotos: managerPhotosMap[empId] || [] }
-      : {};
-      
+        ? { employePhotos: managerPhotosMap[empId] || [] }
+        : {};
+
       return {
         ...emp.toObject(),
         manager: isManager,
@@ -1191,7 +1328,7 @@ export const getEmployeeCount = async (req, res) => {
 
 
 // --------- EMPLOYEE HIeRARCHY TREE STRUCTURE LIST API ------------------
-  export const employeeTreeHierarchy = async (req, res) => {
+export const employeeTreeHierarchy = async (req, res) => {
   try {
     // Get top-level employees (reportingManagerId: null)
     const topManagers = await employeModel.find(
@@ -1217,7 +1354,7 @@ export const getEmployeeCount = async (req, res) => {
           _id: 1,
           employeName: 1,
           employeUniqueId: 1,
-          employeePhoto:1,
+          employeePhoto: 1,
           reportingManagerId: 1,
           currentDesignation: 1
         }
@@ -1265,7 +1402,7 @@ export const getEmployeeCount = async (req, res) => {
 }
 
 // ----------GET ALL EMPLOYEE LIST FOR NOTES------------------------------
- export const allEmployeDetail = async (req, res) => {
+export const allEmployeDetail = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -1364,7 +1501,7 @@ export const addNewEmployee = async (req, res) => {
       password,
       mobileNo,
       employeName,
-      roleId, 
+      roleId,
     } = req.body;
 
     // ✅ 1. Validation

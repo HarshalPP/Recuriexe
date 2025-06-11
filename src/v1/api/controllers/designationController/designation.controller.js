@@ -21,6 +21,12 @@ import {
   import AIConfigModel from "../../models/AiModel/ai.model.js"
 
 
+  import employeModel from "../../models/employeemodel/employee.model.js";
+  import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
+  import JobApplyModel from "../../models/jobformModel/jobform.model.js";
+  import DepartmentBudget from "../../models/budgedModel/budged.model.js";
+
+
 
 import {generateAIResponse} from "../../services/Geminiservices/gemini.service.js"
 import {generateDepartmentPrompt , generateDesignationPrompt} from "../../prompt/resumeprompt.js"
@@ -644,9 +650,9 @@ export const createBulkDesignations = async (req, res) => {
     const inserted = await designationModel.insertMany(newDesignations);
 
     const budgetEntries = inserted.map(designation => ({
-      departmentId,
+      // departmentId,
       desingationId: designation._id,
-      subDepartmentId: subDepartmentId || null,
+      departmentId: subDepartmentId,
       organizationId,
       createdBy :createdBy ||null,
       allocatedBudget: 0,
@@ -665,4 +671,114 @@ export const createBulkDesignations = async (req, res) => {
 };
 
   
-  
+  export const createMissingBudgetsForDesignations = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const createdBy = req.employee.id;
+
+    if(!organizationId){
+      console.log('router')
+    }
+    // 1. Get all designations for this organization
+    const allDesignations = await designationModel.find({ organizationId });
+
+    if (!allDesignations.length) {
+      return success(res, "No designations found to process.");
+    }
+
+    // 2. Loop through each designation and check if corresponding budget entry exists
+    const newBudgetEntries = [];
+
+    for (const designation of allDesignations) {
+      const existingBudget = await budgetModel.findOne({
+        // departmentId: designation.departmentId,
+        desingationId: designation._id,
+        departmentId: designation.subDepartmentId || null,
+        organizationId
+      });
+
+      if (!existingBudget) {
+        newBudgetEntries.push({
+          // departmentId: designation.departmentId,
+          desingationId: designation._id,
+          departmentId: designation.subDepartmentId || null,
+          organizationId,
+          createdBy,
+          allocatedBudget: 3,
+          numberOfEmployees: 1200000,
+          status: "active"
+        });
+      }
+    }
+
+    // 3. Insert new budgets if needed
+    if (newBudgetEntries.length > 0) {
+      await budgetModel.insertMany(newBudgetEntries);
+    }
+
+    return success(res, `${newBudgetEntries.length} missing budget entries created successfully.`);
+  } catch (error) {
+    console.error("❌ Error in createMissingBudgetsForDesignations:", error.message);
+    return unknownError(res, "Failed to create missing budget entries.");
+  }
+};
+
+
+
+
+
+export const deleteDesignations = async (req, res) => {
+  try {
+    const { designationIds } = req.body;
+
+    if (!Array.isArray(designationIds) || designationIds.length === 0) {
+      return badRequest(res, "Please provide designationIds as a non-empty array.");
+    }
+
+    const undeletableDesignations = [];
+
+    for (const id of designationIds) {
+      const designation = await designationModel.findById(id);
+      if (!designation) {
+        undeletableDesignations.push({ designationId: id, reason: "Designation not found" });
+        continue;
+      }
+
+      const usedIn = [];
+
+      const isUsedInJobPosts = await jobPostModel.findOne({ designationId: id, status: "active" });
+      if (isUsedInJobPosts) usedIn.push("job posts");
+
+      const isUsedInJobApply = await JobApplyModel.findOne({ position: id.name, status: "active" });
+      if (isUsedInJobApply) usedIn.push("job applications");
+
+      const isUsedInBudgets = await budgetModel.findOne({ desingationId: id, status: "active" });
+      if (isUsedInBudgets) usedIn.push("budget");
+
+      const isUsedInEmployees = await employeModel.findOne({ designationId: id, status: "active" });
+      if (isUsedInEmployees) usedIn.push("Users");
+
+      if (usedIn.length > 0) {
+        undeletableDesignations.push({
+          designationId: id,
+          designationName: designation.name,
+          reason: `Linked to ${usedIn.join(", ")}`
+        });
+        continue;
+      }
+
+      // Safe to delete
+      await designationModel.findByIdAndDelete(id);
+    }
+
+    const deletedCount = designationIds.length - undeletableDesignations.length;
+
+    return success(res, {
+      message: `${deletedCount} designation(s) deleted successfully.`,
+      notDeleted: undeletableDesignations
+    });
+  } catch (error) {
+    console.error("Error deleting designations:", error.message);
+    return unknownError(res, error.message);
+  }
+};

@@ -4,6 +4,8 @@ const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 
 const notesModelSchema = new Schema({
+   organizationId: { type: ObjectId, ref: "Organization", default :null },
+
    createdBy:{type:ObjectId, default:null},
    title:    { type: String,default:""},
    content:  { type: String,default:""},

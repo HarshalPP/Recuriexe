@@ -22,6 +22,9 @@ const permissionSchema = new Schema({
     default: false
   }
 }, { _id: false })
+
+
+
 const roleSchema = new Schema(
   {
     roleName: {
@@ -44,54 +47,191 @@ const roleSchema = new Schema(
     updateBy: { type: Schema.Types.ObjectId, default: null, ref: "employee" },
     // EMPLOYEE SETUP MODULES
 
-    organizationSetup: permissionSchema,
-    branchSetup: permissionSchema,
-    workLocationSetup: permissionSchema,
-    departmentTypeSetup: permissionSchema,
-    designationSetup: permissionSchema,
-    employeeTypeSetup: permissionSchema,
-    workModeSetup: permissionSchema,
-    roleAssignment: permissionSchema,
+    organizationSetup: {
+      type: Boolean,
+      default: false
+    },
+    branchSetup: {
+      type: Boolean,
+      default: false
+    },
+    workLocationSetup: {
+      type: Boolean,
+      default: false
+    },
+    departmentTypeSetup: {
+      type: Boolean,
+      default: false
+    },
+    designationSetup: {
+      type: Boolean,
+      default: false
+    },
+    employeeTypeSetup: {
+      type: Boolean,
+      default: false
+    },
+    workModeSetup: {
+      type: Boolean,
+      default: false
+    },
+    roleAssignment: {
+      type: Boolean,
+      default: false
+    },
 
     // RECRUITMENT MODULES
-    budgetSetup: permissionSchema,
-    jobDescriptionSetup: permissionSchema,
-    aiSetup: permissionSchema,
-    careerPageSetting: permissionSchema,
-    qualificationSetup: permissionSchema,
-    idSetup: permissionSchema,
-    roleSetup: permissionSchema,
-    hiringFlowSetup: permissionSchema,
-    candidateProfileSetup: permissionSchema,
+    budgetSetup: {
+      type: Boolean,
+      default: false
+    },
+    jobDescriptionSetup: {
+      type: Boolean,
+      default: false
+    },
+    aiSetup: {
+      type: Boolean,
+      default: false
+    },
+    careerPageSetting: {
+      type: Boolean,
+      default: false
+    },
+    qualificationSetup: {
+      type: Boolean,
+      default: false
+    },
+    idSetup: {
+      type: Boolean,
+      default: false
+    },
+    roleSetup: {
+      type: Boolean,
+      default: false
+    },
+    hiringFlowSetup: {
+      type: Boolean,
+      default: false
+    },
+    candidateProfileSetup: {
+      type: Boolean,
+      default: false
+    },
 
     // VERIFICATION
-    verificationApiSetup: permissionSchema,
-    verificationStagesSetup: permissionSchema,
+    verificationApiSetup: {
+      type: Boolean,
+      default: false
+    },
+    verificationStagesSetup: {
+      type: Boolean,
+      default: false
+    },
 
     // TIME & ATTENDANCE
-    leaveTypeSetup: permissionSchema,
-    holidaySetup: permissionSchema,
+    leaveTypeSetup: {
+      type: Boolean,
+      default: false
+    },
+    holidaySetup: {
+      type: Boolean,
+      default: false
+    },
 
     // MASTER DATA SETUP
-    costCenterSetup: permissionSchema,
-    masterDropdownSetup: permissionSchema,
-    mailSwitchSetup: permissionSchema,
+    costCenterSetup: {
+      type: Boolean,
+      default: false
+    },
+    masterDropdownSetup: {
+      type: Boolean,
+      default: false
+    },
+    mailSwitchSetup: {
+      type: Boolean,
+      default: false
+    },
 
     // EXPENSE MANAGEMENT
-    expensePoliciesSetup: permissionSchema,
-    expenseConfigSetup: permissionSchema,
-    expenseCategoriesSetup: permissionSchema,
-    expenseTypesSetup: permissionSchema,
-    expenseRolePermissionSetup: permissionSchema,
+    expensePoliciesSetup: {
+      type: Boolean,
+      default: false
+    },
+    expenseConfigSetup: {
+      type: Boolean,
+      default: false
+    },
+    expenseCategoriesSetup: {
+      type: Boolean,
+      default: false
+    },
+    expenseTypesSetup: {
+      type: Boolean,
+      default: false
+    },
+    expenseRolePermissionSetup: {
+      type: Boolean,
+      default: false
+    },
 
     // ASSET MANAGEMENT
-    assetEquipmentSetup: permissionSchema,
-    assetCategoriesSetup: permissionSchema,
-    assetPermissionsSetup: permissionSchema,
+    assetEquipmentSetup: {
+      type: Boolean,
+      default: false
+    },
+    assetCategoriesSetup: {
+      type: Boolean,
+      default: false
+    },
+    assetPermissionsSetup: {
+      type: Boolean,
+      default: false
+    },
 
     // VENDOR MANAGEMENT
-    vendorRegistrationSetup: permissionSchema,
-    industryTypeSetup: permissionSchema,
+    vendorRegistrationSetup: {
+      type: Boolean,
+      default: false
+    },
+    industryTypeSetup: {
+      type: Boolean,
+      default: false
+    },
+    linkedinSetUp: {
+      type: Boolean,
+      default: false
+    },
+
+    jobPostDashboard: {
+      canViewAll: {
+        type: Boolean,
+        default: false
+      },
+      canViewSelf: {
+        type: Boolean,
+        default: false,
+      },
+      newJobPost: {
+        type: Boolean, default: false
+      },
+      canToggleStatus : {
+        type: Boolean, default: false
+      },
+    },
+
+    jobApplications: {
+      canViewAll: {
+        type: Boolean,
+        default: false
+      },
+      canViewSelf: {
+        type: Boolean,
+        default: false,
+      },
+      canApproveReject: {
+        type: Boolean, default: false
+      },
+    },
   },
   {
     timestamps: true,

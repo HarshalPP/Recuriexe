@@ -193,6 +193,20 @@ export const getAllOrganizations = async (req, res) => {
         }
       },
 
+      {
+        $lookup:{
+          from: "plans",
+          localField: "PlanId",
+          foreignField: "_id",
+          as: "PlanDetail"
+        }
+      },{
+        $unwind: {
+          path: "$PlanDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
       // {
       //   $lookup: {
       //     from: "subdropdowns",
@@ -495,6 +509,7 @@ export const getAllOrganizations = async (req, res) => {
       // Remove unwanted fields
       {
         $project: {
+          plandetail: 0,
           employees: 0,
           userInfo: 0,
           typeOfOrganizationDetail: 0,
@@ -582,6 +597,23 @@ export const getCurrencyList = async (req, res) => {
     const currencyList = await currencyModel.find(matchStatus);
 
     return success(res, "Currency list", currencyList);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
+
+
+
+export const checkOrganizationValid = async (req, res) => {
+  try {
+    const { organizationId } = req.params;
+
+    const orgExists = await OrganizationModel.exists({ _id: organizationId });
+
+
+    return success(res, "Organization validation result", {
+      valid: !!orgExists,
+    });
   } catch (error) {
     return unknownError(res, error);
   }

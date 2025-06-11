@@ -13,7 +13,8 @@ import {
   getDepartmentCandidantSide,
   getDepartmentListForCandidate,
   getDepartmentDropDown,
-  toggleSubDepartmentStatus
+  toggleSubDepartmentStatus,
+  deleteDepartment
 } from "../../controllers/departmentController/department.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 const departmentRouter = express.Router();
@@ -32,6 +33,7 @@ departmentRouter.get("/Activedeparment" , getactivelist)
 departmentRouter.post("/deparmentGemini" , verifyEmployeeToken ,  DeparmentGemini)
 departmentRouter.post("/addDepartmentsBulk" , verifyEmployeeToken , addDepartmentsBulk)
 departmentRouter.post("/toggleSubDepartmentStatus", verifyEmployeeToken, toggleSubDepartmentStatus);
+departmentRouter.post("/deleteDepartment", verifyEmployeeToken, deleteDepartment);
 
 // candidate protal
 departmentRouter.get("/department-candidate", getDepartmentCandidantSide);

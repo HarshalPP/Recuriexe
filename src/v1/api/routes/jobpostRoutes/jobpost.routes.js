@@ -4,7 +4,8 @@ const router = express.Router();
 import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken , getPostManDashBoard ,
      jobPostAddDirect  ,
       getDashboardAnalytics,
-      assignJobPostIdsToOldPosts
+      assignJobPostIdsToOldPosts,
+      getAllJobPostBypermission
      } from "../../controllers/jobpostController/jobpost.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
@@ -12,7 +13,8 @@ import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 router.post("/jobPostAdd" ,  verifyEmployeeToken , jobPostAdd)
 router.post("/jobPostAddDirect" , verifyEmployeeToken , jobPostAddDirect)
 // router.post("/jobPostAddDirect " , getAllJobPostwithoutToken)
-router.get("/getAllJobPost"  , getAllJobPost)
+router.get("/getAllJobPost"   , getAllJobPost)
+router.get("/getAllJobPostBypermission"  ,verifyEmployeeToken ,  getAllJobPostBypermission)
 router.post("/updatePost/:id" , verifyEmployeeToken , updateJobPost)
 router.get("/manDashboard" ,verifyEmployeeToken , getPostManDashBoard)
 router.get("/getDashboardAnalytics",verifyEmployeeToken , getDashboardAnalytics)

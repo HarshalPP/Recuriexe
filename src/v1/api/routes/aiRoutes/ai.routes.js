@@ -10,7 +10,7 @@ router.get("/getAll" , getAllAIConfigs)
 router.post("/ai-config/:id", updateAIConfig);
 router.post("/ai-deleteconfig/:organizationId", deleteAIConfig);
 router.post("/screen-applicant", screenApplicantAPI);
-router.post("/screen-candidate", screenCandidateAIProfile);
+router.post("/screen-candidate",verifyEmployeeToken,  screenCandidateAIProfile);
 
 
 // AI Screening Routes

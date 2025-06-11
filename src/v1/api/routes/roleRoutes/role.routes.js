@@ -10,6 +10,7 @@ import {
   getCollectionRoleEmploye,
   getRoleDropDown,
   roleDetail,
+  roleAssignToEmployee,
 } from "../../controllers/RoleController/role.controller.js"
 
 
@@ -34,5 +35,6 @@ router.post("/activeOrInactive",verifyEmployeeToken, roleActiveOrInactive);
 router.get("/getAllRoleByType", getAllRoleByType);
 router.get("/detail", verifyEmployeeToken , roleDetail)
 router.get("/collectionRoleEmploye", getCollectionRoleEmploye);
+router.post("/roleAssignToEmployee", verifyEmployeeToken, roleAssignToEmployee);
 
 export default router;

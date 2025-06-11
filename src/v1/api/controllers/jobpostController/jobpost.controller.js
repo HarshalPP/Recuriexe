@@ -13,7 +13,7 @@ import jobPostingsetting from "../../models/settingModel/jobPostsetting.model.js
 import mongoose from "mongoose"
 const ObjectId = mongoose.Types.ObjectId;
 import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
-
+import PlanModel from "../../models/PlanModel/Plan.model.js"
 
 // Helper function to convert package string to budget amount
 const convertPackageToBudget = (packageString) => {
@@ -39,6 +39,8 @@ export const jobPostAdd = async (req, res) => {
     }
 
     const vacancy = await vacancyRequestModel.findById(vacancyId);
+
+
 
 
     const finddesingnation = await designationModel.findById(vacancy.designationId)
@@ -168,6 +170,23 @@ export const jobPostAddDirect = async (req, res) => {
         return badRequest(res, `${field} is required`);
       }
     }
+
+   const NewOrg=req.employee.organizationId;
+    // ✅ Check active plan for organization
+    const activePlan = await PlanModel.findOne({ organizationId:NewOrg, isActive: true });
+    if (!activePlan) {
+      return badRequest(res, "No active plan found for this organization");
+    }
+    
+       // ✅ Check number of job posts against plan limit
+    const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg});
+    if (currentJobPostCount >= activePlan.NumberOfJobPosts) {
+      return badRequest(
+        res,
+        `Job post limit reached. Allowed: ${activePlan.NumberOfJobPosts}, Current: ${currentJobPostCount}. Please upgrade your plan.`
+      );
+    }
+
 
     // Fetch designation name if not passed explicitly as position
     const findDesignation = await designationModel.findById(req.body.designationId);
@@ -567,6 +586,10 @@ export const getAllJobPost = async (req, res) => {
       matchStage.position = { $regex: jobTitle, $options: "i" };
     }
 
+    if (status) {
+      matchStage.status = status;
+    }
+
 
     if(JobType){
       matchStage.JobType = { $regex: JobType, $options: "i" };
@@ -853,6 +876,337 @@ export const getAllJobPost = async (req, res) => {
 
 
 
+
+export const getAllJobPostBypermission = async (req, res) => {
+  try {
+
+    const {
+      jobTitle,
+      departmentId,
+      branchIds,
+      employmentTypeId,
+      experienceFrom,
+      experienceTo,
+      status,
+      jobPostExpired,
+      JobType,
+      showAllDashbBoardData,
+       page = 1,
+      limit = 50
+    } = req.query;
+
+    const matchStage = {};
+
+    const createdByHrId = req.employee.id
+    const organizationId = req.employee.organizationId
+    if (!jobPostExpired || jobPostExpired === "false") {
+      matchStage.jobPostExpired = false
+    } else if (jobPostExpired === "true") {
+      matchStage.jobPostExpired = true
+    }
+    // Job Title - partial match, tolerant of spacing
+    if (jobTitle) {
+      matchStage.position = { $regex: jobTitle, $options: "i" };
+    }
+
+
+    if(JobType){
+      matchStage.JobType = { $regex: JobType, $options: "i" };
+    }
+
+    if (departmentId) {
+      matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
+    }
+
+        if (organizationId) {
+      matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
+    }
+
+    
+    if (departmentId) {
+      matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
+    }
+
+    if (showAllDashbBoardData !== "all") {
+  matchStage.createdByHrId = new ObjectId(createdByHrId);
+}
+
+console.log('matchStage',matchStage)
+    let branchObjectIds = [];
+    if (branchIds) {
+      branchObjectIds = branchIds
+        .split(",")
+        .map(id => id.trim())
+        .filter(id => mongoose.Types.ObjectId.isValid(id))
+        .map(id => new mongoose.Types.ObjectId(id));
+    }
+
+
+    if (branchObjectIds.length > 0) {
+      matchStage.branchId = { $in: branchObjectIds };
+    }
+
+    // console.log("matchStage.branch.$elemMatch._id:", JSON.stringify(matchStage.branch.$elemMatch._id));
+
+
+
+    if (employmentTypeId) {
+      matchStage.employmentTypeId = new mongoose.Types.ObjectId(employmentTypeId);
+    }
+
+
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageLimit = parseInt(limit);
+
+
+
+    const jobPostList = await jobPostModel.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "department",
+        },
+      },
+      {
+        $unwind: { path: "$department", preserveNullAndEmptyArrays: true },
+      },
+
+      {
+        $lookup: {
+          from: "newdepartments",
+          let: { subDeptId: "$subDepartmentId" },
+          pipeline: [
+            { $unwind: "$subDepartments" },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$subDepartments._id", "$$subDeptId"]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: "$subDepartments._id",
+                name: "$subDepartments.name"
+              }
+            }
+          ],
+          as: "subDepartment"
+        }
+      },
+      { $unwind: { path: "$subDepartment", preserveNullAndEmptyArrays: true } },
+
+
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "designationId",
+          foreignField: "_id",
+          as: "desingnation",
+        },
+      },
+
+
+      {
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branch",
+        },
+      },
+      {
+        $lookup: {
+          from: "employmenttypes",
+          localField: "employmentTypeId",
+          foreignField: "_id",
+          as: "employmentType",
+        },
+      },
+      {
+        $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true },
+      },
+      {
+        $lookup: {
+          from: "newworklocations",
+          localField: "Worklocation",
+          foreignField: "_id",
+          as: "Worklocation",
+        }
+      },
+
+      {
+        $lookup: {
+          from: "employeetypes",
+          localField: "employeeTypeId",
+          foreignField: "_id",
+          as: "employeeType",
+        },
+      },
+      { $unwind: { path: "$employeeType", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "createdByHrId",
+          foreignField: "_id",
+          as: "createdByHr",
+        },
+      },
+      {
+        $unwind: { path: "$createdByHr", preserveNullAndEmptyArrays: true },
+      },
+      {
+        $lookup: {
+          from: "vacancyrequests",
+          localField: "_id",
+          foreignField: "jobPostId",
+          as: "jobId",
+        },
+      },
+      {
+        $unwind: { path: "$jobId", preserveNullAndEmptyArrays: true },
+      },
+
+      // Lookup for vacancyRequest by vacancyRequestId
+      {
+        $lookup: {
+          from: "vacancyrequests",
+          localField: "vacancyRequestId",
+          foreignField: "_id",
+          as: "vacancyRequest",
+        },
+      },
+      {
+        $unwind: { path: "$vacancyRequest", preserveNullAndEmptyArrays: true },
+      },
+
+
+      {
+        $lookup: {
+          from: "qualifications",
+          localField: "qualificationId",
+          foreignField: "_id",
+          as: "qualification",
+        },
+      },
+      // Lookup jobDescription inside vacancyRequest
+      {
+        $lookup: {
+          from: "jobdescriptions",
+          localField: "vacancyRequest.jobDescriptionId",
+          foreignField: "_id",
+          as: "vacancyJobDescription",
+        },
+      },
+      {
+        $unwind: {
+          path: "$vacancyJobDescription",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "jobdescriptions",
+          localField: "jobDescriptionId",
+          foreignField: "_id",
+          as: "jobDescription",
+        },
+      },
+      {
+        $unwind: {
+          path: "$jobDescription",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "organizations",
+          localField: "organizationId",
+          foreignField: "_id",
+          as: "organization",
+        },
+      },
+      {
+        $unwind: { path: "$organization", preserveNullAndEmptyArrays: true },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $project: {
+          _id: 1,
+          jobPostId:1,
+          JobType: 1,
+          position: 1,
+          // eligibility: 1,
+          experience: 1,
+          numberOfApplicant: 1,
+          expiredDate:1,
+          totalApplicants: 1,
+          noOfPosition: 1,
+          Worklocation: 1,
+          InterviewType: 1,
+          package: 1,
+          budget: 1,
+          budgetType: 1,
+          status: 1,
+          AgeLimit: 1,
+          gender: 1,
+          jobDescription: { _id: 1, jobDescription: 1 },
+          createdByHr: { _id: 1, employeName: 1 },
+          department: { _id: 1, name: 1 },
+          subDepartment: { _id: 1, name: 1 },
+          desingnation: { _id: 1, name: 1 },
+          organization: { _id: 1, name: 1 },
+          branch: { _id: 1, name: 1, address: 1 },
+          Worklocation: { _id: 1, name: 1 },
+          employmentType: { _id: 1, title: 1 },
+          qualification: 1,
+          employeeType: { _id: 1, title: 1 },
+          jobId: { _id: 1, company: 1 },
+          vacancyRequest: {
+            _id: 1,
+            vacancyType: 1,
+            vacancyApproval: 1,
+          },
+          vacancyJobDescription: {
+            _id: 1,
+            position: 1,
+            jobDescription: 1,
+          },
+          AI_Percentage: 1,
+          MaxAI_Score: 1,
+          MinAI_Score: 1,
+          AI_Screening: 1,
+          createdAt: 1,
+        },
+      },
+
+        {
+        $facet: {
+          data: [{ $skip: skip }, { $limit: pageLimit }],
+          totalCount: [{ $count: "count" }]
+        }
+      }
+    ]);
+
+    const data = jobPostList[0]?.data || [];
+    const totalCount = jobPostList[0]?.totalCount[0]?.count || 0;
+
+     success(res, "All job post List", {
+      data,
+      totalCount,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalCount / pageLimit)
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    unknownError(res, error);
+  }
+};
+
 export const updateJobPost = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1029,12 +1383,25 @@ export const getAllJobPostwithoutToken = async (req, res) => {
 
 export const getPostManDashBoard = async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), period = 7 } = req.query;
+    const { year = new Date().getFullYear(), period = 7 , showAllDashbBoardData } = req.query;
 
     const organizationId = req.employee.organizationId
+    const createdByHrId = req.employee.id
     if(!organizationId){
       return badRequest(res , "invalid token organizationId not found")
     }
+
+    
+const commonMatchFilter = {
+  organizationId: new ObjectId(organizationId),
+};
+
+
+if (showAllDashbBoardData !== "all") {
+  commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
+}
+
+// console.log('commonMatchFilter',commonMatchFilter)
     const periodInDays = parseInt(period);
     if (isNaN(periodInDays) || periodInDays <= 0) {
       return badRequest(res, "Invalid period value. Must be a positive number.");
@@ -1050,19 +1417,28 @@ export const getPostManDashBoard = async (req, res) => {
     const previousStartDate = new Date(previousEndDate);
     previousStartDate.setDate(previousStartDate.getDate() - periodInDays);
 
-    // 1. Total Active Jobs (Live Positions)
-    const totalActiveJobs = await jobPostModel.countDocuments({
-      status: "active",
-      organizationId : new ObjectId(organizationId),
+    const totalJobs = await jobPostModel.countDocuments({
+       ...commonMatchFilter,
+      // organizationId : new ObjectId(organizationId),
       // jobPostExpired: false
     });
+
+// dont remove this line after total count check active jobs    
+  commonMatchFilter.status = 'active'
+    // 1. Total Active Jobs (Live Positions)
+    const totalActiveJobs = await jobPostModel.countDocuments({
+       ...commonMatchFilter,
+      // organizationId : new ObjectId(organizationId),
+      // jobPostExpired: false
+    });
+
 
     // 2. Total Open Positions (Vacancies - sum of all noOfPosition)
     const totalOpenPositionsResult = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+          // organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
           jobPostExpired: false
         }
       },
@@ -1078,16 +1454,16 @@ export const getPostManDashBoard = async (req, res) => {
 
     // 3. New Jobs in Current Period (7 Days)
     const newJobsCurrentPeriod = await jobPostModel.countDocuments({
-      status: "active",
-      organizationId : new ObjectId(organizationId),
       jobPostExpired: false,
+       ...commonMatchFilter,
+      // organizationId : new ObjectId(organizationId),
       createdAt: { $gte: startDate, $lte: endDate }
     });
 
     // 4. New Jobs in Previous Period for percentage calculation
     const newJobsPreviousPeriod = await jobPostModel.countDocuments({
-      status: "active",
-      organizationId : new ObjectId(organizationId),
+       ...commonMatchFilter,
+      // organizationId : new ObjectId(organizationId),
       jobPostExpired: false,
       createdAt: { $gte: previousStartDate, $lte: previousEndDate }
     });
@@ -1095,7 +1471,8 @@ export const getPostManDashBoard = async (req, res) => {
     // 5. Expired Jobs in Current Period (Closed)
     const expiredJobsCurrentPeriod = await jobPostModel.countDocuments({
       jobPostExpired: true,
-      organizationId : new ObjectId(organizationId),
+       ...commonMatchFilter,
+      // organizationId : new ObjectId(organizationId),
       expiredDate: { $gte: startDate, $lte: endDate }
     });
 
@@ -1103,8 +1480,8 @@ export const getPostManDashBoard = async (req, res) => {
     const avgTimeOpenResult = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // organizationId : new ObjectId(organizationId),
           // jobPostExpired: false
         }
       },
@@ -1132,8 +1509,9 @@ export const getPostManDashBoard = async (req, res) => {
     nearingExpiryDate.setDate(nearingExpiryDate.getDate() + 7);
 
     const nearingExpiringJobs = await jobPostModel.countDocuments({
-      status: "active",
-      organizationId : new ObjectId(organizationId),
+      // status: "active",
+      // organizationId : new ObjectId(organizationId),
+       ...commonMatchFilter,
       jobPostExpired: false,
       expiredDate: {
         $gte: endDate,
@@ -1148,8 +1526,9 @@ export const getPostManDashBoard = async (req, res) => {
     const activeDepartmentsResult = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // status: "active",
+          // organizationId : new ObjectId(organizationId),
           jobPostExpired: false
         }
       },
@@ -1168,8 +1547,9 @@ export const getPostManDashBoard = async (req, res) => {
     const departmentBreakdown = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // status: "active",
+          // organizationId : new ObjectId(organizationId),
           // jobPostExpired: false
         }
       },
@@ -1204,8 +1584,9 @@ export const getPostManDashBoard = async (req, res) => {
     const hotVacancies = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // status: "active",
+          // organizationId : new ObjectId(organizationId),
           jobPostExpired: false
         }
       },
@@ -1258,8 +1639,9 @@ export const getPostManDashBoard = async (req, res) => {
     const coldVacancies = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // status: "active",
+          // organizationId : new ObjectId(organizationId),
           jobPostExpired: false
         }
       },
@@ -1322,8 +1704,9 @@ export const getPostManDashBoard = async (req, res) => {
     const employmentTypeDistribution = await jobPostModel.aggregate([
       {
         $match: {
-          status: "active",
-          organizationId : new ObjectId(organizationId),
+           ...commonMatchFilter,
+          // status: "active",
+          // organizationId : new ObjectId(organizationId),
           jobPostExpired: false
         }
       },
@@ -1356,6 +1739,10 @@ export const getPostManDashBoard = async (req, res) => {
       totalActiveJobs: {
         count: totalActiveJobs,
         label: "total Active Jobs"
+      },
+      totalJobs: {
+        count: totalJobs,
+        label: "total Jobs"
       },
       totalOpenPositions: {
         count: totalOpenPositions,
@@ -1456,12 +1843,22 @@ export const getPostManDashBoard = async (req, res) => {
 
 export const getDashboardAnalytics = async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), period = 7 } = req.query;
+    const { year = new Date().getFullYear(), period = 7 ,showAllDashbBoardData } = req.query;
+    const createdByHrId = req.employee.id
 
     const organizationId = req.employee.organizationId
     if(!organizationId){
       return badRequest(res , "invalid token organizationId not found")
     }
+
+    const commonMatchFilter = {
+  organizationId: new ObjectId(organizationId),
+        status: "active",
+};
+
+if (showAllDashbBoardData !== "all") {
+  commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
+}
 
     const periodInDays = parseInt(period);
     if (isNaN(periodInDays) || periodInDays <= 0) {
@@ -1491,8 +1888,10 @@ export const getDashboardAnalytics = async (req, res) => {
       jobPostModel.aggregate([
         {
           $match: {
-            status: "active",
-            organizationId : new ObjectId(organizationId),
+            ...commonMatchFilter,
+            // status: "active",
+            // organizationId : new ObjectId(organizationId),
+
             // jobPostExpired: false
           }
         },
@@ -1509,8 +1908,9 @@ export const getDashboardAnalytics = async (req, res) => {
       jobPostModel.aggregate([
         {
           $match: {
-            status: "active",
-            organizationId : new ObjectId(organizationId),
+                        ...commonMatchFilter,
+            // status: "active",
+            // organizationId : new ObjectId(organizationId),
             jobPostExpired: false
           }
         },
@@ -1528,8 +1928,9 @@ export const getDashboardAnalytics = async (req, res) => {
       jobPostModel.aggregate([
         {
           $match: {
-            status: "active",
-            organizationId : new ObjectId(organizationId),
+                        ...commonMatchFilter,
+            // status: "active",
+            // organizationId : new ObjectId(organizationId),
             jobPostExpired: false,
             createdAt: {
               $gte: new Date(year, 0, 1),
@@ -1589,8 +1990,9 @@ export const getDashboardAnalytics = async (req, res) => {
       jobPostModel.aggregate([
         {
           $match: {
-            status: "active",
-            organizationId : new ObjectId(organizationId),
+                        ...commonMatchFilter,
+            // status: "active",
+            // organizationId : new ObjectId(organizationId),
             jobPostExpired: false,
             createdAt: { $gte: startDate, $lte: endDate }
           }
@@ -1639,9 +2041,10 @@ export const getDashboardAnalytics = async (req, res) => {
       jobPostModel.aggregate([
         {
           $match: {
-            status: "active",
+                        ...commonMatchFilter,
+            // status: "active",
             jobPostExpired: false,
-            organizationId : new ObjectId(organizationId),
+            // organizationId : new ObjectId(organizationId),
             createdAt: { $gte: startDate, $lte: endDate }
           }
         },
@@ -1703,22 +2106,79 @@ export const getDashboardAnalytics = async (req, res) => {
     ]);
 
 
-    const [jobApplys, shortlistedApplyStats] = await Promise.all([
-      jobApply.find({
-        organizationId : new ObjectId(organizationId),
-        createdAt: { $gte: startDate, $lte: endDate }
-      }).select("_id"),
 
-      jobApply.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: startDate, $lte: endDate },
-            organizationId : new ObjectId(organizationId),
-            resumeShortlisted: "shortlisted"
-          }
-        },
-      ])
-    ]);
+    // const [jobApplys, shortlistedApplyStats] = await Promise.all([
+    //   jobApply.find({
+    //     // organizationId : new ObjectId(organizationId),
+    //     createdAt: { $gte: startDate, $lte: endDate }
+    //   }).select("_id"),
+
+    //   jobApply.aggregate([
+    //     {
+    //       $match: {
+    //         createdAt: { $gte: startDate, $lte: endDate },
+    //         // organizationId : new ObjectId(organizationId),
+    //         resumeShortlisted: "shortlisted"
+    //       }
+    //     },
+    //   ])
+    // ]);
+
+    const [jobApplys, shortlistedApplyStats] = await Promise.all([
+  // All job applies matching the createdByHrId in jobPost
+  jobApply.aggregate([
+    {
+      $match: {
+        // organizationId: new ObjectId(organizationId),
+        createdAt: { $gte: startDate, $lte: endDate }
+      }
+    },
+    {
+      $lookup: {
+        from: "jobposts", // collection name (ensure it's correct)
+        localField: "jobPostId",
+        foreignField: "_id",
+        as: "jobPost"
+      }
+    },
+    { $unwind: "$jobPost" },
+    {
+      $match: showAllDashbBoardData === "all"
+        ? {}
+        : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
+    },
+    {
+      $project: {
+        _id: 1
+      }
+    }
+  ]),
+
+  // Only shortlisted applications created by specific employee
+  jobApply.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: startDate, $lte: endDate },
+        // organizationId: new ObjectId(organizationId),
+        resumeShortlisted: "shortlisted"
+      }
+    },
+    {
+      $lookup: {
+        from: "jobposts",
+        localField: "jobPostId",
+        foreignField: "_id",
+        as: "jobPost"
+      }
+    },
+    { $unwind: "$jobPost" },
+    {
+      $match: showAllDashbBoardData === "all"
+        ? {}
+        : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
+    }
+  ])
+]);
 
     // Process results
     const numberOfApplicant = totalApplicants[0]?.numberOfApplicant || 0;

@@ -73,6 +73,7 @@ export const verifyEmployeeToken = (req, res, next) => {
       req.employee = {
         id: decoded.Id,
         roleName: decoded.roleName,
+        roleId:decoded.roleId,
         organizationId: decoded.organizationId
       };
   

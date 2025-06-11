@@ -23,6 +23,10 @@ import ScreeningResultModel from "../../models/screeningResultModel/screeningRes
 import portalsetUpModel  from "../../models/PortalSetUp/portalsetup.js"
 import organizationModel from "../../models/organizationModel/organization.model.js"
 import dayjs from 'dayjs';
+import {processAIScreeningForCandidate} from  "../../controllers/AIController/aiConfig.controller.js"
+import AIRule from "../../models/AiScreeing/AIRule.model.js";
+import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js";
+import targetCompanyModel from "../../models/companyModel/targetCompany.model.js"
 
 // Run at 11:59 PM every day
 cron.schedule("59 23 * * *", async () => {
@@ -202,7 +206,7 @@ cron.schedule("59 23 * * *", async () => {
 // }
 
 
-export const jobApplyFormAdd = async (req, res) => {
+export const jobApplyFormAdd = async (req, res) => {  
   try {
 
     const { emailId, jobPostId, resume ,name, } = req.body;
@@ -244,7 +248,7 @@ if (portalsetUpDetail) {
   // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
   const recentApplications = await jobApply.find({
     emailId,
-    jobPostId: jobPostId,
+    // jobPostId: jobPostId,
     createdAt: { $gte: minDate }
   }).sort({ createdAt: -1 });
 
@@ -325,6 +329,19 @@ if (portalsetUpDetail) {
     ) {
       await sendThankuEmail(emailId, name.toUpperCase() , jobPost?.position , organizationFind?.name?.toUpperCase());
     }
+
+
+    const AIRuleData = await AIRule.findOne({ AutomaticScreening: true });
+     if(AIRule){
+      await processAIScreeningForCandidate({
+        jobPostId: jobPostId,
+        resume: resume,
+        candidateId: jobApplyForm._id,
+        organizationId: jobPost.organizationId,
+      });
+
+    }
+
   } catch (error) {
     console.error("Error in :", error);
     unknownError(res, error);
@@ -341,12 +358,88 @@ export const getAllJobApplied = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10; // default 10 items per page
     const skip = (page - 1) * limit;
 
+
+      // Extract search and filter parameters
+    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result , resumeShortlisted , departmentId} = req.query;
+
+        // Build match conditions
+    let matchConditions = {
+      status: { $in: ["active"] },
+      jobFormType: "request",
+    };
+
+
+     // Add date range filter
+    if (startDate || endDate) {
+      matchConditions.createdAt = {};
+      if (startDate) {
+        matchConditions.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Add 23:59:59 to include the entire end date
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        matchConditions.createdAt.$lte = endDateTime;
+      }
+    }
+
+
+       // Add search conditions
+    const searchConditions = [];
+    
+    if (search) {
+      // General search across multiple fields
+      searchConditions.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { emailId: { $regex: search, $options: "i" } },
+          { mobileNumber: { $regex: search, $options: "i" } },
+          { position: { $regex: search, $options: "i" } },
+          { candidateUniqueId: { $regex: search, $options: "i" } }
+        ]
+      });
+    }
+
+    // Specific field searches
+    if (position) {
+      searchConditions.push({
+        position: { $regex: position, $options: "i" }
+      });
+    }
+
+    if (emailId) {
+      searchConditions.push({
+        emailId: { $regex: emailId, $options: "i" }
+      });
+    }
+
+    if (mobileNumber) {
+      searchConditions.push({
+        mobileNumber: { $regex: mobileNumber, $options: "i" }
+      });
+    }
+
+    // Combine all search conditions
+    if (searchConditions.length > 0) {
+      matchConditions.$and = searchConditions;
+    }
+
+    if (AI_Screeing_Result) {
+      matchConditions.AI_Screeing_Result = AI_Screeing_Result;
+    }
+
+    if (resumeShortlisted) {
+      matchConditions.resumeShortlisted = resumeShortlisted;
+    }
+
+    if (departmentId) {
+      matchConditions.departmentId = new ObjectId(departmentId);
+    }
+
+
     const jobAppliedDetails = await jobApply.aggregate([
       {
-        $match: {
-          status: { $in: ["active"] },
-          jobFormType: "request",
-        },
+        $match: matchConditions,
       },
       {
         $sort: { createdAt: -1 },
@@ -583,42 +676,6 @@ export const getAllJobApplied = async (req, res) => {
           JobType:1,
           currentCTC:1,
           expectedCTC:1,
-          // highestQualification: 1,
-          // university: 1,
-          // graduationYear: 1,
-          // cgpa: 1,
-          // address: 1,
-          // state: 1,
-          // city: 1,
-          // pincode: 1,
-          // skills: 1,
-          // salarySlip: 1,
-          // finCooperOfferLetter: 1,
-          // pathofferLetterFinCooper: 1,
-          // preferedInterviewMode: 1,
-          // knewaboutJobPostFrom: 1,
-          // currentDesignation: 1,
-          // startDate: 1,
-          // endDate: 1,
-          // reasonLeaving: 1,
-          // totalExperience: 1,
-          // currentCTC: 1,
-          // preferredLocation: 1,
-          // currentLocation: 1,
-          // gapIfAny: 1,
-          // interviewSchedule: 1,
-          // status: 1,
-          // feedbackByHr: 1,
-          // branches: 1,
-          // manager: 1,
-          // interviewDetails: 1,
-          // hrFeedbackinterviewers: 1,
-          // hrInterviewerDetails: 1,
-
-          candidateStatus: 1,
-          // AI_Result: 1,
-          // jobPostDetail:1,
-          // candidateDetails: 1,
           isEligible: 1,
           summary: 1,
           matchPercentage: 1,
@@ -668,16 +725,236 @@ export const getAllJobApplied = async (req, res) => {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));  // Sort jobs by `createdAt` in descending order
 
     const totalCount = await jobApply.countDocuments({ status: "active", jobFormType: "request" });
+    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted" });
+    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted" });
 
 
     return success(res, "All job Applied Form details", {
       data: allJobs,
       page,
       limit,
-      totalCount
+      totalCount,
+      totalShortlisted,
+      totalRejected
     });
   } catch (error) {
     console.error("Error in getAllJobApplied:", error.message);
+    return UnknownError(res, error);
+  }
+};
+
+// geT Application by ID //
+export const getJobAppliedById = async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return badRequest(res, "Invalid Job Application ID");
+    }
+
+    const jobApplication = await jobApply.aggregate([
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(id),
+          status: "active",
+          jobFormType: "request",
+        },
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "department",
+        },
+      },
+      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "branches",
+        },
+      },
+      { $unwind: { path: "$branches", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "managerID",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, employeName: 1 } }],
+          as: "manager",
+        },
+      },
+      { $unwind: { path: "$manager", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "feedbackinterviewers",
+          localField: "_id",
+          foreignField: "jobApplyFormId",
+          as: "hrFeedbackinterviewers",
+        },
+      },
+      { $unwind: { path: "$hrFeedbackinterviewers", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "hrFeedbackinterviewers.interviewerId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, employeName: 1 } }],
+          as: "hrInterviewerDetails",
+        },
+      },
+      { $unwind: { path: "$hrInterviewerDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "interviewdetails",
+          let: { interviewIds: "$InterviewDetailsIds" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$interviewIds"] },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            {
+              $lookup: {
+                from: "employees",
+                localField: "interviewerId",
+                foreignField: "_id",
+                pipeline: [{ $project: { _id: 1, employeName: 1, email: 1 } }],
+                as: "HrinterviewName",
+              },
+            },
+            { $unwind: { path: "$HrinterviewName", preserveNullAndEmptyArrays: true } },
+            {
+              $lookup: {
+                from: "employees",
+                localField: "managerId",
+                foreignField: "_id",
+                pipeline: [{ $project: { _id: 1, employeName: 1, email: 1 } }],
+                as: "ManagerinterviewName",
+              },
+            },
+            { $unwind: { path: "$ManagerinterviewName", preserveNullAndEmptyArrays: true } },
+          ],
+          as: "interviewDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "candidateId",
+          foreignField: "_id",
+          as: "candidateDetails",
+        },
+      },
+      { $unwind: { path: "$candidateDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "jobposts",
+          localField: "jobPostId",
+          foreignField: "_id",
+          as: "jobPostDetail",
+        },
+      },
+      { $unwind: { path: "$jobPostDetail", preserveNullAndEmptyArrays: true } },
+
+
+      {
+        $lookup: {
+          from: "jobdescriptions",
+          localField: "jobPostDetail.jobDescriptionId",
+          foreignField: "_id",
+          as: "jobDescriptionDetail",
+        },
+      },
+      { $unwind: { path: "$jobDescriptionDetail", preserveNullAndEmptyArrays: true }
+      },
+
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "jobPostDetail.designationId",
+          foreignField: "_id",
+          as: "designationDetail",
+        },
+      },
+      { $unwind: { path: "$designationDetail", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "jobPostDetail.subDepartmentId",
+          foreignField: "subDepartments._id",
+          as: "subDepartmentDetail",
+        },
+      },
+      { $unwind: { path: "$subDepartmentDetail", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          subDepartment: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$subDepartmentDetail.subDepartments",
+                  as: "sub",
+                  cond: {
+                    $eq: ["$$sub._id", "$jobPostDetail.subDepartmentId"],
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          candidateUniqueId: 1,
+          name: 1,
+          mobileNumber: 1,
+          emailId: 1,
+          resume: 1,
+          AI_Screeing_Result: 1,
+          AI_Screeing_Status: 1,
+          AI_Score: 1,
+          AI_Confidence: 1,
+          jobPostId: 1,
+          jobDescriptionDetail: 1,
+          resumeShortlisted: 1,
+          Remark: 1,
+          JobType: 1,
+          currentCTC: 1,
+          expectedCTC: 1,
+          isEligible: 1,
+          summary: 1,
+          matchPercentage: 1,
+          lastOrganization: 1,
+          position: 1,
+          createdAt: 1,
+          department: 1,
+          designationDetail: {
+            _id: 1,
+            name: 1,
+          },
+          subDepartment: {
+            _id: 1,
+            name: 1,
+          },
+        },
+      },
+    ]);
+
+    if (!jobApplication || jobApplication.length === 0) {
+      return success(res, "Job application not found", null);
+    }
+
+    return success(res, "Job application details fetched successfully", jobApplication[0]);
+  } catch (error) {
+    console.error("Error in getJobAppliedById:", error.message);
     return UnknownError(res, error);
   }
 };
@@ -2364,13 +2641,238 @@ const mapStatusToFriendlyName = (status) => {
 // get candidate data //
 
 
+// export const AnalizedCandidate = async (req, res) => {
+//   try {
+
+//     const {position , name , mobileNumber , emailId , departmentId , search} = req.query;
+//    // Initialize filter object properly
+//     let filter = {};
+    
+//     if (position) {
+//       filter.position = { $regex: position, $options: 'i' };
+//     }
+
+//         if (search) {
+//       filter.$or = [
+//         { name: { $regex: search, $options: 'i' } },
+//         { mobileNumber: { $regex: search, $options: 'i' } },
+//         { emailId: { $regex: search, $options: 'i' } },
+//         { position: { $regex: search, $options: 'i' } }
+//       ];
+//     } else {
+//       if (name) {
+//         filter.name = { $regex: name, $options: 'i' };
+//       }
+      
+//       if (mobileNumber) {
+//         filter.mobileNumber = { $regex: mobileNumber, $options: 'i' };
+//       }
+      
+//       if (emailId) {
+//         filter.emailId = { $regex: emailId, $options: 'i' };
+//       }
+//       if (position) {
+//         filter.position = { $regex: position, $options: 'i' };
+//       }
+//     }
+//     if (departmentId) {
+//       filter.departmentId = new ObjectId(departmentId);
+//     }
+
+//     const candidates = await jobApply.aggregate([
+//       {
+//         $match: {
+//           AI_Screeing_Status: "Completed",
+//           AI_Screeing_Result: { $in: ["Rejected", "Approved"] },
+//           ...filter // Apply the dynamic filter
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: "jobposts", // Your job collection
+//           localField: "jobPostId",
+//           foreignField: "_id",
+//           as: "job"
+//         }
+//       },
+//       { $unwind: "$job" },
+//       {
+//         $group: {
+//           _id: "$job._id",
+//           position: { $first: "$job.position" },
+//           applicationsCount: { $sum: 1 },
+//           averageScore: { $avg: "$AI_Score" },
+//           departmentId: { $first: "$departmentId" },
+//           candidates: {
+//             $push: {
+//               _id: "$_id",
+//               name: "$name",
+//               email: "$emailId",
+//               AI_Score: "$AI_Score",
+//               AI_Confidence: "$AI_Confidence",
+//               appliedDate: "$createdAt",
+//               confidence: "$AI_Confidence",
+//               resume:"$resume"
+//             }
+//           }
+//         }
+//       },
+//       {
+//         $addFields: {
+//           averageScore: { $round: ["$averageScore", 2] }
+//         }
+//       },
+//       { $sort: { position: 1 } }
+//     ]);
+
+//     // Flatten all candidates across positions
+//     const allCandidates = candidates.flatMap(job => job.candidates || []);
+
+//     const totalCandidates = allCandidates.length;
+//     const highScorers = allCandidates.filter(c => c.AI_Score >= 90).length;
+//     const avgAIScore =
+//       totalCandidates > 0
+//         ? Math.round(
+//             allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) / totalCandidates
+//           )
+//         : 0;
+
+//     return success(res, {
+//       candidates,
+//       summary: {
+//         totalCandidates,
+//         highScorers,
+//         avgAIScore
+//       }
+//     });
+//   } catch (error) {
+//     console.error("Error in AnalizedCandidate:", error);
+//     return unknownError(res, error);
+//   }
+// };
+
+
 export const AnalizedCandidate = async (req, res) => {
   try {
+    const { position, name, mobileNumber, emailId, departmentId, search } = req.query;
+    const organizationId = req.employee.organizationId;
+    const targetCompany = await targetCompanyModel.findOne({ organizationId }).lean().select('deprioritizedCompanies prioritizedCompanies');
+    console.log('targetCompany', targetCompany);
+
+    // Function to check if organization matches with fuzzy logic
+    const getTargetCompanyStatus = (lastOrganizations) => {
+      if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
+        return "";
+      }
+
+      const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
+      const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
+
+      // Check for prioritized companies match
+      for (const org of lastOrganizations) {
+        if (!org) continue;
+        
+        const orgLower = org.toLowerCase().trim();
+        
+        // Check prioritized companies with fuzzy matching
+        for (const prioritized of prioritizedCompanies) {
+          if (!prioritized) continue;
+          
+          const prioritizedLower = prioritized.toLowerCase().trim();
+          
+          // Fuzzy matching - check if either contains the other or if they share significant common words
+          if (orgLower.includes(prioritizedLower) || 
+              prioritizedLower.includes(orgLower) ||
+              fuzzyMatch(orgLower, prioritizedLower)) {
+            return "prioritized";
+          }
+        }
+      }
+
+      // Check for deprioritized companies match
+      for (const org of lastOrganizations) {
+        if (!org) continue;
+        
+        const orgLower = org.toLowerCase().trim();
+        
+        // Check deprioritized companies with fuzzy matching
+        for (const deprioritized of deprioritizedCompanies) {
+          if (!deprioritized) continue;
+          
+          const deprioritizedLower = deprioritized.toLowerCase().trim();
+          
+          // Fuzzy matching - check if either contains the other or if they share significant common words
+          if (orgLower.includes(deprioritizedLower) || 
+              deprioritizedLower.includes(orgLower) ||
+              fuzzyMatch(orgLower, deprioritizedLower)) {
+            return "deprioritized";
+          }
+        }
+      }
+
+      return "";
+    };
+
+    // Helper function for fuzzy matching based on common words
+    const fuzzyMatch = (str1, str2) => {
+      const words1 = str1.split(/\s+/).filter(word => word.length > 2); // Only consider words longer than 2 chars
+      const words2 = str2.split(/\s+/).filter(word => word.length > 2);
+      
+      let commonWords = 0;
+      for (const word1 of words1) {
+        for (const word2 of words2) {
+          if (word1 === word2 || word1.includes(word2) || word2.includes(word1)) {
+            commonWords++;
+            break;
+          }
+        }
+      }
+      
+      // Consider it a match if at least 50% of words match
+      const minWords = Math.min(words1.length, words2.length);
+      return minWords > 0 && (commonWords / minWords) >= 0.5;
+    };
+
+    // Initialize filter object properly
+    let filter = {};
+
+    if (position) {
+      filter.position = { $regex: position, $options: 'i' };
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { mobileNumber: { $regex: search, $options: 'i' } },
+        { emailId: { $regex: search, $options: 'i' } },
+        { position: { $regex: search, $options: 'i' } }
+      ];
+    } else {
+      if (name) {
+        filter.name = { $regex: name, $options: 'i' };
+      }
+
+      if (mobileNumber) {
+        filter.mobileNumber = { $regex: mobileNumber, $options: 'i' };
+      }
+
+      if (emailId) {
+        filter.emailId = { $regex: emailId, $options: 'i' };
+      }
+      if (position) {
+        filter.position = { $regex: position, $options: 'i' };
+      }
+    }
+    if (departmentId) {
+      filter.departmentId = new ObjectId(departmentId);
+    }
+
     const candidates = await jobApply.aggregate([
       {
         $match: {
           AI_Screeing_Status: "Completed",
-          AI_Screeing_Result: { $in: ["Rejected", "Approved"] }
+          AI_Screeing_Result: { $in: ["Rejected", "Approved"] },
+          ...filter // Apply the dynamic filter
         }
       },
       {
@@ -2388,16 +2890,18 @@ export const AnalizedCandidate = async (req, res) => {
           position: { $first: "$job.position" },
           applicationsCount: { $sum: 1 },
           averageScore: { $avg: "$AI_Score" },
+          departmentId: { $first: "$departmentId" },
           candidates: {
             $push: {
               _id: "$_id",
+              lastOrganization: "$lastOrganization",
               name: "$name",
               email: "$emailId",
               AI_Score: "$AI_Score",
               AI_Confidence: "$AI_Confidence",
               appliedDate: "$createdAt",
               confidence: "$AI_Confidence",
-              resume:"$resume"
+              resume: "$resume"
             }
           }
         }
@@ -2409,6 +2913,15 @@ export const AnalizedCandidate = async (req, res) => {
       },
       { $sort: { position: 1 } }
     ]);
+
+    // Add targetCompany status to each candidate after aggregation
+    candidates.forEach(job => {
+      if (job.candidates && Array.isArray(job.candidates)) {
+        job.candidates.forEach(candidate => {
+          candidate.targetCompany = getTargetCompanyStatus(candidate.lastOrganization);
+        });
+      }
+    });
 
     // Flatten all candidates across positions
     const allCandidates = candidates.flatMap(job => job.candidates || []);
@@ -2436,8 +2949,6 @@ export const AnalizedCandidate = async (req, res) => {
   }
 };
 
-
-
 // get Deep Analized data //
 
 export const DeepAnalize = async (req, res) => {
@@ -2447,20 +2958,47 @@ export const DeepAnalize = async (req, res) => {
       return badRequest(res, "Candidate Id not provided");
     }
 
-    let finddata = await ScreeningResultModel.findOne({ candidateId: Id }).lean(); // Convert to plain object
+    let finddata = await ScreeningResultModel.findOne({ candidateId: Id }).lean();
     if (!finddata) {
       return success(res, "Screen Result not found");
     }
 
-    const findResume = await jobApply.findById(Id).select('resume').lean();
+    const findResume = await jobApply.findById(Id).lean();
+    const findJd = await jobPostModel.findById(finddata.jobPostId).lean();
 
-    // Merge resume if it exists
-    if (findResume && findResume.resume) {
+    let jobdescription = null;
+    if (findJd && findJd.jobDescriptionId) {
+      jobdescription = await JobDescriptionModel.findById(findJd.jobDescriptionId).lean();
+
+    }
+
+    // Merge resume into main data
+    if (findResume) {
       finddata.resume = findResume.resume;
+
+      // Add userInfo object
+      finddata.userInfo = {
+        name: findResume.name,
+        email: findResume.emailId,
+        mobile: findResume.mobileNumber,
+        position: findResume.position,
+        experience: findResume.totalExperience,
+        JobType: findResume.JobType,
+        currentCTC: findResume.currentCTC,
+        expectedCTC: findResume.expectedCTC,
+      };
+    }
+
+    // Add jobdescription object
+    if (jobdescription) {
+      finddata.jobdescription = {
+        JobSummary: jobdescription?.jobDescription?.JobSummary || "",
+        responsibilities: jobdescription?.jobDescription?.RolesAndResponsibilities || [],
+        keySkills: jobdescription?.jobDescription?.KeySkills || [],
+      };
     }
 
     return success(res, "fetch Screen Results", finddata);
-
   } catch (error) {
     return unknownError(res, error);
   }

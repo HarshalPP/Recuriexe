@@ -35,7 +35,11 @@ const jobApplyModelSchema = new Schema(
     departmentId: { type: ObjectId, ref: "newdepartment", default: null },
     knewaboutJobPostFrom: { type: String },
     currentDesignation: { type: String, default: "" },
-    lastOrganization: { type: String, default: "" },
+     lastOrganization: {
+  type: [String],
+  default: []
+},
+
     startDate: { type: Date },
     endDate: { type: Date },
     reasonLeaving: { type: String, default: "" },

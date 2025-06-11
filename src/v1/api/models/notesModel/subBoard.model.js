@@ -4,6 +4,8 @@ const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 
 const subBoardSchema = new Schema({
+   organizationId: { type: ObjectId, ref: "Organization", default :null },
+
    boardId:{type:ObjectId, required:[true,"boardId Is Required"]},
    title:   { type: String,default:""},
 //    sharedWith: [

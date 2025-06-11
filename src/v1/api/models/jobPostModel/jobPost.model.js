@@ -47,7 +47,7 @@ const jobPostingModelSchema = new Schema(
     qualificationId: [
       {
         type: ObjectId,
-        ref: "qualification",
+        ref: "Qualification",
         // required: [true, "Eligibility Is Required"],
       },
     ],

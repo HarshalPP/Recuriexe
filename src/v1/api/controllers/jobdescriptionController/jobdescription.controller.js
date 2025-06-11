@@ -376,7 +376,7 @@ Generate a LinkedIn-style hiring post using the following data:
 - Designation: ${designation.name}
 - Location: ${branch.name}
 - Experience: ${experience}
-- Email: career@fincoopers.in
+- Email: payalsoni@fincoopers.in
 
 Structure the output like a professional, engaging LinkedIn post (with emojis like 🚀, 📍, 🎓, etc.), ending with popular hashtags relevant to job posting (like #Hiring, #Freshers, #IndoreJobs). Ensure the output is clean plain text, no JSON or markdown.
 `;

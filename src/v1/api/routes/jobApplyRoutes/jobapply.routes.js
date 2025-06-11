@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics }  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById }  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -14,6 +14,7 @@ router.get("/viewprofilemanager" , verifyEmployeeToken , getJobFormSendManagerRe
 router.get("/RecruitmentPipeline" , verifyEmployeeToken ,  RecruitmentPipeline)
 router.get("/getDashboardSummary"  , getDashboardSummary)
 router.get("/getDashboardMetrics" , getDashboardMetrics)
+router.get("/getJobAppliedById/:id" , verifyEmployeeToken , getJobAppliedById)
 
 
 // AI Analizer //

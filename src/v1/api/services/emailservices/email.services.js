@@ -1,5 +1,4 @@
 import nodemailer from "nodemailer";
-
 import sgMail from '@sendgrid/mail';
 // Set SendGrid API key once at the module level
 const SENDGRID_API_KEY = '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';
@@ -61,8 +60,8 @@ export async function sendThankuEmail(email, name, position , organizationName) 
 
     const msg = {
       from: "support@fincoopers.tech", 
-      cc: email,
-      to:"career@fincoopers.in",
+      to: email,
+      cc :"career@fincoopers.in",
       // e.g., verified sender like hr@fincoopers.com
       subject: `Thank You for Applying for the ${position} Position at ${organizationName}`,
       html: `

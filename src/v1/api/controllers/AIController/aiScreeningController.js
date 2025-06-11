@@ -116,24 +116,37 @@ export const updateAiScreening = async (req, res) => {
         }
 
         const screening = await AiScreening.findById(id);
-
         if (!screening || !screening.isActive) {
             return notFound(res, "AI Screening not found or is inactive");
         }
 
+        // Basic fields
         screening.name = name || screening.name;
         screening.description = description || screening.description;
         screening.coreSettings = coreSettings || screening.coreSettings;
         screening.scoringWeights = scoringWeights || screening.scoringWeights;
-        screening.screeningCriteria = screeningCriteria || screening.screeningCriteria;
+
+        // Convert `id` to `_id` to preserve identity
+        if (Array.isArray(screeningCriteria)) {
+            screening.screeningCriteria = screeningCriteria.map(item => ({
+                _id: item.id || item._id, // Mongoose needs _id to recognize existing docs
+                name: item.name,
+                description: item.description,
+                weight: item.weight,
+                isActive: item.isActive,
+                confidence: item.confidence,
+                experience: item.experience,
+            }));
+        }
 
         await screening.save();
 
-        return success(res,  "updated" , formatAiScreening(screening));
+        return success(res, "updated", formatAiScreening(screening));
     } catch (error) {
         return onError(res, error);
     }
-}
+};
+
 
 
 
