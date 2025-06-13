@@ -5,14 +5,14 @@ const router = express.Router();
 
 
 
-router.get("/get" , getSettings)
-router.post("/update" , updateSettings)
+router.get("/get" ,verifyEmployeeToken, getSettings)
+router.post("/update" ,verifyEmployeeToken, updateSettings)
 
 
 // candidate setting routes //
 
-router.get("/getcandidate" , candidatesettings)
-router.post("/updatesetting" , updatecandidatesettings)
+router.get("/getcandidate" ,verifyEmployeeToken, candidatesettings)
+router.post("/updatesetting" , verifyEmployeeToken, updatecandidatesettings)
 
 
 // jOB post setting routes //

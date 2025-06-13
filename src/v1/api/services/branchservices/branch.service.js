@@ -130,7 +130,7 @@ export const getAllBranch = async (req, res) => {
   try {
     const filterParam = req.query.filter ? JSON.parse(req.query.filter) : {};
     const query = filterParam.branches || [];
-
+const organizationId = req.query.organizationId
     // console.log('qurt----', query);
   // const baseFilter = {
   //     isActive: true,
@@ -141,7 +141,7 @@ export const getAllBranch = async (req, res) => {
   //     baseFilter._id = { $in: query };
   //   }
     const branches = await branchModel
-      .find()
+      .find({organizationId})
       .populate("regionalBranchId")
       .populate({ path: "createdBy", select: "employeName" })
       .populate({ path: "updatedBy", select: "employeName" })
@@ -198,6 +198,70 @@ branches.forEach(branch => {
   }
 };
 
+
+//----------------------------get all branch ---------------------------------------
+export const getAllListBranch = async (req, res) => {
+  try {
+    const filterParam = req.query.filter ? JSON.parse(req.query.filter) : {};
+    const query = filterParam.branches || [];
+const organizationId = req.employee.organizationId 
+    const branches = await branchModel
+      .find({organizationId})
+      .populate("regionalBranchId")
+      .populate({ path: "createdBy", select: "employeName" })
+      .populate({ path: "updatedBy", select: "employeName" })
+      .populate({ path: "branchType", select: "name" })
+      .populate({ path: "branchMaping", select: "name" });
+
+    if (!branches || branches.length === 0) {
+      return returnFormatter(false, "Branches not found");
+    }
+
+    const branchIds = branches.map(branch => branch._id);
+    const employeeCounts = await employeeModel.aggregate([
+          {
+        $match: {
+          branchId: { $in: branchIds },
+          // organizationId: req.employee.organizationId, // ✅ Match employees from the same organization
+        },
+      },
+      { $group: { _id: "$branchId", totalEmployees: { $count: {} } } }
+    ]);
+
+    const employeeCountMap = {};
+    employeeCounts.forEach(item => {
+      employeeCountMap[item._id.toString()] = item.totalEmployees;
+    });
+
+
+        // 📍 Get work locations for all branches
+    const workLocations = await workLocationModel.find({
+      branchId: { $in: branchIds },
+      isActive: true,
+    });
+
+// 🗺️ Map work locations to branchId
+// 🗺️ Map work locations to branchId
+const workLocationMap = {};
+workLocations.forEach(loc => {
+  const bId = loc.branchId.toString();
+  if (!workLocationMap[bId]) workLocationMap[bId] = [];
+  workLocationMap[bId].push({ _id: loc._id, name: loc.name }); // ⬅️ push object with _id and name
+});
+
+branches.forEach(branch => {
+  const branchId = branch._id.toString();
+  branch._doc.totalEmployees = employeeCountMap[branchId] || 0;
+  branch._doc.workLocations = workLocationMap[branchId] || []; // array of { _id, name }
+});
+
+
+
+    return returnFormatter(true, "Branches found", branches);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+};
 //-----------------------------get inactive branch --------------------------------
 export const getInactiveBranch = async (req, res) => {
   try {

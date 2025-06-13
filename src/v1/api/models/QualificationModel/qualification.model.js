@@ -9,7 +9,13 @@ const qualificationSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
-  }
+  },
+  organizationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization',
+        default: null,
+        // required: true,
+      },
 }, { timestamps: true });
 
 const Qualification = mongoose.model("Qualification", qualificationSchema);

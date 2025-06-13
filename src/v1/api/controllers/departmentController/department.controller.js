@@ -10,6 +10,7 @@ import {
   Activeeparment,
   getDepartmentCandidantSides,
   getnewdepartment,
+  getnewdepartmentByToken,
   departmentDropDown,
 } from "../../services/departmentservices/department.services.js";
 
@@ -154,6 +155,16 @@ export const getDepartmentListForCandidate = async (req, res) => {
   }
 }
 
+
+// Get All Departments for Candidate Side
+export const getDepartmentListByToken = async (req, res) => {
+  try {
+    const { status, message, data } = await getnewdepartmentByToken(req);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+}
 
 // Get All Departments
 export const getactivelist = async (req, res) => {

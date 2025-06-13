@@ -28,7 +28,8 @@ export const createPortal = async (req, res) => {
 
 export const getAllPortals = async (req, res) => {
   try {
-    // const organizationId = req.employee?.organizationId;
+    const organizationId = req.query.organizationId;
+    console.log("organizationId---", organizationId);
 
     // if (!organizationId) {
     //   return badRequest(res, "Organization ID is required");
@@ -36,7 +37,7 @@ export const getAllPortals = async (req, res) => {
 
     // const result = await PortalService.getAllPortalsService(organizationId);
     
-    const result = await PortalService.getAllPortalsService();
+    const result = await PortalService.getAllPortalsService(organizationId);
     return success(res, "Retrieved data successfully", result);
   } catch (error) {
     return unknownError(res, "Internal server error");

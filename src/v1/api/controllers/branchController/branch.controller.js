@@ -10,6 +10,7 @@ import {
   import {
     addBranch,
     getAllBranch,
+    getAllListBranch,
     getRegionalBranch,
     getBranchById,
     getBranchByRegionalId,
@@ -42,6 +43,15 @@ import {
     }
   }
   
+  //---------------------------- Get all branch ---------------------------------------
+  export async function getAllListBranchController(req, res) {
+    try {
+      const { status, message, data } = await getAllListBranch(req, res);
+      return status ? success(res, message, data) : badRequest(res, message);
+    } catch (error) {
+      return unknownError(res, error.message);
+    }
+  }
 //   export async function getAllMapBranchController(req, res) {
 //     try {
 //       const { status, message, data } = await getAllMapBranch(req, res);

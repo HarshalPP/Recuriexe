@@ -12,6 +12,7 @@ import {
   addDepartmentsBulk,
   getDepartmentCandidantSide,
   getDepartmentListForCandidate,
+  getDepartmentListByToken,
   getDepartmentDropDown,
   toggleSubDepartmentStatus,
   deleteDepartment
@@ -23,7 +24,8 @@ const departmentRouter = express.Router();
 departmentRouter.post("/add", verifyEmployeeToken ,addNewDepartment);
 departmentRouter.get("/",verifyEmployeeToken, getDepartmentList);
 departmentRouter.get("/dropDown",verifyEmployeeToken, getDepartmentDropDown);
-departmentRouter.get("/newdeparment" , getDepartmentListForCandidate);
+departmentRouter.get("/newdeparment" ,verifyEmployeeToken ,  getDepartmentListForCandidate);
+departmentRouter.get("/newdeparmentList"  , getDepartmentListByToken);
 departmentRouter.get("/main", getMainDepartmentList);
 departmentRouter.get("/single/:departmentId", getDepartmentByIdData);
 departmentRouter.post("/update/:departmentId", updateDepartmentData);

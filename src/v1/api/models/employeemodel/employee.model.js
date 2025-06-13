@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Settings from "../../models/settingModel/setting.model.js"
+import crypto from "crypto";
 
 const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
@@ -197,6 +198,16 @@ const employeSchema = new Schema(
     passwordChangedAt: {
       type: Date,
     },
+
+       passwordResetToken: {
+          type: String,
+        },
+        // Expiry date/time for the password reset token
+        passwordResetExpires: {
+          type: Date,
+        },
+         resetPasswordToken: { type: String, default: "" },
+   resetPasswordExpires: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -216,9 +227,11 @@ employeSchema.pre("save", async function (next) {
   try {
     if (!this.isNew || this.employeUniqueId) return next();
 
-    let setting = await Settings.findOne();
+    const organizationId = this.organizationId;
+
+    let setting = await Settings.findOne({organizationId});
     if (!setting) {
-      setting = new Settings();
+      setting = new Settings({organizationId});
       await setting.save();
     }
 
@@ -261,6 +274,17 @@ employeSchema.pre("save", async function (next) {
     next(err);
   }
 });
+
+employeSchema.methods.getResetPasswordToken = function () {
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  // Set reset token and expiry time
+  this.passwordResetToken = resetToken;
+  this.passwordResetExpires = Date.now() + 15 * 60 * 1000; // 10 minutes
+
+  return resetToken;
+};
+
 
 
 const employeModel = model("employee", employeSchema);

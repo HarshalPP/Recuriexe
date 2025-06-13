@@ -208,6 +208,8 @@ cron.schedule("59 23 * * *", async () => {
 
 export const jobApplyFormAdd = async (req, res) => {  
   try {
+      
+
 
     const { emailId, jobPostId, resume ,name, } = req.body;
 // not hanlde organization 
@@ -296,6 +298,7 @@ if (portalsetUpDetail) {
     req.body.branchId = jobPost.branchId[0];
     req.body.JobType= jobPost.JobType || ""
     req.body.jobFormType = "request"
+    req.body.orgainizationId= jobPost.organizationId || null;
 
 
     // Save the job application
@@ -354,6 +357,9 @@ if (portalsetUpDetail) {
 // Get JobApplyed  details //
 export const getAllJobApplied = async (req, res) => {
   try {
+    const organizationId = req.employee.organizationId;
+
+
     const page = parseInt(req.query.page) || 1; // default page 1
     const limit = parseInt(req.query.limit) || 10; // default 10 items per page
     const skip = (page - 1) * limit;
@@ -381,6 +387,10 @@ export const getAllJobApplied = async (req, res) => {
         endDateTime.setHours(23, 59, 59, 999);
         matchConditions.createdAt.$lte = endDateTime;
       }
+    }
+
+    if (organizationId) {
+      matchConditions.orgainizationId = new ObjectId(organizationId);
     }
 
 
@@ -435,6 +445,7 @@ export const getAllJobApplied = async (req, res) => {
     if (departmentId) {
       matchConditions.departmentId = new ObjectId(departmentId);
     }
+
 
 
     const jobAppliedDetails = await jobApply.aggregate([
@@ -1571,6 +1582,8 @@ export const getJobFormSendManagerReview = async (req, res) => {
 export const getDashboardSummary = async (req, res) => {
   try {
 
+    const orgainizationId = req.employee.organizationId;
+
     const { year = new Date().getFullYear(), period = "year" } = req.query;
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -1596,12 +1609,15 @@ export const getDashboardSummary = async (req, res) => {
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { $gte: startDate, $lte: endDate },
+      orgainizationId: new ObjectId(orgainizationId)
     });
+
 
 
     const scheduledInterviews = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
+      orgainizationId: orgainizationId,
       hrInterviewSchedule: "scheduled" // Assuming 'scheduled' is the status for interviews
     })
 
@@ -1609,7 +1625,8 @@ export const getDashboardSummary = async (req, res) => {
     const statusCounts = await jobApply.aggregate([
       {
         $match: {
-          createdAt: { $gte: startDate, $lte: endDate }
+          createdAt: { $gte: startDate, $lte: endDate },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1625,7 +1642,8 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          AI_Result: { $exists: true }
+          AI_Result: { $exists: true },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1651,7 +1669,8 @@ export const getDashboardSummary = async (req, res) => {
   {
     $match: {
       createdAt: { $gte: startDate, $lte: endDate },
-      resumeShortlisted: "shortlisted"
+      resumeShortlisted: "shortlisted",
+      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     }
   },
   {
@@ -1669,7 +1688,8 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          departmentId: { $ne: null }
+          departmentId: { $ne: null },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1684,6 +1704,11 @@ export const getDashboardSummary = async (req, res) => {
 
     // avarage response time for job applications
     const avgResponse = await jobApply.aggregate([
+      {
+        $match: {
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+        }
+      },
       {
         $lookup: {
           from: "jobposts", // your job post collection
@@ -1727,10 +1752,12 @@ export const getDashboardSummary = async (req, res) => {
     // convertion Rate //
 
     const totalApplication = await jobApply.countDocuments({
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { $gte: startDate, $lte: endDate },
+      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     });
 
     const totalHired = await jobApply.countDocuments({
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       createdAt: { $gte: startDate, $lte: endDate },
       status: 'onBoarded' // or 'selected'
     });
@@ -1741,6 +1768,7 @@ export const getDashboardSummary = async (req, res) => {
     const rejectedCandidates = await jobApply.aggregate([{
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
         resumeShortlisted: "notshortlisted" // rejected candidates
       }
     },
@@ -1756,6 +1784,7 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
           status: "onBoarded", // hired
           joiningDate: { $ne: null } // make sure they have an actual joining date
         }
@@ -1782,12 +1811,14 @@ export const getDashboardSummary = async (req, res) => {
 
     // 1. Count applications in the last 7 days
     const appsLast7Days = await jobApply.countDocuments({
-      createdAt: { $gte: sevenDaysAgo }
+      createdAt: { $gte: sevenDaysAgo },
+      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     });
 
     // 2. Count rejections in the last 7 days
     const rejectedLast7Days = await jobApply.countDocuments({
       createdAt: { $gte: sevenDaysAgo },
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       status: 'rejected'
     });
 
@@ -1796,6 +1827,7 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
           departmentId: { $ne: null }
         }
       },
@@ -1841,7 +1873,8 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          position: { $exists: true, $ne: "" }
+          position: { $exists: true, $ne: "" },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1870,7 +1903,8 @@ export const getDashboardSummary = async (req, res) => {
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          knewaboutJobPostFrom: { $exists: true, $ne: null }
+          knewaboutJobPostFrom: { $exists: true, $ne: null },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1903,7 +1937,8 @@ export const getDashboardSummary = async (req, res) => {
           createdAt: { $gte: startDate, $lte: endDate },
           position: { $exists: true, $ne: "" },
           departmentId: { $ne: null },
-          jobPostId: { $exists: true }
+          jobPostId: { $exists: true },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1963,7 +1998,8 @@ export const getDashboardSummary = async (req, res) => {
           createdAt: { $gte: startDate, $lte: endDate },
           position: { $exists: true, $ne: "" },
           departmentId: { $ne: null },
-          jobPostId: { $exists: true }
+          jobPostId: { $exists: true },
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -2037,7 +2073,8 @@ export const getDashboardSummary = async (req, res) => {
     const previousMonthEndDate = new Date(previousMonthYear, previousMonth, 0, 23, 59, 59, 999);
 
     const currentMonthApplications = await jobApply.countDocuments({
-      createdAt: { $gte: currentMonthStartDate, $lte: currentMonthEndDate }
+      createdAt: { $gte: currentMonthStartDate, $lte: currentMonthEndDate },
+      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     });
 
     const previousMonthApplications = await jobApply.countDocuments({
@@ -2154,37 +2191,38 @@ export const getDashboardSummary = async (req, res) => {
 export const getDashboardMetrics = async (req, res) => {
   try {
     const { year = new Date().getFullYear() } = req.query;
+    const orgainizationId = req.employee.organizationId;
 
     // Create date range for the year
     const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
     const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
 
     // Get applications by month
-    const applicationsByMonth = await getApplicationsByMonth(startDate, endDate);
+    const applicationsByMonth = await getApplicationsByMonth(startDate, endDate , orgainizationId);
 
     // Get hiring success rate by month
-    const ShortlistedlistRate = await getHiringSuccessRate(startDate, endDate);
+    const ShortlistedlistRate = await getHiringSuccessRate(startDate, endDate , orgainizationId);
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate);
+    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate , orgainizationId);
 
     // Get applications by status
-    const applicationsByStatus = await getApplicationsByStatus(startDate, endDate);
+    const applicationsByStatus = await getApplicationsByStatus(startDate, endDate , orgainizationId);
 
     // Get AI screening metrics
-    const aiScreeningMetrics = await getAIScreeningMetrics(startDate, endDate);
+    const aiScreeningMetrics = await getAIScreeningMetrics(startDate, endDate , orgainizationId);
 
     // Get positions with most applications
-    const topPositions = await getTopPositions(startDate, endDate);
+    const topPositions = await getTopPositions(startDate, endDate , orgainizationId);
 
     // Get average time to hire
-    const timeToHire = await getTimeToHire(startDate, endDate);
+    const timeToHire = await getTimeToHire(startDate, endDate , orgainizationId);
 
     // Get source breakdown
-    const applicationSources = await getApplicationSources(startDate, endDate);
+    const applicationSources = await getApplicationSources(startDate, endDate , orgainizationId);
 
     // Get application workflow status
-    const workflowStats = await getWorkflowStats(startDate, endDate);
+    const workflowStats = await getWorkflowStats(startDate, endDate , orgainizationId);
 
     return success(res, "Dashboard metrics retrieved successfully", {
       applicationsByMonth,
@@ -2206,11 +2244,12 @@ export const getDashboardMetrics = async (req, res) => {
 /**
  * Helper function to get applications count by month
  */
-const getApplicationsByMonth = async (startDate, endDate) => {
+const getApplicationsByMonth = async (startDate, endDate , orgainizationId) => {
   const monthlyApplications = await jobApply.aggregate([
     {
       $match: {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -2240,11 +2279,12 @@ const getApplicationsByMonth = async (startDate, endDate) => {
 /**
  * Helper function to get hiring success rate by month
  */
-const getHiringSuccessRate = async (startDate, endDate) => {
+const getHiringSuccessRate = async (startDate, endDate , orgainizationId) => {
   const monthlyStats = await jobApply.aggregate([
     {
       $match: {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -2295,11 +2335,12 @@ const getHiringSuccessRate = async (startDate, endDate) => {
 /**
  * Helper function to get applications by department
  */
-const getApplicationsByDepartment = async (startDate, endDate) => {
+const getApplicationsByDepartment = async (startDate, endDate , orgainizationId ) => {
   return await jobApply.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId),
         departmentId: { $ne: null }
       }
     },
@@ -2344,11 +2385,12 @@ const getApplicationsByDepartment = async (startDate, endDate) => {
 /**
  * Helper function to get applications by status
  */
-const getApplicationsByStatus = async (startDate, endDate) => {
+const getApplicationsByStatus = async (startDate, endDate , orgainizationId) => {
   const statusCounts = await jobApply.aggregate([
     {
       $match: {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -2369,13 +2411,14 @@ const getApplicationsByStatus = async (startDate, endDate) => {
 /**
  * Helper function to get AI screening metrics
  */
-const getAIScreeningMetrics = async (startDate, endDate) => {
+const getAIScreeningMetrics = async (startDate, endDate , orgainizationId) => {
   // Get monthly AI screening results
   const monthlyAIResults = await jobApply.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        AI_Result: { $exists: true }
+        AI_Result: { $exists: true },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -2429,11 +2472,12 @@ const getAIScreeningMetrics = async (startDate, endDate) => {
 /**
  * Helper function to get top positions by application count
  */
-const getTopPositions = async (startDate, endDate) => {
+const getTopPositions = async (startDate, endDate , orgainizationId) => {
   return await jobApply.aggregate([
     {
       $match: {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId),
       }
     },
     {
@@ -2461,12 +2505,13 @@ const getTopPositions = async (startDate, endDate) => {
 /**
  * Helper function to get average time to hire by month
  */
-const getTimeToHire = async (startDate, endDate) => {
+const getTimeToHire = async (startDate, endDate , orgainizationId) => {
   const hiredCandidates = await jobApply.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
         status: { $in: ["onBoarded"] },
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
         joiningDate: { $ne: null }
       }
     },
@@ -2510,12 +2555,13 @@ const getTimeToHire = async (startDate, endDate) => {
 /**
  * Helper function to get application sources
  */
-const getApplicationSources = async (startDate, endDate) => {
+const getApplicationSources = async (startDate, endDate , orgainizationId) => {
   const sources = await jobApply.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        knewaboutJobPostFrom: { $exists: true, $ne: null }
+        knewaboutJobPostFrom: { $exists: true, $ne: null },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -2542,12 +2588,13 @@ const getApplicationSources = async (startDate, endDate) => {
 /**
  * Helper function to get workflow stats
  */
-const getWorkflowStats = async (startDate, endDate) => {
+const getWorkflowStats = async (startDate, endDate , orgainizationId) => {
   // Get monthly workflow stats
   const workflowData = await jobApply.aggregate([
     {
       $match: {
-        createdAt: { $gte: startDate, $lte: endDate }
+        createdAt: { $gte: startDate, $lte: endDate },
+        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
       }
     },
     {
@@ -3008,11 +3055,16 @@ export const DeepAnalize = async (req, res) => {
 
 
 
+
 export const getDashboardOverview = async (req, res) => {
   try {
     const { period, startDate, endDate, department } = req.query;
+    const organizationId = req.employee.organizationId;
 
-    const filter = {};
+    const filter = {
+      organizationId
+    };
+
 
     // Period-based filtering
     if (period == '7d' || period == '30d') {
@@ -3297,6 +3349,7 @@ export const getDashboardOverview = async (req, res) => {
 // Enhanced Screening Analytics API  
 export const getScreeningAnalytics = async (req, res) => {
   try {
+
     const { department, period = '30d' } = req.query;
 
     // Calculate date range
@@ -3318,7 +3371,8 @@ export const getScreeningAnalytics = async (req, res) => {
     }
 
     const filter = {
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { $gte: startDate, $lte: endDate },
+      organizationId: req.employee.organizationId
     };
     if (department) filter.department = department;
 
@@ -3616,6 +3670,19 @@ export const getScreeningAnalytics = async (req, res) => {
   }
 };
 
+
+
+export const getJobApplyFields = async (req, res) => {
+  try {
+    const fieldNames = Object.keys(jobApply.schema.paths).filter(
+      (key) => !["_id", "__v", "createdAt", "updatedAt"].includes(key)
+    );
+
+    return success(res, "Field names retrieved successfully", fieldNames);
+  } catch (error) {
+    return badRequest(res, error.message);
+  }
+};
 
 
 

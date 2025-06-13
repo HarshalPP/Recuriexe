@@ -16,6 +16,7 @@ getAll
 
 router.post("/create" , verifyEmployeeToken , createPortal)
 router.get("/getAllPortals"  , getAllPortals)
+
 router.get("/checkPortalstatus" , getAll)
 router.get("/getPortalById/id" ,verifyEmployeeToken, getPortalById)
 router.post("/updatePortal/:id" ,verifyEmployeeToken ,  updatePortal)

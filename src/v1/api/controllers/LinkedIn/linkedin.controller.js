@@ -620,7 +620,7 @@ export const reschedulePost = asyncHandler(async (req, res) => {
 });
 
 // Get all scheduled posts
-export const getScheduledPosts = asyncHandler(async (req, res) => {
+export const getAllPostByorgId = asyncHandler(async (req, res) => {
   const { orgId } = req.query;
   const { status } = req.query;
 
@@ -628,12 +628,21 @@ export const getScheduledPosts = asyncHandler(async (req, res) => {
   if (orgId) query.orgId = orgId;
   if (status) query.status = status;
 
+  // Fetch and populate scheduled posts
   const scheduledPosts = await ScheduledPost.find(query)
     .populate('orgId', 'name')
     .sort({ scheduleTime: 1 });
 
+  // Fetch and populate posted contents
+  const postedContents = await PostedContent.find(query)
+    .populate('orgId', 'name')
+    .sort({ postedAt: -1 });
+
   return res.status(200).json(
-    new ApiResponse(200, scheduledPosts, "✅ Scheduled posts retrieved successfully")
+    new ApiResponse(200, {
+      scheduledPosts,
+      postedContents
+    }, "✅ Posts retrieved successfully")
   );
 });
 

@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 
@@ -15,6 +16,7 @@ import roleModel from "../../models/RoleModel/role.model.js"
 import branchModel from "../../models/branchModel/branch.model.js"
 import taskModel from "../../models/taskManagement/task.model.js"
 import OrganizationModel from '../../models/organizationModel/organization.model.js';
+import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import { sendEmail } from '../../Utils/sendEmail.js'
 import mongoose from "mongoose"
 import PlanModel from '../../models/PlanModel/Plan.model.js';
@@ -39,22 +41,27 @@ export const newEmployeeLogin = async (req, res) => {
 
     if (!employee) return badRequest(res, 'User Name Not Found.');
 
+
     // Verify password
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) return badRequest(res, 'Wrong password');
 
-    // Fetch role names
-    const roleIds = Array.isArray(employee.roleId)
-      ? employee.roleId
-      : [employee.roleId];
+    // Fallback role ID
+    const fallbackRoleId = "682d720520fe5f388cb401a4";
 
+    // Determine role IDs
+    const roleIds = Array.isArray(employee.roleId) && employee.roleId.length > 0
+      ? employee.roleId
+      : [fallbackRoleId];
+
+    // Fetch role details
     const roleDetails = await roleModel.find({ _id: { $in: roleIds } });
     const roleNames = roleDetails.map(role => role.roleName);
     // Generate JWT
     const payload = {
       Id: employee._id,
       roleName: roleNames,
-      roleId: roleDetails[0]._id,
+      roleId: roleDetails[0]?._id,
       organizationId: employee.organizationId
     };
     // console.log(payload,"payload<>")
@@ -77,6 +84,7 @@ export const newEmployeeLogin = async (req, res) => {
     return unknownError(res, error);
   }
 };
+
 
 
 
@@ -147,7 +155,7 @@ export const SuperAdminRegister = async (req, res) => {
 
     // Step 3: Update organization with userId and carrierlink
     newOrganization.userId = newEmployee._id;
-    newOrganization.carrierlink = `https://candidate-portal.fincooperstech.com/CareerPage?${newOrganization._id}`;
+    newOrganization.carrierlink = `https://candidate-portal.fincooperstech.com/CareerPage/${newOrganization._id}`;
     await newOrganization.save();
 
     // Step 4: Generate JWT
@@ -268,10 +276,13 @@ export const createNewEmployee = async (req, res) => {
     let { userName, email, mobileNo, employeName, password, roleId, subDepartmentId, departmentId, designationId } = req.body;
     const organizationId = req.employee?.organizationId || null; // Get organizationId from authenticated user
 
+    if (!password) {
+      return badRequest(res, 'Password is required');
+    }
     const orgainizationDetail = await OrganizationModel.findById(organizationId).select('name');
 
     // ✅ Check active plan for organization
-    const activePlan = await PlanModel.findOne({ organizationId: organizationId, isActive: true });
+    const activePlan = await organizationPlanModel.findOne({ organizationId: organizationId, isActive: true });
     if (!activePlan) {
       return badRequest(res, "No active plan found for this organization");
     }
@@ -320,21 +331,21 @@ export const createNewEmployee = async (req, res) => {
     }
 
     // Validate check on model by organizationId 
-    if(subDepartmentId){
-    const subDepartment = await departmentModel.findOne({'subDepartments._id': subDepartmentId, organizationId});
+    if (subDepartmentId) {
+      const subDepartment = await departmentModel.findOne({ 'subDepartments._id': subDepartmentId, organizationId });
       if (!subDepartment) {
         return badRequest(res, 'Sub-department not found for this organization.');
       }
     }
 
-    if(departmentId){
+    if (departmentId) {
       const department = await departmentModel.findOne({ _id: departmentId, organizationId });
       if (!department) {
         return badRequest(res, 'Department not found for this organization.');
       }
     }
-    
-    if(designationId){
+
+    if (designationId) {
       const designation = await designationModel.findOne({ _id: designationId, organizationId });
       if (!designation) {
         return badRequest(res, 'Designation not found for this organization.');
@@ -348,9 +359,9 @@ export const createNewEmployee = async (req, res) => {
       password: hashedPassword,
       roleId,
       mobileNo,
-      subDepartmentId, 
+      subDepartmentId,
       departmentId,
-       designationId,
+      designationId,
       employeName,
       status: 'active',
       UserType: ['User'],
@@ -537,55 +548,55 @@ export const getAllEmployeeInfodata = async (req, res) => {
       },
       { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
 
-     {
-  $lookup: {
-    from: "newdepartments",
-    let: { subDeptId: "$subDepartmentId" },
-    pipeline: [
       {
-        $match: {
-          $expr: {
-            $in: [
-              "$$subDeptId",
-              {
-                $map: {
-                  input: "$subDepartments",
-                  as: "sd",
-                  in: "$$sd._id"
+        $lookup: {
+          from: "newdepartments",
+          let: { subDeptId: "$subDepartmentId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: [
+                    "$$subDeptId",
+                    {
+                      $map: {
+                        input: "$subDepartments",
+                        as: "sd",
+                        in: "$$sd._id"
+                      }
+                    }
+                  ]
                 }
               }
-            ]
-          }
+            },
+            {
+              $project: {
+                matchedSubDept: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$subDepartments",
+                        as: "sd",
+                        cond: {
+                          $eq: ["$$sd._id", "$$subDeptId"]
+                        }
+                      }
+                    },
+                    0
+                  ]
+                }
+              }
+            }
+          ],
+          as: "subDepartment"
         }
       },
       {
-        $project: {
-          matchedSubDept: {
-            $arrayElemAt: [
-              {
-                $filter: {
-                  input: "$subDepartments",
-                  as: "sd",
-                  cond: {
-                    $eq: ["$$sd._id", "$$subDeptId"]
-                  }
-                }
-              },
-              0
-            ]
-          }
+        $unwind: {
+          path: "$subDepartment",
+          preserveNullAndEmptyArrays: true
         }
-      }
-    ],
-    as: "subDepartment"
-  }
-},
-{
-  $unwind: {
-    path: "$subDepartment",
-    preserveNullAndEmptyArrays: true
-  }
-},
+      },
       // Search match
       ...(search ? [{ $match: searchMatch }] : []),
 
@@ -595,10 +606,10 @@ export const getAllEmployeeInfodata = async (req, res) => {
           employeName: 1,
           workEmail: 1,
           email: 1,
-          mobileNo:1,
+          mobileNo: 1,
           employeUniqueId: 1,
           roleName: "$role.roleName",
-          designation : "$designation.name",
+          designation: "$designation.name",
           subDepartmentName: "$subDepartment.matchedSubDept.name",
           department: "$department.name",
 
@@ -844,6 +855,41 @@ export const updateEmployee = async (req, res) => {
 };
 
 
+
+export const updateEmployeePassword = async (req, res) => {
+  try {
+    const employeeId = req.employee?.id;
+    const { newPassword } = req.body;
+
+    if (!employeeId || !mongoose.Types.ObjectId.isValid(employeeId)) {
+      return badRequest(res, "Invalid employee ID");
+    }
+
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+      return badRequest(res, "Password must be at least 6 characters long");
+    }
+
+    const employee = await employeModel.findById(employeeId);
+    if (!employee) return badRequest(res, "Employee not found");
+
+    const isSamePassword = await bcrypt.compare(newPassword, employee.password);
+    if (isSamePassword) return badRequest(res, "New password cannot be the same as the old one");
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    employee.password = hashedPassword;
+    employee.passwordChangedAt = new Date();
+    await employee.save();
+
+    return success(res, "Password updated successfully");
+  } catch (err) {
+    console.error("Password Update Error:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 // Update employee particular //
 export const updateEmployeeById = async (req, res) => {
   try {
@@ -1015,10 +1061,6 @@ export const updateEmployeeById = async (req, res) => {
 
 
 
-
-// get all new joineee details //
-
-
 export const getAllJoiningEmployee = async (req, res) => {
   try {
     const onboardingStatus = req.query.onboardingStatus;
@@ -1158,7 +1200,7 @@ export const getEmployeeById = async (req, res) => {
     const employee = await employeModel
       .findById(employeeId)
       .select(
-        "employeePhoto employeUniqueId employeementHistory _id workEmail mobileNo userName employeName currentAddress permanentAddress dateOfBirth joiningDate status company onboardingStatus"
+        "employeePhoto employeUniqueId employeementHistory _id workEmail mobileNo userName employeName currentAddress permanentAddress dateOfBirth joiningDate status company onboardingStatus password"
       )
       .populate({ path: "roleId", select: "roleName" })
       .populate({ path: "branchId", select: "name" })
@@ -1559,5 +1601,110 @@ export const addNewEmployee = async (req, res) => {
   } catch (error) {
     console.error("Error adding employee:", error);
     return unknownError(res, error.message);
+  }
+};
+
+
+export const forgotPasswordForEmployee = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return badRequest(res, "Please provide an email.");
+    }
+
+    // Find employee by email
+    const employee = await employeModel.findOne({ email });
+    if (!employee) {
+      return badRequest(res, "Employee not found with this email.");
+    }
+
+    // Generate reset token and expiry
+    const resetToken = employee.getResetPasswordToken(); 
+    console.log("resetToken",resetToken)
+    // This sets passwordResetToken & passwordResetExpires
+    await employee.save({ validateBeforeSave: false });
+
+    // Prepare reset URL
+    const resetUrl = `https://hrms-api.fincooperstech.com/v1/api/auth/employee/resetPassword/${resetToken}`;
+
+    // Prepare email message
+    const message = `
+      <html>
+      <body>
+        <h2>Hello ${employee.userName || employee.employeName || "Employee"},</h2>
+        <p>You requested to reset your password. Please click below to proceed:</p>
+        <a href="${resetUrl}" style="padding:10px 20px;background-color:#4CAF50;color:white;border-radius:5px;text-decoration:none;">Reset Password</a>
+        <p>This link will expire in <strong>15 minutes</strong>.</p>
+        <p>If you didn’t request this, you can ignore this email.</p>
+        <br />
+        <p>Thanks,<br />HR Team</p>
+      </body>
+      </html>
+    `;
+
+    // Send email
+    try {
+      await sendEmail({
+        to: employee.email,
+        subject: "Employee Password Reset Request",
+        html: message,
+      });
+
+      return success(res, "Password reset email sent successfully.");
+    } catch (error) {
+      // If email fails, clear token and expiry
+      employee.passwordResetToken = undefined;
+      employee.passwordResetExpires = undefined;
+      await employee.save({ validateBeforeSave: false });
+
+      return unknownError(res, "Failed to send email. Please try again.");
+    }
+  } catch (error) {
+    return unknownError(res, error.message || "Something went wrong.");
+  }
+};
+
+
+export const resetEmployeePassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      return badRequest(res, "Please provide a new password.");
+    }
+    console.log("token",token)
+
+    // Hash token again to match with DB
+    // const passwordResetToken = crypto.createHash("sha256").update(token).digest("hex");
+    // console.log("passwordResetToken",passwordResetToken)
+
+    // Find employee with valid token
+    const employee = await employeModel.findOne({
+      passwordResetToken:token, // match the token directly
+      passwordResetExpires: { $gt: Date.now() }, // token not expired
+    });
+    console.log("employee",employee)
+
+    if (!employee) {
+      return badRequest(res, "Invalid or expired reset token.");
+    }
+
+    // Set new password
+    const salt = await bcrypt.genSalt(10);
+    employee.password = await bcrypt.hash(password, salt);
+    console.log("employee.password",employee.password)
+
+    // Clear reset token fields
+    employee.passwordResetToken = undefined;
+    employee.passwordResetExpires = undefined;
+
+    await employee.save();
+
+    return success(res, "Password reset successful.");
+  } catch (error) {
+    console.error("Error resetting employee password:", error);
+    return unknownError(res, error || "Something went wrong.");
   }
 };

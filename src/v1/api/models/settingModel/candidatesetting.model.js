@@ -4,6 +4,7 @@ const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 
 const settingSchema = new Schema({
+  organizationId: { type: ObjectId, ref: "Organization", default: null },
   candidateIdPrefix: { type: String, default: "CAN" },
   candidateIdSuffix: { type: String, default: "" },
   candidateIdCounter: { type: Number, default: 0 },

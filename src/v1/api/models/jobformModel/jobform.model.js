@@ -252,9 +252,10 @@ jobApplyModelSchema.pre("save", async function (next) {
   try {
     if (!this.isNew || this.candidateUniqueId) return next();
 
-    let setting = await settingcandidate.findOne();
+    const organizationId = this.organizationId;
+    let setting = await settingcandidate.findOne({organizationId});
     if (!setting) {
-      setting = new settingcandidate();
+      setting = new settingcandidate({organizationId});
       await setting.save();
     }
 

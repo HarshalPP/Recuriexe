@@ -606,6 +606,9 @@ export const createBulkDesignations = async (req, res) => {
       return badRequest(res, "departmentId and non-empty designations array are required.");
     }
 
+    if(!organizationId){
+      return unauthorized(res, "Organization ID is required.");
+    }
     const department = await deparmentModel.findById(departmentId);
     if (!department) {
       return badRequest(res, "Department not found.");
@@ -654,7 +657,7 @@ export const createBulkDesignations = async (req, res) => {
       desingationId: designation._id,
       departmentId: subDepartmentId,
       organizationId,
-      createdBy :createdBy ||null,
+      createdBy :req.employee?.id ||null,
       allocatedBudget: 0,
       numberOfEmployees: 0,
       status: "active"

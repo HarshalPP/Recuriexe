@@ -5,15 +5,14 @@ import Postsettingcandidate from "../../models/settingModel/jobPostsetting.model
 
 // get setting //
 
-const getsetting = async()=>{
+const getsetting = async(organizationId)=>{
     try {
-
-        let settings = await setting.findOne()
+        let settings = await setting.findOne({organizationId})
         if (!settings) {
-            settings = new setting(); // use default schema values
+            settings = new setting({organizationId:organizationId}); // use default schema values
+            // settings.organizationId = organizationId; // Ensure organizationId is set
             await settings.save();
           }
-
           return settings;
 
 
@@ -24,8 +23,8 @@ const getsetting = async()=>{
 }
 
 // Update settings
-const updateSettings = async (data) => {
-    let settings = await setting.findOne();
+const updateSettings = async (data , organizationId) => {
+    let settings = await setting.findOne({organizationId});
     if (!settings) {
       setting = new setting(); 
     }
@@ -45,8 +44,8 @@ const updateSettings = async (data) => {
 
   // Update candidate setting //
 
-const updatecandidatesetting = async (data) => {
-  let settings = await settingcandidate.findOne();
+const updatecandidatesetting = async (data , organizationId) => {
+  let settings = await settingcandidate.findOne({organizationId});
 
   // If no existing settings, create a new one
   if (!settings) {
@@ -67,12 +66,12 @@ const updatecandidatesetting = async (data) => {
 
   // get candidate setting //
 
-  const candidatesetting = async()=>{
+  const candidatesetting = async(organizationId)=>{
     try {
 
-        let settings = await settingcandidate.findOne()
+        let settings = await settingcandidate.findOne({organizationId})
         if (!settings) {
-            settings = new settingcandidate(); // use default schema values
+            settings = new settingcandidate({organizationId:organizationId}); // use default schema values
             await settings.save();
           }
 
@@ -110,11 +109,12 @@ const updateJobPostSetting = async (data, organizationId) => {
 
 
 
-const getJobPostSetting = async () => {
+const getJobPostSetting = async (organizationId) => {
   try {
-    let settings = await Postsettingcandidate.findOne();
+    let settings = await Postsettingcandidate.findOne({organizationId});
     if (!settings) {
       settings = new Postsettingcandidate(); // Use default values from schema
+      settings.organizationId = organizationId
       await settings.save();
     }
 

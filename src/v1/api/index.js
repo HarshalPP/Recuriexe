@@ -103,13 +103,16 @@ import expenseRoleRoute from './routes/expense/expenseRole.route.js'
 import userExpenseRoute from './routes/expense/userExpense.route.js'
 import masterDropDownRouter from "./routes/masterDropDown/dropDown.routes.js"
 import PlanRouter from "./routes/PlanRutes/plan.routes.js"
-
+import targetCompany from "./routes/companyRoutes/targetCompany.routes.js"
 
 //
 import postRoutes from "./routes/Linkedin/post.routes.js"
 import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
 import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 
+
+// verification suit router
+import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
 //expense
 router.use("/expenseCategory",expenseCategoryRouter)
 router.use("/expenseType",expenseTypeRouter)
@@ -147,6 +150,7 @@ router.use("/employmentType" , employmentTypes)
 router.use("/costcenter" , costcenter)
 router.use("/role" , Role)
 router.use("/company" , company)
+router.use("/targetCompany",targetCompany)
 router.use("/org" , organization)
 router.use("/AISetUp" , AIsetUp)
 router.use("/shift" , shift)
@@ -235,5 +239,7 @@ router.use("/organizations", organizationRoutes);
 
 
 
+// verification suit router 
+router.use("/apis", apiRouter)
 
 export default router;

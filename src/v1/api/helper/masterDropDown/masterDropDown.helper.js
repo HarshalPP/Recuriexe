@@ -62,7 +62,7 @@ export async function getDropDownList(req) {
   try {
     const { status } = req.query;
     const employeeId = req.employee.id;
-    const organizationId = req.employee.organizationId;
+    // const organizationId = req.employee.organizationId;
 
     if (!status) {
       return returnFormatter(false, "Status is required.");
@@ -73,10 +73,10 @@ export async function getDropDownList(req) {
 
     const list = await dropDownModel.find({
       status: { $in: queryStatus },
-      $or: [
-        { organizationId: organizationId },
-        { organizationId: null }
-      ]
+      // $or: [
+        // { organizationId: organizationId },
+        // { organizationId: null }
+      // ]
     }).select("name status");
 
     // Convert alwaysActive -> active in response
@@ -288,7 +288,7 @@ export async function nameBySubDropDownGet(req) {
   try {
     const { name, status= "active"} = req.query;
     const employeeId = req.employee.id;
-    const organizationId = req.employee.organizationId;
+    // const organizationId = req.employee.organizationId;
 
     const employee = await employeeModel.findById(employeeId, { status: "active" });
     if (!employee) {
@@ -315,7 +315,9 @@ export async function nameBySubDropDownGet(req) {
       return returnFormatter(false, `${name} Inactive`);
     }
 
-    const subDropList = await subdropDownModel.find({ organizationId: organizationId, dropDownId: dropDownVerify._id, status: status }).select('name status');
+    
+    const subDropList = await subdropDownModel.find({ dropDownId: dropDownVerify._id, status: status }).select('name status');
+    // const subDropList = await subdropDownModel.find({ organizationId: organizationId, dropDownId: dropDownVerify._id, status: status }).select('name status');
     return returnFormatter(true, `${name} list`, subDropList);
   } catch (error) {
     return returnFormatter(false, error.message);

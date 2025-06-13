@@ -10,7 +10,7 @@ import { log } from "console";
 // Create a new organization
 export const createOrganization = asyncHandler(async (req, res) => {
   
-  const { name, linkedinClientId, linkedinClientSecret, linkedinRedirectUri, Description} = req.body;
+  const { name, linkedinClientId, linkedinClientSecret, linkedinRedirectUri, description} = req.body;
   
   
   const organizationId = req.employee.organizationId;
@@ -25,7 +25,7 @@ export const createOrganization = asyncHandler(async (req, res) => {
     linkedinClientSecret,
     linkedinRedirectUri,
     organizationId,
-    Description,
+    description,
   });
 
   res.status(201).json(new ApiResponse(201, newOrg, "Organization created successfully"));
@@ -33,9 +33,11 @@ export const createOrganization = asyncHandler(async (req, res) => {
 
 // Get all organizations
 export const getAllOrganizations = asyncHandler(async (req, res) => {
-  
-  const orgs = await LinkedInOrganization.find();
-  res.status(200).json(new ApiResponse(200, orgs, "Organizations fetched"));
+    const organizationId = req.employee.organizationId;
+
+const orgs = await LinkedInOrganization.find({ organizationId: organizationId });
+
+res.status(200).json(new ApiResponse(200, orgs, "Organizations fetched"));
 });
 
 // Get a specific organization by ID

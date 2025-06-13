@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById }  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById , getJobApplyFields }  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -12,9 +12,10 @@ router.get("/myAppliedJobs" , IsAuthenticated ,getMyAppliedJobs)
 router.post("/sendmanagerreview" , verifyEmployeeToken , jobApplySendToManager)
 router.get("/viewprofilemanager" , verifyEmployeeToken , getJobFormSendManagerReview)
 router.get("/RecruitmentPipeline" , verifyEmployeeToken ,  RecruitmentPipeline)
-router.get("/getDashboardSummary"  , getDashboardSummary)
-router.get("/getDashboardMetrics" , getDashboardMetrics)
+router.get("/getDashboardSummary"  ,  verifyEmployeeToken ,getDashboardSummary)
+router.get("/getDashboardMetrics" ,  verifyEmployeeToken , getDashboardMetrics)
 router.get("/getJobAppliedById/:id" , verifyEmployeeToken , getJobAppliedById)
+router.get("/getJobApplyFields" , verifyEmployeeToken , getJobApplyFields)
 
 
 // AI Analizer //

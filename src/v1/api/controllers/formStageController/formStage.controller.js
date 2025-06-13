@@ -193,7 +193,7 @@ export const toggleFieldAttributes = async (req, res) => {
 
 export const getAllFormStages = async (req, res) => {
   try {
-    const organizationId = req.employee?.organizationId || "683078aaff6a6be585eb8aef";
+    const organizationId = req.employee?.organizationId ;
     const { stageName } = req.query;
 
     if (!organizationId) {

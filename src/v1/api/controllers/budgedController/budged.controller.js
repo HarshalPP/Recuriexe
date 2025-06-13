@@ -1140,6 +1140,33 @@ const organizationId = req.employee.organizationId
           as: "departmentDetail"
         }
       },
+      {
+  $lookup: {
+    from: "newdepartments",
+    let: {
+      subDeptId: { $arrayElemAt: ["$designation.subDepartmentId", 0] }
+    },
+    pipeline: [
+      { $unwind: "$subDepartments" },
+      {
+        $match: {
+          $expr: {
+            $eq: ["$subDepartments._id", "$$subDeptId"]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: "$subDepartments._id",
+          name: "$subDepartments.name"
+        }
+      }
+    ],
+    as: "subDepartment"
+  }
+},
+      { $unwind: { path: "$subDepartment", preserveNullAndEmptyArrays: true } },
+
       //  {
       //       $lookup: {
       //         from: 'newdepartments',
@@ -1214,6 +1241,7 @@ const organizationId = req.employee.organizationId
           departmentName: { $arrayElemAt: ["$departmentDetail.name", 0] },
           // subDepartmentName: { $arrayElemAt: ["$sunDepartmentDetail.name", 0] },
           //  subDepartmentName: "$subDepartmentName.name",
+          subDepartmentName: "$subDepartment.name",
           isSubDepartment: {
             $cond: {
               if: {
@@ -1271,6 +1299,34 @@ const organizationId = req.employee.organizationId
           as: "department"
         }
       },
+{
+  $lookup: {
+    from: "newdepartments",
+    let: {
+      subDeptId: { $arrayElemAt: ["$designation.subDepartmentId", 0] }
+    },
+    pipeline: [
+      { $unwind: "$subDepartments" },
+      {
+        $match: {
+          $expr: {
+            $eq: ["$subDepartments._id", "$$subDeptId"]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: "$subDepartments._id",
+          name: "$subDepartments.name"
+        }
+      }
+    ],
+    as: "subDepartment"
+  }
+},
+      { $unwind: { path: "$subDepartment", preserveNullAndEmptyArrays: true } },
+
+
       {
         $addFields: {
           budgetUnderUtilized: { $subtract: ["$allocatedBudget", "$usedBudget"] },
@@ -1291,19 +1347,7 @@ const organizationId = req.employee.organizationId
         $project: {
           designationName: { $arrayElemAt: ["$designation.name", 0] },
           departmentName: { $arrayElemAt: ["$department.name", 0] },
-          // subDepartmentName: { $arrayElemAt: ["$department.subDepartments.name", 0] },
-          // isSubDepartment: {
-          //   $cond: {
-          //     if: { 
-          //       $and: [
-          //         { $gt: [{ $size: { $ifNull: ["$department.subDepartments", []] } }, 0] },
-          //         { $ne: [{ $arrayElemAt: ["$department.subDepartments.subDepartmentName", 0] }, null] }
-          //       ]
-          //     },
-          //     then: true,
-          //     else: false
-          //   }
-          // },
+subDepartmentName: "$subDepartment.name",
           numberOfEmployees: 1,
           usedBudget: 1,
           allocatedBudget: 1,
@@ -1347,10 +1391,11 @@ const organizationId = req.employee.organizationId
       budgetOverdrawn: {
         count: overdrawnDepartments.length,
         totalOverdraw: overdrawnDepartments.reduce((sum, dept) => sum + (dept.budgetOverdraw || 0), 0),
+        
         departments: overdrawnDepartments.map(dept => ({
           designationName: dept.designationName || "",
           departmentName: dept.departmentName || "",
-          // subDepartmentName: dept.subDepartmentName || null,
+          subDepartmentName: dept.subDepartmentName || "",
           // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
           // isSubDepartment: dept.isSubDepartment || false,
           numberOfEmployees: dept.numberOfEmployees || 0,
@@ -1367,7 +1412,7 @@ const organizationId = req.employee.organizationId
         departments: underUtilizedDepartments.map(dept => ({
           designationName: dept.designationName || "",
           departmentName: dept.departmentName || "",
-          // subDepartmentName: dept.subDepartmentName || null,
+          subDepartmentName: dept.subDepartmentName || "",
           // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
           // isSubDepartment: dept.isSubDepartment || false,
           numberOfEmployees: dept.numberOfEmployees || 0,
@@ -1405,7 +1450,7 @@ export const budgetVerify = async (req, res) => {
     }
 
     const findBudget = await BudgetModel.findOne({
-      departmentId: subDepartmentId,
+      // departmentId: subDepartmentId,
       organizationId: organizationId,
       desingationId: desingationId
     });

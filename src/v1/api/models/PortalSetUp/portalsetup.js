@@ -19,24 +19,31 @@ const candidateSchema = new Schema(
 
     Portallogo: {
       type: String,
+      default:""
     },
     PortalName: {
       type: String,
+      default:""
     },
     header: {
       type: String,
+      default:""
     },
     footer: {
       type: String,
+      default:""
     },
     WorkingDayWithHour: {
       type: String,
+      default:""
     },
     phoneNumber: {
       type: String,
+      default:""
     },
     email: {
       type: String,
+      default:""
     },
     linkedinConnection: {
       type: String,
@@ -75,48 +82,59 @@ const candidateSchema = new Schema(
     linkedin: {
       clientId: {
         type: String,
+        default:""
       },
 
       clientSecret: {
         type: String,
+        default:""
       },
 
       callbackURL: {
         type: String,
+        default:""
       },
 
       scope: {
         type: String,
+        default:""
       },
 
       RedirectURL: {
         type: String,
+        default:""
       },
     },
 
     google: {
       clientId: {
         type: String,
+        default:""
       },
 
       clientSecret: {
         type: String,
+        default:""
       },
 
       callbackURL: {
         type: String,
+        default:""
       },
 
       scope: {
         type: String,
+        default:""
       },
 
       successRedirectUrl: {
         type: String,
+        default:""
       },
 
       failureRedirectUrl: {
         type: String,
+        default:""
       },
     },
     termsAndConditions: {

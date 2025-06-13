@@ -123,7 +123,7 @@ export async function branchTypeDropdown() {
   }
 }
 
-
+// master dron down bulk data add 
 
 const sectors = [
   "INR",
@@ -153,13 +153,11 @@ const sectors = [
 ];
 
 
-
-
 export async function adddataOnModel(req) {
   try {
     const employeeId = req.employee?.id;
-    const organizationId = new ObjectId('683078aaff6a6be585eb8aef');
-    const DropDownId = new ObjectId('6835bc71fcbea848f94e941e')
+    const organizationId = new ObjectId('');
+    const DropDownId = new ObjectId('')
 
     console.log('req.employee?.id',req.employee?.id)
 

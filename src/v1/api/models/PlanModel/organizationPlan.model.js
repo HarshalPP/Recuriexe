@@ -7,7 +7,7 @@ const planSchema = new Schema({
     organizationId: {
         type: Schema.Types.ObjectId,
         ref: "Organization",
-        default: null,
+        required: [true, "Organization ID is required"],
     },
 
     planName: {
@@ -56,5 +56,5 @@ const planSchema = new Schema({
     }, { timestamps: true });
 
 
-const PlanModel = model("Plan", planSchema);
+const PlanModel = model("organizationPlan", planSchema);
 export default PlanModel;

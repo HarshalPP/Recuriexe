@@ -10,6 +10,7 @@ import designationModel from "../../models/designationModel/designation.model.js
 import DepartmentBudget from "../../models/budgedModel/budged.model.js"
 import BudgetModel from "../../models/budgedModel/budged.model.js"
 import jobPostingsetting from "../../models/settingModel/jobPostsetting.model.js"
+import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import mongoose from "mongoose"
 const ObjectId = mongoose.Types.ObjectId;
 import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
@@ -173,13 +174,21 @@ export const jobPostAddDirect = async (req, res) => {
 
    const NewOrg=req.employee.organizationId;
     // ✅ Check active plan for organization
-    const activePlan = await PlanModel.findOne({ organizationId:NewOrg, isActive: true });
+    const activePlan = await organizationPlanModel.findOne({ organizationId:NewOrg, isActive: true });
     if (!activePlan) {
-      return badRequest(res, "No active plan found for this organization");
+      return badRequest(res, "No active plan found for this organization. Please contact support.");
+    }
+    const createdAt = new Date(activePlan?.createdAt);
+    const expiryDate = new Date(createdAt);
+    expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
+
+      if (new Date() > expiryDate) {
+      return badRequest(res, "Plan has expired. Please renew or upgrade your plan.");
     }
     
        // ✅ Check number of job posts against plan limit
-    const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg});
+  // ✅ Check job post usage
+    const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg });
     if (currentJobPostCount >= activePlan.NumberOfJobPosts) {
       return badRequest(
         res,
@@ -571,7 +580,8 @@ export const getAllJobPost = async (req, res) => {
       jobPostExpired,
       JobType,
        page = 1,
-      limit = 50
+      limit = 50,
+      organizationId
     } = req.query;
 
     const matchStage = {};
@@ -598,6 +608,8 @@ export const getAllJobPost = async (req, res) => {
     if (departmentId) {
       matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
     }
+
+      matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
 
     let branchObjectIds = [];
     if (branchIds) {
@@ -1746,7 +1758,7 @@ if (showAllDashbBoardData !== "all") {
       },
       totalOpenPositions: {
         count: totalOpenPositions,
-        label: "Vacancies"
+        label: "Positions"
       },
       newJobs: {
         count: newJobsCurrentPeriod,

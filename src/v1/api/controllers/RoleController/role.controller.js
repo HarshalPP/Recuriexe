@@ -58,13 +58,15 @@ export async function roleAdd(req, res) {
       req.body.roleName = req.body.roleName.trim();
     }
 
-    const existing = await roleModel.findOne({ roleName: req.body.roleName });
+    const existing = await roleModel.findOne({ roleName: req.body.roleName ,organizationId});
     if (existing) {
       return badRequest(res, "Role name already exists");
     }
 
     // If admin role, set all booleans (including nested) to true
-    if (req.body.roleName?.toLowerCase() === "admin") {
+    // if (req.body.roleName?.toLowerCase() === "admin") {
+    const role = req.body.roleName?.toLowerCase();
+if (role === "admin" || role === "productowner"){
       const roleDefaults = new roleModel(); // create a new empty instance to inspect all keys
       const allKeys = Object.keys(roleDefaults.toObject());
 
@@ -259,7 +261,16 @@ export async function updateRole(req, res) {
     } 
     // Clean and format the roleName if present
     if (typeof updateFields.roleName === "string") {
-      updateFields.roleName = updateFields.roleName.trim().toLowerCase();
+      updateFields.roleName = updateFields.roleName.trim();
+      const duplicateRole = await roleModel.findOne({
+        _id: { $ne: roleId },
+        roleName: updateFields.roleName,
+        organizationId: existingRole.organizationId
+      });
+
+      if (duplicateRole) {
+        return badRequest(res, "Role Name Already");
+      }
     }
     updateFields.updateBy = req.employee.id
 

@@ -165,7 +165,8 @@ export async function getAllEmploymentType(req, res) {
       });
     }
 
-    const employmentTypeDetail = await employmentTypeModel.find();
+    const organizationId = req.query.organizationId
+    const employmentTypeDetail = await employmentTypeModel.find({organizationId});
     success(res, "Get All EmploymentTypeDetail", employmentTypeDetail);
   } catch (error) {
     console.log(error);
@@ -173,6 +174,25 @@ export async function getAllEmploymentType(req, res) {
   }
 }
 
+// ------------------Admin Master Get All EmploymentType---------------------------------------
+export async function getAllListEmploymentType(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const organizationId = req.employee.organizationId;
+    const employmentTypeDetail = await employmentTypeModel.find({organizationId});
+    success(res, "Get All EmploymentTypeDetail", employmentTypeDetail);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
 // ------------------Admin Master Get EmploymentType Sheet from Google Sheets---------------------------------------
 export async function getAllEmploymentTypeSheet(req, res) {
   try {

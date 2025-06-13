@@ -153,8 +153,8 @@ export const getDepartmentById = async (departmentId) => {
 
 export const getnewdepartment = async (req) => {
   try {
-    // const organizationId = req.employee.organizationId;
-    const departments = await newDepartmentModel.find({})
+    const organizationId = req.employee.organizationId;
+    const departments = await newDepartmentModel.find({organizationId})
       .populate({path:'createdBy' , select:'employeName'})
     // if (departments.length === 0) {
     //   return returnFormatter(false, "No departments found");
@@ -165,6 +165,20 @@ export const getnewdepartment = async (req) => {
   }
 };
 
+export const getnewdepartmentByToken = async (req) => {
+  try {
+    const organizationId = req.query.organizationId;
+    // console.log("organizationId", organizationId)
+    const departments = await newDepartmentModel.find({organizationId})
+      .populate({path:'createdBy' , select:'employeName'})
+    // if (departments.length === 0) {
+    //   return returnFormatter(false, "No departments found");
+    // }
+    return returnFormatter(true, "Departments found", departments);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+};
 
 export const getAllDepartments = async (req) => {
   try {

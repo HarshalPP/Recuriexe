@@ -6,9 +6,7 @@ const { ObjectId } = Schema;
 const subDepartmentSchema = new Schema(
   {
     name: {
-      type: String,
-      required: [true, "Sub-department name is required"],
-      trim: true
+      type: String
     },
     isActive: {
       type: Boolean,

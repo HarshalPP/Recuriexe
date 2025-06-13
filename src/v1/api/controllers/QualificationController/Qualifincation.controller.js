@@ -11,7 +11,9 @@ import {
 // Create
 export const createQualification = async (req, res) => {
   try {
+    const organizationId = req.employee.organizationId;
     const data = formatQualification(req.body);
+    data.organizationId = organizationId
     const qualification = await Qualification.create(data);
     return created(res, 'Qualification added successfully', qualification);
   } catch (err) {
@@ -22,10 +24,12 @@ export const createQualification = async (req, res) => {
 // Read All with optional search
 export const getAllQualifications = async (req, res) => {
   try {
+    const organizationId = req.employee.organizationId;
     const searchTerm = req.query.search || '';
     const regex = new RegExp(searchTerm, 'i'); // Case-insensitive search
 
     const qualifications = await Qualification.find({
+      organizationId: organizationId,
       isActive: true,
       name: { $regex: regex }
     });

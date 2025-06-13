@@ -21,7 +21,8 @@ import { UnknownError } from "postmark/dist/client/errors/Errors.js";
 // GET /api/settings
 export const getSettings = async (req, res) => {
     try {
-      const settings = await settingService.getsetting();
+      const organizationId = req.employee?.organizationId
+      const settings = await settingService.getsetting(organizationId);
       return success(res , "get list" , settings)
     //   res.status(200).json({ success: true, data: settings });
     } catch (error) {
@@ -35,7 +36,8 @@ export const getSettings = async (req, res) => {
   // PATCH /api/settings
   export const updateSettings = async (req, res) => {
     try {
-      const updated = await settingService.updateSettings(req.body);
+      const organizationId = req.employee.organizationId
+      const updated = await settingService.updateSettings(req.body , organizationId);
       return success(res , "Update successfully" , updated)
     } catch (error) {
         return UnknownError(res , "Interval server error")
@@ -47,7 +49,8 @@ export const getSettings = async (req, res) => {
 // GET /api/settings
 export const candidatesettings = async (req, res) => {
     try {
-      const settings = await settingService.candidatesetting();
+      const organizationId = req.employee.organizationId 
+      const settings = await settingService.candidatesetting(organizationId);
       return success(res , "get list" , settings)
     //   res.status(200).json({ success: true, data: settings });
     } catch (error) {
@@ -61,7 +64,8 @@ export const candidatesettings = async (req, res) => {
   // PATCH /api/settings
   export const updatecandidatesettings = async (req, res) => {
     try {
-      const updated = await settingService.updatecandidatesetting(req.body);
+      const organizationId = req.employee?.organizationId 
+      const updated = await settingService.updatecandidatesetting(req.body , organizationId);
       return success(res , "Update successfully" , updated)
     } catch (error) {
       console.log(error)
@@ -75,7 +79,8 @@ export const candidatesettings = async (req, res) => {
   // Jobpost //
   export const getJobPostSettings = async (req, res) => {
   try {
-    const settings = await settingService.getJobPostSetting();
+    const organizationId = req.employee?.organizationId
+    const settings = await settingService.getJobPostSetting(organizationId);
     return success(res, "Fetched job post settings", settings);
   } catch (error) {
     return UnknownError(res, "Internal server error");

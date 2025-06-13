@@ -9,7 +9,7 @@ const LinkedIninkedInorganizationSchema = new mongoose.Schema({
   accessToken:  { type: String, default: null },
   memberId:  { type: String, default: null },
   LinkedInorganizationId: String, // Add this for company page posting
-  Description : String,
+  description : String,
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }, 
 });
 

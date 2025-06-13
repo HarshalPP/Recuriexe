@@ -2,7 +2,7 @@ import express from "express"
 const router = express.Router();
 
 
-import {addBranchController , getAllBranchController , getAllBranchdata  , getAllInactiveBranchController ,
+import {addBranchController , getAllBranchController , getAllListBranchController,  getAllBranchdata  , getAllInactiveBranchController ,
      getRegionalBranchController , getBranchByIdController , getBranchByRegionalIdController , updateBranchController ,
       deactivateBranchByIdController , allRegionalBranches , branchesByRegionalBranch , allBranch} from "../../controllers/branchController/branch.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
@@ -11,6 +11,7 @@ import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 router.post("/add" , verifyEmployeeToken, addBranchController);
 router.get("/getAll" , getAllBranchController);
+router.get("/getList" ,verifyEmployeeToken, getAllListBranchController);
 router.get("/getAllInactive", verifyEmployeeToken ,getAllInactiveBranchController);
 router.get("/branchesByRegionalBranch", verifyEmployeeToken ,branchesByRegionalBranch);
 router.get("/allRegionalBranches", verifyEmployeeToken ,allRegionalBranches);

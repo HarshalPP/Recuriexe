@@ -531,6 +531,409 @@ export const getAllOrganizations = async (req, res) => {
   }
 };
 
+
+// Fetch particular organization by ID
+export const getOrganizations = async (req, res) => {
+
+  try {
+
+    const OrganizationId=req.employee?.organizationId;
+    if (!OrganizationId) return badRequest(res, "Organization ID is required.");
+
+    const orgs = await OrganizationModel.aggregate([
+
+      {
+        $match: {
+          _id: new mongoose.Types.ObjectId(OrganizationId)
+        }
+      },
+      // Lookup employee details by organizationId
+      {
+        $lookup: {
+          from: "employees",
+          localField: "_id",
+          foreignField: "organizationId",
+          as: "employees"
+        }
+      },
+      {
+        $addFields: {
+          employeeDetail: {
+            $cond: [
+              { $gt: [{ $size: "$employees" }, 0] },
+              {
+                $reduce: {
+                  input: "$employees",
+                  initialValue: "",
+                  in: {
+                    $cond: [
+                      { $eq: ["$$value", ""] },
+                      "$$this.userName",
+                      { $concat: ["$$value", ", ", "$$this.userName"] }
+                    ]
+                  }
+                }
+              },
+              null
+            ]
+          }
+        }
+      },
+      
+      // Lookup and unwind typeOfOrganization
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "typeOfOrganization",
+          foreignField: "_id",
+          as: "typeOfOrganizationDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$typeOfOrganizationDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      {
+        $lookup:{
+          from: "plans",
+          localField: "PlanId",
+          foreignField: "_id",
+          as: "PlanDetail"
+        }
+      },{
+        $unwind: {
+          path: "$PlanDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // {
+      //   $lookup: {
+      //     from: "subdropdowns",
+      //     localField: "defaultCurrenyId",
+      //     foreignField: "_id",
+      //     as: "defaultCurrenyDetail"
+      //   }
+      // },
+      // {
+      //   $unwind: {
+      //     path: "$defaultCurrenyDetail",
+      //     preserveNullAndEmptyArrays: true
+      //   }
+      // },
+      // Lookup and unwind typeOfIndustry
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "typeOfIndustry",
+          foreignField: "_id",
+          as: "typeOfIndustryDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$typeOfIndustryDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+{
+        $lookup: {
+          from: "currencies",
+          localField: "defaultCurreny",
+          foreignField: "_id",
+          as: "currenyDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$currenyDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup promoter language preference
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "promoterDetail.languagePreferenceId",
+          foreignField: "_id",
+          as: "promoterLanguageDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$promoterLanguageDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Lookup promoter qualification
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "promoterDetail.qualificationId",
+          foreignField: "_id",
+          as: "promoterQualificationDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$promoterQualificationDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Lookup management language preference
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "managementDetail.languagePreferenceId",
+          foreignField: "_id",
+          as: "managementLanguageDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$managementLanguageDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Lookup management qualification
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "managementDetail.qualificationId",
+          foreignField: "_id",
+          as: "managementQualificationDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$managementQualificationDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Lookup and unwind typeOfSector
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "typeOfSector",
+          foreignField: "_id",
+          as: "typeOfSectorDetail"
+        }
+      },
+      {
+        $unwind: {
+          path: "$typeOfSectorDetail",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      // Lookup userId (creator)
+      {
+        $lookup: {
+          from: "employees",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userInfo"
+        }
+      },
+      {
+        $unwind: {
+          path: "$userInfo",
+          preserveNullAndEmptyArrays: true
+        }
+      },{
+        $lookup: {
+          from:'allocateds',
+          localField: 'allocatedModule',
+          foreignField: '_id',
+          as: 'allocatedModule'
+        }
+      },
+
+      // Format all fields and maintain nested structure
+      {
+        $addFields: {
+          // Format typeOfOrganization
+          typeOfOrganization: {
+            $cond: [
+              { $ne: ["$typeOfOrganizationDetail", null] },
+              {
+                _id: "$typeOfOrganizationDetail._id",
+                name: "$typeOfOrganizationDetail.name"
+              },
+              { _id: null, name: "" }
+            ]
+          },
+          
+          // defaultCurrenyId: {
+          //   $cond: [
+          //     { $ne: ["$defaultCurrenyDetail", null] },
+          //     {
+          //       _id: "$defaultCurrenyDetail._id",
+          //       name: "$defaultCurrenyDetail.name"
+          //     },
+          //     { _id: null, name: "" }
+          //   ]
+          // },
+          // Format typeOfIndustry
+          typeOfIndustry: {
+            $cond: [
+              { $ne: ["$typeOfIndustryDetail", null] },
+              {
+                _id: "$typeOfIndustryDetail._id",
+                name: "$typeOfIndustryDetail.name"
+              },
+              { _id: null, name: "" }
+            ]
+          },
+          
+          defaultCurreny : {
+            $cond: [
+              { $ne: ["$currenyDetail", null] },
+              {
+                _id: "$currenyDetail._id",
+                name: "$currenyDetail.name",
+                icon: "$currenyDetail.icon"
+              },
+              { _id: null, name: "" }
+            ]
+          },
+          
+          // Format typeOfSector
+          typeOfSector: {
+            $cond: [
+              { $ne: ["$typeOfSectorDetail", null] },
+              {
+                _id: "$typeOfSectorDetail._id",
+                name: "$typeOfSectorDetail.name"
+              },
+              { _id: null, name: "" }
+            ]
+          },
+          
+          // Format promoterDetail with nested lookup fields
+          promoterDetail: {
+            $cond: [
+              { $ne: ["$promoterDetail", null] },
+              {
+                $mergeObjects: [
+                  "$promoterDetail",
+                  {
+                    languagePreferenceId: {
+                      $cond: [
+                        { $ne: ["$promoterLanguageDetail", null] },
+                        {
+                          _id: "$promoterLanguageDetail._id",
+                          name: "$promoterLanguageDetail.name"
+                        },
+                        { _id: null, name: "" }
+                      ]
+                    },
+                    qualificationId: {
+                      $cond: [
+                        { $ne: ["$promoterQualificationDetail", null] },
+                        {
+                          _id: "$promoterQualificationDetail._id",
+                          name: "$promoterQualificationDetail.name"
+                        },
+                        { _id: null, name: "" }
+                      ]
+                    }
+                  }
+                ]
+              },
+              null
+            ]
+          },
+          
+          // Format managementDetail with nested lookup fields
+          managementDetail: {
+            $cond: [
+              { $ne: ["$managementDetail", null] },
+              {
+                $mergeObjects: [
+                  "$managementDetail",
+                  {
+                    languagePreferenceId: {
+                      $cond: [
+                        { $ne: ["$managementLanguageDetail", null] },
+                        {
+                          _id: "$managementLanguageDetail._id",
+                          name: "$managementLanguageDetail.name"
+                        },
+                        { _id: null, name: "" }
+                      ]
+                    },
+                    qualificationId: {
+                      $cond: [
+                        { $ne: ["$managementQualificationDetail", null] },
+                        {
+                          _id: "$managementQualificationDetail._id",
+                          name: "$managementQualificationDetail.name"
+                        },
+                        { _id: null, name: "" }
+                      ]
+                    }
+                  }
+                ]
+              },
+              null
+            ]
+          },
+          
+          // Format userId
+          userId: {
+            name: { $ifNull: ["$userInfo.employeName", ""] },
+            email: { $ifNull: ["$userInfo.email", ""] },
+            userName: { $ifNull: ["$userInfo.userName", ""] },
+            _id: { $ifNull: ["$userInfo._id", null] }
+          },
+           allocatedModule: {
+            $map: {
+              input: "$allocatedModule",
+              as: "item",
+              in: {
+                _id: "$$item._id",
+                Name: "$$item.Name",
+                Cost: "$$item.Cost",
+                status: "$$item.status"
+              }
+            }
+          }
+        }
+      },
+      
+      // Remove unwanted fields
+      {
+        $project: {
+          plandetail: 0,
+          employees: 0,
+          userInfo: 0,
+          typeOfOrganizationDetail: 0,
+          // defaultCurrenyDetail:0,
+          typeOfIndustryDetail: 0,
+          currenyDetail:0,
+          typeOfSectorDetail: 0,
+          promoterLanguageDetail: 0,
+          promoterQualificationDetail: 0,
+          managementLanguageDetail: 0,
+          managementQualificationDetail: 0
+        }
+      }
+    ]);
+
+    return success(res, "Organizations fetched", orgs);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
+
 // GET BY ID
 export const getOrganizationById = async (req, res) => {
   try {
