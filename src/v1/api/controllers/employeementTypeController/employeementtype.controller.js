@@ -8,6 +8,7 @@ import employmentTypeModel from "../../models/employeementTypemodel/employeement
 import employeeModel from "../../models/employeemodel/employee.model.js"
 import jobPostModel from "../../models/jobPostmodel/jobPost.model.js"
 
+
 // ------------------Admin Master Add EmploymentType---------------------------------------
 export async function employmentTypeAdd(req, res) {
   try {
