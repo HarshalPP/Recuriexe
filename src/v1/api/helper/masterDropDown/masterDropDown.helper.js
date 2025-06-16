@@ -211,7 +211,7 @@ export async function createsubDropDown(req) {
     const existing = await subdropDownModel.findOne({
       name: name.trim(),
       dropDownId,
-      organizationId: dropDown.organizationId,
+      organizationId: new ObjectId(dropDown.organizationId),
     });
 
     if (existing) {
@@ -267,7 +267,7 @@ export async function subDropDownUpdate(req) {
       const duplicate = await subdropDownModel.findOne({
         name: trimmedName,
         dropDownId: subDrop.dropDownId,
-        organizationId: organizationId,
+        organizationId: new ObjectId(organizationId),
         _id: { $ne: subDropDownId }
       });
       if (duplicate) {
@@ -321,7 +321,7 @@ export async function nameBySubDropDownGet(req) {
 
     
     // const subDropList = await subdropDownModel.find({ dropDownId: dropDownVerify._id, status: status }).select('name status');
-    const subDropList = await subdropDownModel.find({ organizationId: organizationId, dropDownId: dropDownVerify._id, status: status }).select('name status');
+    const subDropList = await subdropDownModel.find({ organizationId: new ObjectId (organizationId), dropDownId: dropDownVerify._id, status: status }).select('name status');
     return returnFormatter(true, `${name} list`, subDropList);
   } catch (error) {
     return returnFormatter(false, error.message);
