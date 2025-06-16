@@ -5,6 +5,10 @@ import designationModel from "../../models/designationModel/designation.model.js
 import newDepartmentModel from "../../models/deparmentModel/deparment.model.js"
 import employeeModel from "../../models/employeemodel/employee.model.js"
 import budgetModel from '../../models/budgedModel/budged.model.js'; // adjust path if needed
+import jobApplyModel from "../../models/jobformModel/jobform.model.js";
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 
 // import { newDesignationGoogleSheet } from "../controller/adminMaster/masterGoogleSheet.controller.js";
 
@@ -125,6 +129,59 @@ export const getAllDesignation = async (organizationId) => {
 
         if (designation.subDepartmentId) {
           // Find the department containing the sub-department
+          const parentDept = await newDepartmentModel.findOne({
+            "subDepartments._id": designation.subDepartmentId
+          });
+
+          if (parentDept) {
+            const match = parentDept.subDepartments.find(
+              (sub) => sub._id.toString() === designation.subDepartmentId.toString()
+            );
+            if (match) {
+              subDepartment = { _id: match._id, name: match.name };
+            }
+          }
+        }
+
+        return {
+          ...designation.toObject(),
+          subDepartment,
+        };
+      })
+    );
+
+    return returnFormatter(true, "Designation found", enrichedDesignations);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+};
+
+
+
+export const getDesignationFromJobApply = async (organizationId) => {
+  try {
+    // 1. Get all designationIds from jobApplyModel
+    // console.log("organizationId", organizationId);
+    const jobApplies = await jobPostModel.find({ organizationId : new ObjectId(organizationId),totalApplicants: { $gt: 0 } }).select("designationId");
+    // console.log("jobApplies", jobApplies);
+    const designationIds = [...new Set(jobApplies.map(d => d.designationId).filter(Boolean))];
+
+    // 2. Fetch only matching designations
+    const designations = await designationModel
+      .find({
+        _id: { $in: designationIds },
+        organizationId
+      })
+      .populate({ path: "departmentId", select: "name" })
+      .populate({ path: "createdBy", select: "employeName" })
+      .sort({ createdAt: -1 });
+
+    // 3. Enrich subDepartment info
+    const enrichedDesignations = await Promise.all(
+      designations.map(async (designation) => {
+        let subDepartment = null;
+
+        if (designation.subDepartmentId) {
           const parentDept = await newDepartmentModel.findOne({
             "subDepartments._id": designation.subDepartmentId
           });

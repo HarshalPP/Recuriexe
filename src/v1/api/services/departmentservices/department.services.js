@@ -119,7 +119,9 @@
 
 import newDepartmentModel from "../../models/deparmentModel/deparment.model.js";
 import { returnFormatter } from "../../formatters/common.formatter.js";
-
+import jobApplyModel from "../../models/jobformModel/jobform.model.js";
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 // ----------------- Create Department with Sub-Departments ----------------- //
 
 export const addDepartment = async (bodyData) => {
@@ -164,6 +166,34 @@ export const getnewdepartment = async (req) => {
     return returnFormatter(false, error.message);
   }
 };
+
+
+
+
+export const getDepartmentFromJobApply = async (req) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    console.log('organizationId', organizationId)
+    // Step 1: Fetch jobApply entries for this organization
+    const jobApplyDetail = await jobApplyModel.find({ organizationId : new ObjectId(organizationId) }).select("departmentId");
+    
+console.log("jobApplyDetail", jobApplyDetail)
+    // Step 2: Extract unique department IDs from jobApply entries
+    const departmentIds = [...new Set(jobApplyDetail.map(d => d.departmentId).filter(Boolean))];
+
+    // Step 3: Fetch department details that match these IDs
+    const departments = await newDepartmentModel.find({
+      _id: { $in: departmentIds },
+      organizationId
+    }).populate({ path: "createdBy", select: "employeName" });
+
+    return returnFormatter(true, "Departments found", departments);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+};
+
 
 export const getnewdepartmentByToken = async (req) => {
   try {

@@ -15,7 +15,8 @@ import {
     getAllInactiveDesignation,
     updateDesignation,
     getDesignationById,
-    deactivateDesignation
+    deactivateDesignation,
+    getDesignationFromJobApply
   } from "../../services/designationservices/designation.service.js"
 
   import AIConfigModel from "../../models/AiModel/ai.model.js"
@@ -48,6 +49,17 @@ export async function addDesignationController(req, res) {
     try {
       const organizationId = req.employee.organizationId;
       const { status, message, data } = await getAllDesignation(organizationId);
+      return status ? success(res, message, data) : badRequest(res, message);
+    } catch (error) {
+      return unknownError(res, error.message);
+    }
+  }
+  
+    //----------------------------Get all designations job apply match ---------------------------------------
+  export async function getAllDesignationFromJobApply(req, res) {
+    try {
+      const organizationId = req.employee.organizationId;
+      const { status, message, data } = await getDesignationFromJobApply(organizationId);
       return status ? success(res, message, data) : badRequest(res, message);
     } catch (error) {
       return unknownError(res, error.message);

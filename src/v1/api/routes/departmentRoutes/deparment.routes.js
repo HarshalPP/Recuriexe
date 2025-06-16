@@ -15,7 +15,8 @@ import {
   getDepartmentListByToken,
   getDepartmentDropDown,
   toggleSubDepartmentStatus,
-  deleteDepartment
+  deleteDepartment,
+  getDepartmentJobApply,
 } from "../../controllers/departmentController/department.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 const departmentRouter = express.Router();
@@ -25,6 +26,7 @@ departmentRouter.post("/add", verifyEmployeeToken ,addNewDepartment);
 departmentRouter.get("/",verifyEmployeeToken, getDepartmentList);
 departmentRouter.get("/dropDown",verifyEmployeeToken, getDepartmentDropDown);
 departmentRouter.get("/newdeparment" ,verifyEmployeeToken ,  getDepartmentListForCandidate);
+departmentRouter.get("/deparmentFromJobApply" ,verifyEmployeeToken ,  getDepartmentJobApply);
 departmentRouter.get("/newdeparmentList"  , getDepartmentListByToken);
 departmentRouter.get("/main", getMainDepartmentList);
 departmentRouter.get("/single/:departmentId", getDepartmentByIdData);

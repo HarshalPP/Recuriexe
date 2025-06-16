@@ -4,10 +4,22 @@ import { formatPlan } from "../../formatters/planFormatter.js"
 import { success, badRequest, notFound, unknownError } from "../../formatters/globalResponse.js"
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
+import Freetrail from "../../models/PlanModel/freetrail.model.js"
 
 export const createPlan = async (req, res) => {
   try {
     const plan = await planModel.create(req.body);
+
+    return success(res, "Plan created successfully", formatPlan(plan));
+  } catch (err) {
+    return badRequest(res, err.message);
+  }
+};
+
+// free trial //
+export const createfreetrail = async (req, res) => {
+  try {
+    const plan = await Freetrail.create(req.body);
 
     return success(res, "Plan created successfully", formatPlan(plan));
   } catch (err) {
@@ -26,6 +38,19 @@ export const getAllPlans = async (req, res) => {
   }
 };
 
+
+// free plan //
+export const getAllfreeplan = async (req, res) => {
+  try {
+    const plans = await Freetrail.find().sort({ createdAt: -1 });
+    return success(res, "Plans retrieved", plans.map(formatPlan));
+  } catch (err) {
+    return unknownError(res, err.message);
+  }
+};
+
+
+
 export const getPlanById = async (req, res) => {
   try {
     const plan = await planModel.findById(req.params.id);
@@ -35,6 +60,9 @@ export const getPlanById = async (req, res) => {
     return badRequest(res, err.message);
   }
 };
+
+
+
 
 export const updatePlan = async (req, res) => {
   try {
@@ -47,6 +75,25 @@ export const updatePlan = async (req, res) => {
     return badRequest(res, err.message);
   }
 };
+
+
+
+export const updatefreetrail = async (req, res) => {
+  try {
+    const plan = await Freetrail.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
+    if (!plan) return notFound(res, "Plan not found");
+    return success(res, "Plan updated", formatPlan(plan));
+  } catch (err) {
+    return badRequest(res, err.message);
+  }
+};
+
+
+
+
+
 
 export const deletePlan = async (req, res) => {
   try {

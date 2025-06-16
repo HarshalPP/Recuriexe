@@ -106,10 +106,62 @@ export const getAiScreeningById = async (req, res) => {
 
 
 
+// export const updateAiScreening = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { name, description, coreSettings, scoringWeights, screeningCriteria , autoScreening } = req.body;
+//         console.log("autoScreening" , autoScreening)
+
+//         if (!id) {
+//             return badRequest(res, "Screening ID is required");
+//         }
+
+//         const screening = await AiScreening.findById(id);
+//         if (!screening || !screening.isActive) {
+//             return notFound(res, "AI Screening not found or is inactive");
+//         }
+
+//         // Basic fields
+//         screening.name = name || screening.name;
+//         screening.description = description || screening.description;
+//         screening.coreSettings = coreSettings || screening.coreSettings;
+//         screening.scoringWeights = scoringWeights || screening.scoringWeights;
+//         screening.autoScreening=  autoScreening || screening.autoScreening
+
+
+
+//         // Convert `id` to `_id` to preserve identity
+//         if (Array.isArray(screeningCriteria)) {
+//             screening.screeningCriteria = screeningCriteria.map(item => ({
+//                 _id: item.id || item._id, // Mongoose needs _id to recognize existing docs
+//                 name: item.name,
+//                 description: item.description,
+//                 weight: item.weight,
+//                 isActive: item.isActive,
+//                 confidence: item.confidence,
+//                 experience: item.experience,
+//             }));
+//         }
+
+//         await screening.save();
+
+//         return success(res, "updated", formatAiScreening(screening));
+//     } catch (error) {
+//         return onError(res, error);
+//     }
+// };
+
 export const updateAiScreening = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, coreSettings, scoringWeights, screeningCriteria , autoScreening } = req.body;
+        const {
+            name,
+            description,
+            coreSettings,
+            scoringWeights,
+            screeningCriteria,
+            autoScreening
+        } = req.body;
 
         if (!id) {
             return badRequest(res, "Screening ID is required");
@@ -120,33 +172,34 @@ export const updateAiScreening = async (req, res) => {
             return notFound(res, "AI Screening not found or is inactive");
         }
 
-        // Basic fields
-        screening.name = name || screening.name;
-        screening.description = description || screening.description;
-        screening.coreSettings = coreSettings || screening.coreSettings;
-        screening.scoringWeights = scoringWeights || screening.scoringWeights;
-        screening.autoScreening=autoScreening || screening.autoScreening
+        // Update core fields
+        if (name) screening.name = name;
+        if (description) screening.description = description;
+        if (coreSettings) screening.coreSettings = coreSettings;
+        if (scoringWeights) screening.scoringWeights = scoringWeights;
+        if (typeof autoScreening == 'boolean') screening.autoScreening = autoScreening;
 
-        // Convert `id` to `_id` to preserve identity
+        // Handle screeningCriteria updates
         if (Array.isArray(screeningCriteria)) {
             screening.screeningCriteria = screeningCriteria.map(item => ({
-                _id: item.id || item._id, // Mongoose needs _id to recognize existing docs
-                name: item.name,
-                description: item.description,
-                weight: item.weight,
-                isActive: item.isActive,
-                confidence: item.confidence,
-                experience: item.experience,
+                _id: item._id || item.id,
+                name: item.name || '',
+                description: item.description || '',
+                weight: item.weight ?? 0,
+                isActive: item.isActive ?? true,
+                confidence: item.confidence ?? 0,
+                experience: item.experience || ''
             }));
         }
 
         await screening.save();
 
-        return success(res, "updated", formatAiScreening(screening));
+        return success(res, "AI Screening updated", formatAiScreening(screening));
     } catch (error) {
         return onError(res, error);
     }
 };
+
 
 
 

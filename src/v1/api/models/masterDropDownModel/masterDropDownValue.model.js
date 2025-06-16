@@ -10,7 +10,6 @@ const subdropDownSchema = new mongoose.Schema(
         organizationId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Organization',
-            required: true,
         },
         name: {
             type: String,
@@ -26,6 +25,10 @@ const subdropDownSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: 'employee',
             default: null
+        },
+        defaultValue: {
+            type: Boolean,
+            default: false,
         },
     },
     {

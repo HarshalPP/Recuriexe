@@ -235,7 +235,8 @@ export const getVacancyRequestForManager = async (req, res) => {
 
       {
         $lookup: {
-          from: "subdropdowns",
+          // from: "subdropdowns",
+          from: "qualifications",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualificationDetail",

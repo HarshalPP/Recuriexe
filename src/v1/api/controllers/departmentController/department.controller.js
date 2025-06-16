@@ -12,6 +12,7 @@ import {
   getnewdepartment,
   getnewdepartmentByToken,
   departmentDropDown,
+  getDepartmentFromJobApply,
 } from "../../services/departmentservices/department.services.js";
 
 
@@ -155,6 +156,16 @@ export const getDepartmentListForCandidate = async (req, res) => {
   }
 }
 
+
+// Get All Departments for Candidate Side
+export const getDepartmentJobApply = async (req, res) => {
+  try {
+    const { status, message, data } = await getDepartmentFromJobApply(req);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+}
 
 // Get All Departments for Candidate Side
 export const getDepartmentListByToken = async (req, res) => {

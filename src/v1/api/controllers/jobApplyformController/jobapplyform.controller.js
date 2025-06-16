@@ -739,9 +739,9 @@ export const getAllJobApplied = async (req, res) => {
       .filter((job) => job.createdAt)  // Ensure the job has a `createdAt` field
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));  // Sort jobs by `createdAt` in descending order
 
-    const totalCount = await jobApply.countDocuments({ status: "active", jobFormType: "request" });
-    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted" });
-    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted" });
+    const totalCount = await jobApply.countDocuments({ status: "active", jobFormType: "request" ,  orgainizationId:organizationId});
+    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted" , orgainizationId:organizationId });
+    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted" , orgainizationId:organizationId });
 
 
     return success(res, "All job Applied Form details", {
@@ -1845,12 +1845,15 @@ export const getDashboardSummary = async (req, res) => {
       orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     });
 
+
     // 2. Count rejections in the last 7 days
     const rejectedLast7Days = await jobApply.countDocuments({
       createdAt: { $gte: sevenDaysAgo },
-      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-      status: 'rejected'
+      // orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      resumeShortlisted: 'notshortlisted'
     });
+
+
 
 
     const topAppliedDepartments = await jobApply.aggregate([
@@ -2837,58 +2840,107 @@ export const AnalizedCandidate = async (req, res) => {
     console.log('targetCompany', targetCompany);
 
     // Function to check if organization matches with fuzzy logic
-    const getTargetCompanyStatus = (lastOrganizations) => {
-      if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
-        return "";
+    // const getTargetCompanyStatus = (lastOrganizations) => {
+    //   if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
+    //     return "";
+    //   }
+
+    //   const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
+    //   const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
+
+    //   // Check for prioritized companies match
+    //   for (const org of lastOrganizations) {
+    //     if (!org) continue;
+        
+    //     const orgLower = org.toLowerCase().trim();
+        
+    //     // Check prioritized companies with fuzzy matching
+    //     for (const prioritized of prioritizedCompanies) {
+    //       if (!prioritized) continue;
+          
+    //       const prioritizedLower = prioritized.toLowerCase().trim();
+          
+    //       // Fuzzy matching - check if either contains the other or if they share significant common words
+    //       if (orgLower.includes(prioritizedLower) || 
+    //           prioritizedLower.includes(orgLower) ||
+    //           fuzzyMatch(orgLower, prioritizedLower)) {
+    //         return "prioritized";
+    //       }
+    //     }
+    //   }
+
+    //   // Check for deprioritized companies match
+    //   for (const org of lastOrganizations) {
+    //     if (!org) continue;
+        
+    //     const orgLower = org.toLowerCase().trim();
+        
+    //     // Check deprioritized companies with fuzzy matching
+    //     for (const deprioritized of deprioritizedCompanies) {
+    //       if (!deprioritized) continue;
+          
+    //       const deprioritizedLower = deprioritized.toLowerCase().trim();
+          
+    //       // Fuzzy matching - check if either contains the other or if they share significant common words
+    //       if (orgLower.includes(deprioritizedLower) || 
+    //           deprioritizedLower.includes(orgLower) ||
+    //           fuzzyMatch(orgLower, deprioritizedLower)) {
+    //         return "deprioritized";
+    //       }
+    //     }
+    //   }
+
+    //   return "";
+    // };
+
+
+    // Updated function to get match status and company name
+const getTargetCompanyStatus = (lastOrganizations) => {
+  if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
+    return { status: "", matchCompanyName: "" };
+  }
+
+  const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
+  const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
+
+  for (const org of lastOrganizations) {
+    if (!org) continue;
+    const orgLower = org.toLowerCase().trim();
+
+    for (const prioritized of prioritizedCompanies) {
+      if (!prioritized) continue;
+      const prioritizedLower = prioritized.toLowerCase().trim();
+
+      if (
+        orgLower.includes(prioritizedLower) ||
+        prioritizedLower.includes(orgLower) ||
+        fuzzyMatch(orgLower, prioritizedLower)
+      ) {
+        return { status: "prioritized", matchCompanyName: prioritized };
       }
+    }
+  }
 
-      const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
-      const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
+  for (const org of lastOrganizations) {
+    if (!org) continue;
+    const orgLower = org.toLowerCase().trim();
 
-      // Check for prioritized companies match
-      for (const org of lastOrganizations) {
-        if (!org) continue;
-        
-        const orgLower = org.toLowerCase().trim();
-        
-        // Check prioritized companies with fuzzy matching
-        for (const prioritized of prioritizedCompanies) {
-          if (!prioritized) continue;
-          
-          const prioritizedLower = prioritized.toLowerCase().trim();
-          
-          // Fuzzy matching - check if either contains the other or if they share significant common words
-          if (orgLower.includes(prioritizedLower) || 
-              prioritizedLower.includes(orgLower) ||
-              fuzzyMatch(orgLower, prioritizedLower)) {
-            return "prioritized";
-          }
-        }
+    for (const deprioritized of deprioritizedCompanies) {
+      if (!deprioritized) continue;
+      const deprioritizedLower = deprioritized.toLowerCase().trim();
+
+      if (
+        orgLower.includes(deprioritizedLower) ||
+        deprioritizedLower.includes(orgLower) ||
+        fuzzyMatch(orgLower, deprioritizedLower)
+      ) {
+        return { status: "deprioritized", matchCompanyName: deprioritized };
       }
+    }
+  }
 
-      // Check for deprioritized companies match
-      for (const org of lastOrganizations) {
-        if (!org) continue;
-        
-        const orgLower = org.toLowerCase().trim();
-        
-        // Check deprioritized companies with fuzzy matching
-        for (const deprioritized of deprioritizedCompanies) {
-          if (!deprioritized) continue;
-          
-          const deprioritizedLower = deprioritized.toLowerCase().trim();
-          
-          // Fuzzy matching - check if either contains the other or if they share significant common words
-          if (orgLower.includes(deprioritizedLower) || 
-              deprioritizedLower.includes(orgLower) ||
-              fuzzyMatch(orgLower, deprioritizedLower)) {
-            return "deprioritized";
-          }
-        }
-      }
-
-      return "";
-    };
+  return { status: "", matchCompanyName: "" };
+};
 
     // Helper function for fuzzy matching based on common words
     const fuzzyMatch = (str1, str2) => {
@@ -3698,35 +3750,35 @@ export const getScreeningAnalytics = async (req, res) => {
 
     // Default rejection reasons if no data
     const defaultRejectionReasons = [
-      { reason: 'Insufficient Experience', count: 89, percentage: 32 },
-      { reason: 'Skills Mismatch', count: 67, percentage: 24 },
-      { reason: 'Poor Communication', count: 45, percentage: 16 },
-      { reason: 'Cultural Fit', count: 34, percentage: 12 },
-      { reason: 'Salary Expectations', count: 28, percentage: 10 }
+      { reason: 'Insufficient Experience', count: 0, percentage: 0 },
+      { reason: 'Skills Mismatch', count: 0, percentage: 0 },
+      { reason: 'Poor Communication', count: 0, percentage: 0 },
+      { reason: 'Cultural Fit', count: 0, percentage: 0 },
+      { reason: 'Salary Expectations', count: 0, percentage: 0 }
     ];
 
     // Skills radar data
     const skillsData = skillsAnalysis[0] || {};
     const skillsRadar = {
-      technicalSkills: Math.round(skillsData.technicalSkills || 85),
-      experienceSkills: Math.round(skillsData.experienceSkills || 85),
-      communication: Math.round(skillsData.communication || 72),
-      leadership: Math.round(skillsData.leadership || 65),
-      problemSolving: Math.round(skillsData.problemSolving || 78),
-      adaptability: Math.round(skillsData.adaptability || 88),
-      teamwork: Math.round(skillsData.teamwork || 80)
+      technicalSkills: Math.round(skillsData.technicalSkills || 0),
+      experienceSkills: Math.round(skillsData.experienceSkills || 0),
+      communication: Math.round(skillsData.communication || 0),
+      leadership: Math.round(skillsData.leadership || 0),
+      problemSolving: Math.round(skillsData.problemSolving || 0),
+      adaptability: Math.round(skillsData.adaptability || 0),
+      teamwork: Math.round(skillsData.teamwork || 0)
     };
 
     // Confidence distribution
     const confidenceData = confidenceDistribution.length > 0 ? confidenceDistribution : [
-      { _id: 80, count: 74, avgScore: 88 },
-      { _id: 60, count: 89, avgScore: 72 },
-      { _id: 0, count: 58, avgScore: 45 }
+      { _id: 0, count: 0, avgScore: 0 },
+      { _id: 0, count: 0, avgScore: 0 },
+      { _id: 0, count: 0, avgScore: 0 }
     ];
 
     const totalAppsForConfidence = confidenceData.reduce((sum, conf) => sum + conf.count, 0);
     const processedConfidenceData = confidenceData.map(conf => ({
-      range: conf._id === 80 ? '80-100%' : conf._id === 60 ? '60-79%' : '0-59%',
+      range: conf._id === 80 ? '80-100%' : conf._id == 60 ? '60-79%' : '0-59%',
       count: conf.count,
       percentage: totalAppsForConfidence > 0 ? Math.round((conf.count / totalAppsForConfidence) * 100) : 0,
       avgScore: Math.round(conf.avgScore || 0)

@@ -65,6 +65,7 @@ const vacancyRequestSchema = new Schema(
     qualificationId: {
       type: ObjectId,
       ref: "subDropDown",
+      from: "Qualification",
       // required: [true, "Eligibility Is Required"],
     },
     experience: {

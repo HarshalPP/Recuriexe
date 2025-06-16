@@ -14,13 +14,15 @@ import {
   generateDesignationFromAI,
   createBulkDesignations,
   createMissingBudgetsForDesignations,
-  deleteDesignations
+  deleteDesignations,
+  getAllDesignationFromJobApply,
 } from "../../controllers/designationController/designation.controller.js"
 import { verifyEmployeeToken } from "../../middleware/authicationmiddleware.js";
 
 // Routes
 router.post("/add", verifyEmployeeToken , addDesignationController);
 router.get("/getAll", verifyEmployeeToken , getAllDesignationController);
+router.get("/getAllFromJobApply", verifyEmployeeToken , getAllDesignationFromJobApply);
 router.get("/getAllInactive", verifyEmployeeToken ,getAllInactiveDesignationController);
 router.get("/getDesignationById/:designationId", verifyEmployeeToken , getDesignationByIdController);
 router.post("/delete/:designationId", verifyEmployeeToken , deactivateDesignationByIdController);

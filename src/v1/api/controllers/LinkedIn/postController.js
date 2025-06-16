@@ -15,7 +15,8 @@ export const getAllPosts = asyncHandler(async (req, res) => {
     [
       {
         $match: {
-          organizationId
+          organizationId,
+          status: { $nin: ["processing", "ready"] } 
         }
       },
       {

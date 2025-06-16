@@ -13,13 +13,13 @@
         body {
             font-family: 'Inter', sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 2;
             box-sizing: border-box;
             overflow: hidden; /* Hide body overflow if fixed container is larger than viewport */
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh; /* Keep for initial centering */
+            min-height: auto; /* Keep for initial centering */
             background-color: #e2e8f0; /* Light blue-gray background */
         }
     </style>
@@ -51,7 +51,7 @@
                 <div class="grid flex items-center justify-center">
                     <!-- Job Listings Column 1 -->
                     <div class="flex flex-col items-center">
-                <ul id="job-list" class="list-none text-2xl font-medium text-gray-700 space-y-2"></ul>
+                <ul id="job-list" class="list-none text-xl font-medium text-gray-700 space-y-2"></ul>
 
                 <script>
                 // If you receive the openPositions as a string like: "UX/UI Designer, Automation Test Engineer"

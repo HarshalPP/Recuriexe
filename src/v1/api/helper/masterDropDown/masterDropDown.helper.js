@@ -4,6 +4,8 @@ import { formatDropDown } from "../../formatters/masterDropDown/masterDropDown.f
 import employeeModel from "../../models/employeemodel/employee.model.js";
 import subdropDownModel from "../../models/masterDropDownModel/masterDropDownValue.model.js"
 import { formatDropDownValue } from "../../formatters/masterDropDown/masterDropDownValue.formatter.js"
+import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 
 export async function addDropDown(req) {
   try {
@@ -372,3 +374,55 @@ export async function activeAndInactiveSubDropDownById(req) {
     return returnFormatter(false, error.message);
   }
 }
+
+
+export const activeAndInactiveSubDropDownByIdTest = async (req, res) => {
+  try {
+// const dropDownMatech = await dropDownModel.find({ status: ["active", "alwaysActive"]}).select('_id name');
+    const matchingDropDownIds = [
+      // new ObjectId("68357b49aec0d748ab677cb0"),
+      // new ObjectId("683561ebe9c788cadae29e03"),
+      // new ObjectId("6834138085f4b30739ce26b1")
+    ];
+
+
+    // console.log("1",matchingDropDownIds);
+    // Step 1: Find existing entries
+    const existingEntries = await subdropDownModel.find({
+      // organizationId: targetOrganizationId,
+      dropDownId: { $in: matchingDropDownIds }
+    });
+
+    // return 
+
+    console.log("3");
+    if (!existingEntries.length) {
+      return res.status(404).json({ status: false, message: "No matching subDropDowns found" });
+    }
+
+    // Step 2: Prepare new entries
+    console.log("4");
+    const newEntries = existingEntries.map(item => ({
+      dropDownId: item.dropDownId,
+      name: item.name,
+      status: item.status,
+      defaultValue: true,
+      organizationId: null,
+      createdBy: req.employee.id
+    }));
+
+    // Step 3: Save them to DB
+    console.log("5");
+    await subdropDownModel.insertMany(newEntries);
+
+    console.log("6");
+    return res.status(200).json({
+      status: true,
+      message: `${newEntries.length} subDropDowns added as default`,
+    });
+    console.log("7");
+  } catch (error) {
+    console.log('ERROR ',errror)
+    return res.status(500).json({ status: false, message: error.message });
+  }
+};

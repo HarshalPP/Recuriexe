@@ -27,5 +27,5 @@ router.post("/exportJobPostsExcel" , verifyEmployeeToken , exportJobPostsExcel)
 
 router.get("/qualificationDataUpdate", qualificationDataUpdate )
 
- 
+
 export default router;   

@@ -962,7 +962,7 @@ export const getAllJobPost = async (req, res) => {
 
       {
         $lookup: {
-          from: "subdropdowns",
+          from: "qualifications",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualification",
@@ -2698,10 +2698,10 @@ export const qualificationDataUpdate = async (req, res) => {
       const newQualificationIds = [];
 
       for (const qualificationId of jobPost.qualificationId || []) {
-        const oldQual = await qualificationModel.findById(qualificationId).lean();
+        const oldQual = await subDropDownModel.findById(qualificationId).lean();
         if (!oldQual || !oldQual.name) continue;
 
-        const newQual = await subDropDownModel.findOne({ name: oldQual.name }).lean();
+        const newQual = await qualificationModel.findOne({ name: oldQual.name }).lean();
 
         if (newQual?._id) {
           newQualificationIds.push(newQual._id);

@@ -13,13 +13,13 @@
         body {
             font-family: 'Inter', sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 2;
             box-sizing: border-box;
             overflow: hidden; /* Hide body overflow if fixed container is larger than viewport */
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh; /* Keep for initial centering */
+            min-height: auto; /* Keep for initial centering */
             background-color: #f0f0f0; /* Light gray background */
         }
     </style>
@@ -49,10 +49,10 @@
             <div>
                 <h2 class="text-4xl font-bold text-orange-600 mb-6">EXPLORE OPPORTUNITIES</h2>
 
-                <div class="grid flex items-center justify-center">
+                <div class="grid flex items-center justify-center ">
                     <!-- Job Listings Column 1 -->
                     <div class="flex flex-col items-center ">
-                <ul id="job-list" class="list-none text-2xl font-medium text-gray-700 space-y-2"></ul>
+                <ul id="job-list" class="list-none text-xl font-medium text-gray-700 space-y-2"></ul>
 
                 <script>
                 // If you receive the openPositions as a string like: "UX/UI Designer, Automation Test Engineer"
@@ -92,7 +92,6 @@
                     hover:from-orange-600 hover:to-red-700 transition duration-300 ease-in-out
                     shadow-lg hover:shadow-xl mt-4
                 ">
-                    APPLY NOW!
                     {{carrierlink}}
                 </a>
             </section>

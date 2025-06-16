@@ -7,11 +7,13 @@ export const formatScreeningCriteria = (criteria) => ({
   isActive: criteria.isActive,
   confidence: criteria.confidence,
   experience: criteria.experience,
+  
 });
 
 export const formatAiScreening = (screening) => ({
   id: screening._id,
   name: screening.name,
+  autoScreening:screening.autoScreening,
   description: screening.description,
   coreSettings: screening.coreSettings,
   screeningCriteria: screening.screeningCriteria.map(formatScreeningCriteria),

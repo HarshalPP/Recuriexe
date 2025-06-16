@@ -609,7 +609,7 @@ export const PostgetAnalytics = async (organizationId) => {
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
 // Template rendering setup
-const TEMPLATE_DIR = path.join(__dirname, '..', 'templates', 'linkedInTemplate');
+const TEMPLATE_DIR = path.join(process.cwd(), 'src', 'v1', 'api', 'templates', 'linkedInTemplate');
 const templateCache = {};
 
 // Concurrency limit: 1 concurrent image generation at a time
@@ -689,7 +689,7 @@ let browser = null;
   }
 }
 
- async function generateTemplateImage(templateId, templateData, handleSingleFileUpload) {
+ async function generateTemplateImage(templateId, templateData) {
   const templateName = `template-${templateId}`;
 
   try {

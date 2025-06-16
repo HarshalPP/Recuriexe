@@ -9,6 +9,7 @@ import {
   nameBySubDropDownGet,
   detailSubDropDown,
   activeAndInactiveSubDropDownById,
+  activeAndInactiveSubDropDownByIdTest
 } from "../../helper/masterDropDown/masterDropDown.helper.js";
 
 import { created, success, badRequest, unknownError } from "../../formatters/globalResponse.js";
@@ -99,6 +100,15 @@ export async function subDropDownDetail(req, res) {
 export async function activeAndInactiveSubDropDown(req, res) {
   try {
     const { status, message, data } = await activeAndInactiveSubDropDownById(req);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+}
+
+export async function activeAndInactiveSubDropDownTest(req, res) {
+  try {
+    const { status, message, data } = await activeAndInactiveSubDropDownByIdTest(req);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);

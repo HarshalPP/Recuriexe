@@ -23,7 +23,7 @@ import PlanModel from '../../models/PlanModel/Plan.model.js';
 import PortalModel from '../../models/PortalSetUp/portalsetup.js';
 import { sendEmail1 } from '../../Utils/sendEmail.js'
 import AiScreening from '../../models/AiScreeing/AiScreening.model.js';
-
+import subdropDownModel from '../../models/masterDropDownModel/masterDropDownValue.model.js';
 
 
 export const newEmployeeLogin = async (req, res) => {
@@ -289,6 +289,23 @@ export const SuperAdminRegister = async (req, res) => {
       organizationId: newOrganization._id,
       token
     };
+
+
+    // Step 6 :-  add default Data on Master Drop Down 
+        const defaultSubDropdowns = await subdropDownModel.find({
+      organizationId: null,
+      defaultValue: true
+    });
+        const newSubDropdowns = defaultSubDropdowns.map(item => ({
+      dropDownId: item.dropDownId,
+      organizationId: newOrganization._id,
+      name: item.name.trim(),
+      status: item.status,
+      createdBy: newEmployee._id,
+      defaultValue: false
+    }));
+
+    await subdropDownModel.insertMany(newSubDropdowns);
 
     return success(res, 'Employee registered successfully', data);
   } catch (error) {

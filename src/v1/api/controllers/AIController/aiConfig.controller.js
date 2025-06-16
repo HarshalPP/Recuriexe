@@ -1171,7 +1171,7 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
 
     // check AI screeing Usages // 
 
-    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: orgainizationId });
+    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: organizationId });
     if (currentAICount >= activePlan.NumberofAnalizers) {
       return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
     }

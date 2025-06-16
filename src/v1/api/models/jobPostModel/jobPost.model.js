@@ -47,7 +47,8 @@ const jobPostingModelSchema = new Schema(
     qualificationId: [
       {
         type: ObjectId,
-        ref: "subDropDown",
+        // ref: "subDropDown",
+        ref: "Qualification",
         // required: [true, "Eligibility Is Required"],
       },
     ],
@@ -192,6 +193,10 @@ jobPostingModelSchema.pre("save", async function (next) {
   }
 });
 
-const jobPostModel = model("jobPost", jobPostingModelSchema);
+// const jobPostModel = model("jobPost", jobPostingModelSchema);
 
+// export default jobPostModel;
+
+
+const jobPostModel = mongoose.models.jobPost || model("jobPost", jobPostingModelSchema);
 export default jobPostModel;

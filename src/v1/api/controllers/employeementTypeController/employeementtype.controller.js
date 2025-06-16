@@ -6,6 +6,7 @@ import employmentTypeModel from "../../models/employeementTypemodel/employeement
 // import { google } from "googleapis";
 // import credentials from "../../../../../credential.json" assert { type: "json" };
 import employeeModel from "../../models/employeemodel/employee.model.js"
+import jobPostModel from "../../models/jobPostmodel/jobPost.model.js"
 
 // ------------------Admin Master Add EmploymentType---------------------------------------
 export async function employmentTypeAdd(req, res) {
@@ -174,6 +175,31 @@ export async function getAllEmploymentType(req, res) {
   }
 }
 
+
+// ------------------Admin Master Get All EmploymentType---------------------------------------
+export async function getAllEmploymentTypeFromJobPost(req, res) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
+    }
+
+    const organizationId = req.query.organizationId
+    
+    const jobPostId =  await jobPostModel.find({organizationId :  new mongoose.Types.ObjectId(organizationId)}).select("_id employmentTypeId");
+    
+     const employementTypeIds = [...new Set(jobPostId.map(d => d.employmentTypeId).filter(Boolean))];
+
+    const employmentTypeDetail = await employmentTypeModel.find({ _id: { $in: employementTypeIds },});
+    success(res, "Get All EmploymentTypeDetail", employmentTypeDetail);
+  } catch (error) {
+    console.log(error);
+    unknownError(res, error);
+  }
+}
 // ------------------Admin Master Get All EmploymentType---------------------------------------
 export async function getAllListEmploymentType(req, res) {
   try {

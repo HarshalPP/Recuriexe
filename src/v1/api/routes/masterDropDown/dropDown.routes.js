@@ -12,6 +12,7 @@ import {
     subDropDownGet,
     subDropDownDetail,
     activeAndInactiveSubDropDown,
+    activeAndInactiveSubDropDownTest,
 } from "../../controllers/masterDropDown/masterDropDown.controller.js"
 
 import sectorTypeRoute from "./sectorType.routes.js"
@@ -32,6 +33,8 @@ router.post("/subDropDown/update", verifyEmployeeToken, updateSubDropDown)
 router.get("/subDropDown/getList", verifyEmployeeToken, subDropDownGet)
 router.get("/subDropDown/detail", verifyEmployeeToken, subDropDownDetail)
 router.post("/subDropDown/activeAndInactive", verifyEmployeeToken, activeAndInactiveSubDropDown)
+
+router.post("/subDropDown/test", verifyEmployeeToken, activeAndInactiveSubDropDownTest)
 
 
 router.use("/sectorType", verifyEmployeeToken, sectorTypeRoute)

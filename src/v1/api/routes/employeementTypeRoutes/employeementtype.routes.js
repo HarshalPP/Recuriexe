@@ -9,12 +9,14 @@ import {
   getAllEmploymentTypeSheet,
   employmentTypeActiveOrInactive,
   deleteEmploymentType,
+  getAllEmploymentTypeFromJobPost,
 } from "../../controllers/employeementTypeController/employeementtype.controller.js"
 import { verifyEmployeeToken } from "../../middleware/authicationmiddleware.js";
 
 router.post("/employmentTypeAdd", verifyEmployeeToken, employmentTypeAdd);
 router.post("/updateEmploymentType", verifyEmployeeToken, updateEmploymentType);
 router.get("/getAllEmploymentType", getAllEmploymentType);
+router.get("/getAllEmploymentType/jobPost", getAllEmploymentTypeFromJobPost);
 router.get("/getAllListEmploymentType",verifyEmployeeToken, getAllListEmploymentType);
 router.get("/getAllEmploymentTypeSheet", getAllEmploymentTypeSheet);
 router.post("/activeOrInactive", verifyEmployeeToken ,employmentTypeActiveOrInactive);
