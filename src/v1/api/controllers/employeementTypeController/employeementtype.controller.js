@@ -8,7 +8,6 @@ import employmentTypeModel from "../../models/employeementTypemodel/employeement
 import employeeModel from "../../models/employeemodel/employee.model.js"
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
 
-
 // ------------------Admin Master Add EmploymentType---------------------------------------
 export async function employmentTypeAdd(req, res) {
   try {
@@ -26,15 +25,11 @@ export async function employmentTypeAdd(req, res) {
     if (!title || title.trim() === "") {
       return badRequest(res, "Title is required and cannot be empty");
     }
-    if (!punchOutsideBranch) {
-      return badRequest(res, "Punch Outside Branch is required and cannot be empty");
-    }
+
 
     const existingEmployeType = await employmentTypeModel.findOne({ title, status: "active" , organizationId});
     const validModes = ["allowed", "notAllowed"];
-    if (!validModes.includes(punchOutsideBranch)) {
-      return badRequest(res, "Punch Outside Branch must be allowed or notAllowed");
-    }
+
     if (existingEmployeType) {
       return badRequest(res, "Employment Type with this name already exists");
     }

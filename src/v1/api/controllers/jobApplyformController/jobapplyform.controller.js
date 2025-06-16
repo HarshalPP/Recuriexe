@@ -1809,6 +1809,8 @@ export const getDashboardSummary = async (req, res) => {
       }
     }])
 
+    console.log("rejectedCandidates" , rejectedCandidates)
+
     // Hire candidate
     const HireData = await jobApply.aggregate([
       {
@@ -1849,7 +1851,7 @@ export const getDashboardSummary = async (req, res) => {
     // 2. Count rejections in the last 7 days
     const rejectedLast7Days = await jobApply.countDocuments({
       createdAt: { $gte: sevenDaysAgo },
-      // orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       resumeShortlisted: 'notshortlisted'
     });
 
