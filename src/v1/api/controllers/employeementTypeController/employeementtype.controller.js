@@ -6,7 +6,7 @@ import employmentTypeModel from "../../models/employeementTypemodel/employeement
 // import { google } from "googleapis";
 // import credentials from "../../../../../credential.json" assert { type: "json" };
 import employeeModel from "../../models/employeemodel/employee.model.js"
-import jobPostModel from "../../models/jobPostmodel/jobPost.model.js"
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
 
 
 // ------------------Admin Master Add EmploymentType---------------------------------------
