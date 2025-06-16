@@ -126,38 +126,49 @@ export async function branchTypeDropdown() {
 // master dron down bulk data add 
 
 const sectors = [
-  "INR",
-  "USD",
-  "EUR",
-  "GBP",
-  "JPY",
-  "CNY",
-  "CAD",
-  "AUD",
-  "CHF",
-  "SGD",
-  "NZD",
-  "ZAR",
-  "AED",
-  "SAR",
-  "HKD",
-  "SEK",
-  "NOK",
-  "DKK",
-  "THB",
-  "MYR",
-  "KRW",
-  "IDR",
-  "PHP",
-  "BDT"
+  "Senior Secondary (12th Grade)",
+  "MBBS",
+  "BAMS (Ayurvedic Medicine)",
+  "LLM (Master of Law)",
+  "BDS (Bachelor of Dental Surgery)",
+  "Graduation",
+  "Diploma in Engineering",
+  "B.Sc. Nursing",
+  "Bachelor of Science",
+  "Bachelor of Commerce",
+  "Bachelor of Education",
+  "Bachelor of Computer Applications",
+  "Master of Business Administration",
+  "GNM (General Nursing & Midwifery)",
+  "Post Graduate Diploma",
+  "Company Secretary",
+  "Polytechnic Diploma",
+  "High School Diploma",
+  "Master of Arts",
+  "BHMS (Homeopathy)",
+  "Post Graduation",
+  "Bachelor of Business Administration",
+  "Bachelor of Technology",
+  "LLB (Bachelor of Law)",
+  "ITI Certificate",
+  "Masters of Computer Application",
+  "Doctor of Philosophy (PhD)",
+  "Master of Education",
+  "Bachelor of Arts",
+  "Master of Science",
+  "Master of Commerce",
+  "Master of Technology",
+  "Diploma in Education",
+  "Bachelor of Science",
+  "Chartered Accountant"
 ];
-
+ 
 
 export async function adddataOnModel(req) {
   try {
     const employeeId = req.employee?.id;
-    const organizationId = new ObjectId('');
-    const DropDownId = new ObjectId('')
+    const organizationId = new ObjectId('683078aaff6a6be585eb8aef');
+    const DropDownId = new ObjectId('683561ebe9c788cadae29e03')
 
     console.log('req.employee?.id',req.employee?.id)
 

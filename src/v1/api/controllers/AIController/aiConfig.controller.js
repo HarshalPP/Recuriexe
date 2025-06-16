@@ -16,7 +16,12 @@ import Qualification from "../../models/QualificationModel/qualification.model.j
 import departmentModel from "../../models/deparmentModel/deparment.model.js"
 import screenai from "../../models/AiScreeing/AiScreening.model.js"
 import CandidateAIScreeningModel from "../../models/screeningResultModel/screeningResult.model.js"
+import OrganizationModel from "../../models/organizationModel/organization.model.js";
 import mongoose from "mongoose";
+import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+
+
+import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 import AIConfigModel from "../../models/AiModel/ai.model.js"
 import { sendEmail } from "../../Utils/sendEmail.js";
@@ -582,6 +587,9 @@ export const screenApplicantAPI = async (req, res) => {
 // };
 
 
+
+//--- Qualification Required ---
+// ${Qualificationdata?.name || "N/A"} 
 export const screenCandidateAIProfile = async (req, res) => {
   try {
     const { jobPostId, resume, candidateId } = req.body;
@@ -589,6 +597,35 @@ export const screenCandidateAIProfile = async (req, res) => {
     if (!orgainizationId) {
       return badRequest(res, "Organization ID is required.");
     }
+
+
+    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId}).lean();
+
+    if (!activePlan) {
+     return badRequest(res, "no active plan found for this Analizer.");
+    }
+
+    const createdAt = new Date(activePlan?.createdAt);
+    console.log("createdAt", createdAt);
+
+    const expiryDate = new Date(createdAt);
+    expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
+
+    console.log("expiryDate", expiryDate);
+
+    if (new Date() > expiryDate) {
+      return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
+    }
+
+
+    // check AI screeing Usages // 
+
+    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: orgainizationId });
+    if (currentAICount >= activePlan.NumberofAnalizers) {
+      return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
+    }
+
+
 
     if (!jobPostId || !resume) {
       return badRequest(res, "Missing required fields: jobPostId, resume, aiRoleId");
@@ -602,13 +639,14 @@ export const screenCandidateAIProfile = async (req, res) => {
 
     const [
   findJd,
-  Qualificationdata,
+  // Qualificationdata,
   designation,
   department,
   candidate
+
 ] = await Promise.all([
   JobDescriptionModel.findById(job.jobDescriptionId).lean(),
-  Qualification.findById(job.qualificationId).lean(),
+  // Qualification.findById(job.qualificationId).lean(),
   designationModel.findById(job.designationId).lean(),
   departmentModel.findById(job.departmentId).lean(),
   jobApply.findById(candidateId).lean() // Fetch candidate details
@@ -616,48 +654,31 @@ export const screenCandidateAIProfile = async (req, res) => {
 
 // Error checks
 if (!findJd) return badRequest(res, "Job description not found");
-if (!Qualificationdata) return badRequest(res, "Qualification not found");
+// if (!Qualificationdata) return badRequest(res, "Qualification not found");
 if (!designation) return badRequest(res, "Designation not found");
 if (!department) return badRequest(res, "Department not found");
 
 
-
-    // First validate if resume matches candidate's basic information
-    const validationPrompt = `
+const validationPrompt  = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
 
 CANDIDATE APPLICATION DATA:
 - Name: ${candidate.name}
-- Email: ${candidate.emailId}
-- Mobile: ${candidate.mobileNumber}
 
 RESUME CONTENT:
 ${resume}
 
 VALIDATION RULES:
-1. Check if the name in the resume matches or is reasonably similar to the candidate's name
-2. Check if the email in the resume matches the candidate's email
-3. Check if the mobile number in the resume matches the candidate's mobile number
-
-IMPORTANT:
-- Names can have slight variations (nicknames, middle names, etc.) but should be recognizably the same person
-- Email and mobile number should match exactly or be very close
-- If ANY of these don't match, consider it invalid
+1. Check if the name in the resume matches or is reasonably similar to the candidate's name.
 
 Respond ONLY with a JSON object in this exact format:
 {
-  "isValid": true/false,
-  "nameMatch": true/false,
-  "emailMatch": true/false,
-  "mobileMatch": true/false,
-  "resumeName": "name found in resume or empty string",
-  "resumeEmail": "email found in resume or empty string",
-  "resumeMobile": "mobile found in resume or empty string",
-  "reason": "Brief explanation of validation result"
+  "nameMatch": true
 }
 `;
+
 
     // Validate resume first
     const validationResult = await generateAIScreening(validationPrompt, resume);
@@ -667,13 +688,13 @@ Respond ONLY with a JSON object in this exact format:
     }
 
     // If resume validation fails, reject immediately
-    if (!validationResult.isValid) {
+    if (!validationResult.nameMatch) {
       const rejectionData = {
         jobPostId,
         candidateId,
         position: job.position,
         department: department.name,
-        qualification: Qualificationdata.name,
+        // qualification: Qualificationdata.name,
         AI_Confidence: 95, // High confidence in rejection due to validation failure
         AI_Processing_Speed: 2,
         Accuracy: 100,
@@ -752,60 +773,29 @@ Respond ONLY with a JSON object in this exact format:
         { new: true, upsert: true }
       );
 
-      return success(res, "AI Screening Rejected due to resume validation failure", rejectionData);
+      success(res, "AI Screening Rejected due to resume validation failure", rejectionData);
+      // return await jobApplyToGoogleSheet(jobApplyForm._id)
     }
 
-
-
-const aiRule = await AIRole.findOne({ AutomaticScreening: true, orgainizationId: String(orgainizationId) }).lean();
+// 1. Fetch AI Screening config from DB
 const screenaiDocs = await screenai.find({ organizationId: orgainizationId }).lean();
-
 const coreSettings = screenaiDocs[0]?.coreSettings || {};
 const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
-const confidenceThresholdScore = coreSettings.confidenceThreshold || 50;
 
+// 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
+// Fetch from the first document (screenaiDocs[0])'s screeningCriteria
 let screeningRules = [];
 
-if (aiRule?.AI_Screening?.length) {
-  // Collect all unique categoryIds from all rules
-  const categoryIds = aiRule.AI_Screening.flatMap(rule =>
-    rule.category?.map(cat => cat.toString()) || []
-  );
+if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
+  screeningRules = [{
+    name: screenaiDocs[0].name,
+    description: screenaiDocs[0].description,
+    priority: "Medium", // or whatever field you want
+    isActive: screenaiDocs[0].isActive,
+    screeningCriteria: screenaiDocs[0].screeningCriteria
+  }];
+} else {
 
-  // Flatten all criteria across screenaiDocs
-  const allCriteria = screenaiDocs.flatMap(doc => doc.screeningCriteria || []);
-
-  // Match relevant criteria
-  const matchedCriteria = allCriteria.filter(crit =>
-    categoryIds.includes(crit._id.toString())
-  );
-
-
-  if (matchedCriteria.length) {
-    screeningRules = aiRule.AI_Screening.map(rule => {
-      const matched = rule.category
-        .map(catId => matchedCriteria.find(c => c._id.toString() === catId.toString()))
-        .filter(Boolean);
-
-      return {
-        name: rule.name,
-        description: rule.description,
-        priority: rule.priority,
-        isActive: rule.isActive,
-        screeningCriteria: matched.map(item => ({
-          name: item.name,
-          description: item.description,
-          weight: item.weight || 0,
-          confidence: item.confidence || 0,
-          isActive: item.isActive || false,
-        }))
-      };
-    });
-  }
-}
-
-// Fallback rule
-if (!screeningRules.length) {
   console.warn("No valid AI screening rules found, using default rule");
   screeningRules = [{
     name: "Default Screening Rule",
@@ -858,10 +848,10 @@ if (!screeningRules.length) {
 }
 
 
-// Filtered flat list for AI prompt
+// 4. Flatten + filter valid screening criteria for AI prompt
 const filteredCriteria = screeningRules.flatMap(rule =>
   (rule.screeningCriteria || [])
-    .filter(c => c?.name && c?.weight > 0)  // Only include valid + weighted criteria
+    .filter(c => c?.name && c?.weight > 0)
     .map(c => ({
       name: c.name.trim(),
       description: c.description || '',
@@ -870,10 +860,14 @@ const filteredCriteria = screeningRules.flatMap(rule =>
     }))
 );
 
-// 2. Format criteria array as string (score=0, reason="")
+
+// console.log("filteredCriteria:", filteredCriteria);
+
+// 5. Create JSON-style string for each criteria (e.g., for LLM prompt formatting)
 const criteriaArrayString = filteredCriteria.map(c =>
   `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
 ).join(',\n');
+
 
 // console.log("Criteria Array String:", criteriaArrayString);
 
@@ -906,7 +900,6 @@ Use the following criteria weights and thresholds:
 
 - Each criterion has a weight (importance percentage) which you must use to calculate a weighted average overall score.
 - Qualification threshold: ${qualificationThresholdScore}% — The candidate's qualification score must meet or exceed this value.
-- Confidence threshold: ${confidenceThresholdScore}% — The confidence level for the screening should meet or exceed this value.
 
 Calculate the overall AI score as the weighted average of individual criterion scores using the weights provided.
 
@@ -948,8 +941,7 @@ Use the following format in JSON:
   "AI_Processing_Speed": 0, // in seconds
   "Accuracy": 0,
   "decision": "Approved" | "Rejected",
-  "qualificationThreshold": ${qualificationThresholdScore || 50},
-  "confidenceThreshold": ${confidenceThresholdScore || 50},
+  "qualificationThreshold": ${qualificationThresholdScore || 50}
   
 "criteria": [
 ${criteriaArrayString}
@@ -994,8 +986,6 @@ Position: ${job.position}
 Department: ${department?.name || "N/A"}
 Experience Required: ${job.experience}
 
---- Qualification Required ---
-${Qualificationdata?.name || "N/A"}
 
 --- Job Summary ---
 ${findJd.jobDescription.JobSummary || "N/A"}
@@ -1060,12 +1050,12 @@ ${resume}
       AI_Processing_Speed,
       Accuracy,
       qualificationThreshold,
-      confidenceThreshold,
       improvementSuggestions,
       riskFactors
 
 
     } = aiResult;
+
 
         // Upsert AI screening data
     const filter = { candidateId };
@@ -1074,12 +1064,10 @@ ${resume}
       candidateId,
       position: job.position,
       department: department.name,
-      qualification: Qualificationdata.name,
       AI_Confidence,
       AI_Processing_Speed,
       Accuracy,
       qualificationThreshold,
-      confidenceThreshold,
       overallScore:verifiedOverallScore,
       decision,
       breakdown: {
@@ -1106,6 +1094,17 @@ ${resume}
         
     success(res,  "AI_Screening" , updateData);
 
+    // Update candidate with AI screening result
+    if(activePlan.NumberofAnalizers > 0){
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+        { new: true }
+      );
+    }
+
+
+
     const data = await jobApply.findOneAndUpdate(
   { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
   {
@@ -1128,7 +1127,7 @@ ${resume}
       { new: true, upsert: true }
     );
 
-
+//  await jobApplyToGoogleSheet(jobApplyForm._id)
 
 
   } catch (error) {
@@ -1150,15 +1149,44 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
     const job = await jobPostModel.findById(jobPostId).lean();
     if (!job) throw new Error("Job not found");
 
-    const [findJd, Qualificationdata, designation, department , candidate] = await Promise.all([
+    const activePlan = await oganizationPlan.findOne({organizationId: organizationId}).lean();
+
+    if (!activePlan) {
+     return badRequest(res, "no active plan found for this Analizer.");
+    }
+
+    const createdAt = new Date(activePlan?.createdAt);
+    console.log("createdAt", createdAt);
+
+    const expiryDate = new Date(createdAt);
+    expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
+
+    console.log("expiryDate", expiryDate);
+
+    if (new Date() > expiryDate) {
+      return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
+    }
+
+
+
+    // check AI screeing Usages // 
+
+    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: orgainizationId });
+    if (currentAICount >= activePlan.NumberofAnalizers) {
+      return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
+    }
+
+    const [findJd, 
+      // Qualificationdata, 
+      designation, department , candidate] = await Promise.all([
       JobDescriptionModel.findById(job.jobDescriptionId).lean(),
-      Qualification.findById(job.qualificationId).lean(),
+      // Qualification.findById(job.qualificationId).lean(),
       designationModel.findById(job.designationId).lean(),
       departmentModel.findById(job.departmentId).lean(),
       jobApply.findById(candidateId).lean(),
     ]);
 
-    if (!findJd || !Qualificationdata || !designation || !department) {
+    if (!findJd  || !designation || !department) {
       throw new Error("Missing related job details (JD/Qualification/Designation/Department)");
     }
     // First validate if resume matches candidate's basic information
@@ -1169,34 +1197,24 @@ Compare the following candidate information with the resume content:
 
 CANDIDATE APPLICATION DATA:
 - Name: ${candidate.name}
-- Email: ${candidate.emailId}
-- Mobile: ${candidate.mobileNumber}
 
 RESUME CONTENT:
 ${resume}
 
 VALIDATION RULES:
 1. Check if the name in the resume matches or is reasonably similar to the candidate's name
-2. Check if the email in the resume matches the candidate's email
-3. Check if the mobile number in the resume matches the candidate's mobile number
 
-IMPORTANT:
-- Names can have slight variations (nicknames, middle names, etc.) but should be recognizably the same person
-- Email and mobile number should match exactly or be very close
-- If ANY of these don't match, consider it invalid
+
+
 
 Respond ONLY with a JSON object in this exact format:
 {
-  "isValid": true/false,
+
   "nameMatch": true/false,
-  "emailMatch": true/false,
-  "mobileMatch": true/false,
-  "resumeName": "name found in resume or empty string",
-  "resumeEmail": "email found in resume or empty string",
-  "resumeMobile": "mobile found in resume or empty string",
-  "reason": "Brief explanation of validation result"
+
 }
 `;
+
 
     // Validate resume first
     const validationResult = await generateAIScreening(validationPrompt, resume);
@@ -1206,13 +1224,13 @@ Respond ONLY with a JSON object in this exact format:
     }
 
     // If resume validation fails, reject immediately
-    if (!validationResult.isValid) {
+    if (!validationResult.nameMatch) {
       const rejectionData = {
         jobPostId,
         candidateId,
         position: job.position,
         department: department.name,
-        qualification: Qualificationdata.name,
+        // qualification: Qualificationdata.name,
         AI_Confidence: 95, // High confidence in rejection due to validation failure
         AI_Processing_Speed: 2,
         Accuracy: 100,
@@ -1294,55 +1312,25 @@ Respond ONLY with a JSON object in this exact format:
       return success("AI Screening Rejected due to resume validation failure", rejectionData);
     }
 
-  const aiRule = await AIRole.findOne({ AutomaticScreening: true, orgainizationId: String(organizationId) }).lean();
+  // 1. Fetch AI Screening config from DB
 const screenaiDocs = await screenai.find({ organizationId: organizationId }).lean();
-
 const coreSettings = screenaiDocs[0]?.coreSettings || {};
 const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
-const confidenceThresholdScore = coreSettings.confidenceThreshold || 50;
 
+// 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
+// Fetch from the first document (screenaiDocs[0])'s screeningCriteria
 let screeningRules = [];
 
-if (aiRule?.AI_Screening?.length) {
-  // Collect all unique categoryIds from all rules
-  const categoryIds = aiRule.AI_Screening.flatMap(rule =>
-    rule.category?.map(cat => cat.toString()) || []
-  );
+if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
+  screeningRules = [{
+    name: screenaiDocs[0].name,
+    description: screenaiDocs[0].description,
+    priority: "Medium", // or whatever field you want
+    isActive: screenaiDocs[0].isActive,
+    screeningCriteria: screenaiDocs[0].screeningCriteria
+  }];
+} else {
 
-  // Flatten all criteria across screenaiDocs
-  const allCriteria = screenaiDocs.flatMap(doc => doc.screeningCriteria || []);
-
-  // Match relevant criteria
-  const matchedCriteria = allCriteria.filter(crit =>
-    categoryIds.includes(crit._id.toString())
-  );
-
-
-  if (matchedCriteria.length) {
-    screeningRules = aiRule.AI_Screening.map(rule => {
-      const matched = rule.category
-        .map(catId => matchedCriteria.find(c => c._id.toString() === catId.toString()))
-        .filter(Boolean);
-
-      return {
-        name: rule.name,
-        description: rule.description,
-        priority: rule.priority,
-        isActive: rule.isActive,
-        screeningCriteria: matched.map(item => ({
-          name: item.name,
-          description: item.description,
-          weight: item.weight || 0,
-          confidence: item.confidence || 0,
-          isActive: item.isActive || false,
-        }))
-      };
-    });
-  }
-}
-
-// Fallback rule
-if (!screeningRules.length) {
   console.warn("No valid AI screening rules found, using default rule");
   screeningRules = [{
     name: "Default Screening Rule",
@@ -1395,10 +1383,10 @@ if (!screeningRules.length) {
 }
 
 
-// Filtered flat list for AI prompt
+// 4. Flatten + filter valid screening criteria for AI prompt
 const filteredCriteria = screeningRules.flatMap(rule =>
   (rule.screeningCriteria || [])
-    .filter(c => c?.name && c?.weight > 0)  // Only include valid + weighted criteria
+    .filter(c => c?.name && c?.weight > 0)
     .map(c => ({
       name: c.name.trim(),
       description: c.description || '',
@@ -1441,7 +1429,6 @@ Use the following criteria weights and thresholds:
 
 - Each criterion has a weight (importance percentage) which you must use to calculate a weighted average overall score.
 - Qualification threshold: ${qualificationThresholdScore}% — The candidate's qualification score must meet or exceed this value.
-- Confidence threshold: ${confidenceThresholdScore}% — The confidence level for the screening should meet or exceed this value.
 
 Calculate the overall AI score as the weighted average of individual criterion scores using the weights provided.
 
@@ -1484,8 +1471,7 @@ Use the following format in JSON:
   "AI_Processing_Speed": 0, // in seconds
   "Accuracy": 0,
   "decision": "Approved" | "Rejected",
-  "qualificationThreshold": ${qualificationThresholdScore || 50},
-  "confidenceThreshold": ${confidenceThresholdScore || 50},
+  "qualificationThreshold": ${qualificationThresholdScore || 50}
   
 "criteria": [
 ${criteriaArrayString}
@@ -1530,8 +1516,6 @@ Position: ${job.position}
 Department: ${department?.name || "N/A"}
 Experience Required: ${job.experience}
 
---- Qualification Required ---
-${Qualificationdata?.name || "N/A"}
 
 --- Job Summary ---
 ${findJd.jobDescription.JobSummary || "N/A"}
@@ -1603,7 +1587,6 @@ ${resume}
       candidateId,
       position: job.position,
       department: department.name,
-      qualification: Qualificationdata.name,
       AI_Confidence,
       AI_Processing_Speed,
       Accuracy,
@@ -1654,6 +1637,15 @@ ${resume}
       updateData,
       { new: true, upsert: true }
     );
+
+
+        if(activePlan.NumberofAnalizers > 0){
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationId },
+        { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+        { new: true }
+      );
+    }
 
 
 

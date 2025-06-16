@@ -58,10 +58,31 @@ export async function roleAdd(req, res) {
       req.body.roleName = req.body.roleName.trim();
     }
 
-    const existing = await roleModel.findOne({ roleName: req.body.roleName ,organizationId});
-    if (existing) {
-      return badRequest(res, "Role name already exists");
+      if (req.body.roleName.trim().toLowerCase() === "productowner") {
+      return badRequest(res, "You are not allowed to create the 'productowner' role.");
     }
+
+
+    const normalizedRoleName = req.body.roleName.trim().toLowerCase();
+
+const existing = await roleModel.aggregate([
+  {
+    $match: {
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+      $expr: {
+        $eq: [
+          { $toLower: { $trim: { input: "$roleName" } } },
+          normalizedRoleName
+        ]
+      }
+    }
+  }
+]);
+
+if (existing.length > 0) {
+  return badRequest(res, "Role name already exists");
+}
+
 
     // If admin role, set all booleans (including nested) to true
     // if (req.body.roleName?.toLowerCase() === "admin") {
@@ -88,7 +109,6 @@ if (role === "admin" || role === "productowner"){
         }
       });
     }
-
     const roleDetail = await roleModel.create({
       ...req.body,
       organizationId,
@@ -254,6 +274,10 @@ export async function updateRole(req, res) {
     const existingRole = await roleModel.findById(roleId);
     if (!existingRole) {
       return badRequest(res ,"Role not found" );
+    }
+
+      if (updateFields.roleName.trim().toLowerCase() === "productowner") {
+      return badRequest(res, "You are not allowed to create the 'productowner' role.");
     }
 
     if (existingRole.roleName.toLowerCase() === "superadmin") {

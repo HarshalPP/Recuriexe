@@ -9,14 +9,15 @@ import {
 getPortalById,
 updatePortal,
 deletePortal,
-getAll
+getAll,
+getPortalDetail,
 } from "../../controllers/portalController/portal.controller.js"
 
 
 
 router.post("/create" , verifyEmployeeToken , createPortal)
 router.get("/getAllPortals"  , getAllPortals)
-
+router.get("/getPortalDetail"  , verifyEmployeeToken , getPortalDetail)
 router.get("/checkPortalstatus" , getAll)
 router.get("/getPortalById/id" ,verifyEmployeeToken, getPortalById)
 router.post("/updatePortal/:id" ,verifyEmployeeToken ,  updatePortal)

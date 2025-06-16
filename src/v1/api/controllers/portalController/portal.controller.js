@@ -45,6 +45,17 @@ export const getAllPortals = async (req, res) => {
 };
 
 
+export const getPortalDetail = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const result = await PortalService.getAllPortalsService(organizationId);
+    return success(res, "Retrieved data successfully", result);
+  } catch (error) {
+    return unknownError(res, "Internal server error");
+  }
+};
+
+
 export const getAll = async (req, res) => {
   try {
     const organizationId = req.employee?.organizationId;

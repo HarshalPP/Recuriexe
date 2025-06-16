@@ -52,9 +52,26 @@
                 <div class="grid flex items-center justify-center">
                     <!-- Job Listings Column 1 -->
                     <div class="flex flex-col items-center ">
-                        <ul class="list-none text-xl font-medium text-gray-700 space-y-1">
-                           <li> {{position}}</li>
-                        </ul>
+                <ul id="job-list" class="list-none text-2xl font-medium text-gray-700 space-y-2"></ul>
+
+                <script>
+                // If you receive the openPositions as a string like: "UX/UI Designer, Automation Test Engineer"
+                const openPositionsRaw = "{{openPositions}}"; // Replace this dynamically via your template engine
+
+                // Split the string into an array
+                const openPositions = openPositionsRaw.split(',').map(item => item.trim());
+
+                const jobList = document.getElementById("job-list");
+
+                openPositions.forEach(position => {
+                    if (position) {
+                    const li = document.createElement("li");
+                    li.textContent = position;
+                    jobList.appendChild(li);
+                    }
+                });
+                </script>
+
                     </div>
 
                     
@@ -62,27 +79,28 @@
             </div>
 
             <!-- Call to Action Section -->
-            <section class="mt-8">
+            <section class="mt-8 w-full">
                 <p class="
                     text-xl font-bold text-gray-800
                     mb-4
                 ">
                     READY TO KICKSTART YOUR CAREER?
                 </p>
-                <a href="mailto:{{contactEmail}}" class="
+                <a href="mailto:{{carrierlink}}" class="
                     inline-block bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold
                     py-3 px-8 rounded-full 
                     hover:from-orange-600 hover:to-red-700 transition duration-300 ease-in-out
                     shadow-lg hover:shadow-xl mt-4
                 ">
-                    APPLY NOW! {{contactEmail}}
+                    APPLY NOW!
+                    {{carrierlink}}
                 </a>
             </section>
 
             <!-- Contact Information Footer -->
             <footer class="mt-auto text-gray-600 text-lg pt-4">
                 <p class="font-bold text-gray-800 mb-1">{{organizationName}}</p>
-                <p>+{{phoneNumber}} | {{contactEmail}}</p>
+                <!-- <p>+{{carrierlink}} | {{contactEmail}}</p> -->
                 <p>{{addressLine1}} ,{{location}}</p>
                 <p><a href="mailto:{{organizationWebsite}}"  class="text-orange-600 hover:underline">{{organizationWebsite}}</a></p>
             </footer>

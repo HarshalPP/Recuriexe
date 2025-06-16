@@ -47,7 +47,7 @@ const jobPostingModelSchema = new Schema(
     qualificationId: [
       {
         type: ObjectId,
-        ref: "Qualification",
+        ref: "subDropDown",
         // required: [true, "Eligibility Is Required"],
       },
     ],
@@ -132,9 +132,12 @@ const jobPostingModelSchema = new Schema(
     vacencyRequestId:{type: ObjectId, ref: "vacancyRequest", default: null},
     status: {
       type: String,
-      enum: ["active", "inactive"],
-      default: "active",
+      enum: ["pending" , "active", "inactive", "reject"],
+      default: "pending",
     },
+    jobPostApproveEmployeeId: { type: ObjectId, ref: "employee", default: null },
+    jobPostApproveDate: { type: Date, default: null },
+    jobPostApproveRemark: { type: String, default: "" },
     jobPostExpired : { type :Boolean , default : false },
     expiredDate : {type :Date ,default :null },
     numberOfApplicant : { type :Number , default :0},
@@ -150,13 +153,11 @@ jobPostingModelSchema.pre("save", async function (next) {
 
     const organizationId = this.organizationId;
 
-    let setting = await jobPostingsetting.findOne({ organizationId });
+    let setting = await jobPostingsetting.findOne({ organizationId:organizationId });
 
-    if (!setting) {
-      setting = new jobPostingsetting({ organizationId });
-      await setting.save();
+   if (!setting) {
+      setting = await jobPostingsetting.create({ organizationId });
     }
-
     setting.PostIdCounter += 1;
     await setting.save();
 

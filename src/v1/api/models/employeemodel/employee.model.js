@@ -228,11 +228,10 @@ employeSchema.pre("save", async function (next) {
     if (!this.isNew || this.employeUniqueId) return next();
 
     const organizationId = this.organizationId;
-
-    let setting = await Settings.findOne({organizationId});
+  // Find or create setting
+    let setting = await Settings.findOne({ organizationId });
     if (!setting) {
-      setting = new Settings({organizationId});
-      await setting.save();
+      setting = await Settings.create({ organizationId });
     }
 
 

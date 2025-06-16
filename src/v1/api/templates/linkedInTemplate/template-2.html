@@ -87,9 +87,26 @@
                 ">
                     JOB POSITION
                 </h3>
-                <ul class="list-none text-xl space-y-1">
-                    <li> {{position}}</li>
-                </ul>
+            <ul id="job-list" class="list-none text-2xl font-medium text-gray-700 space-y-2"></ul>
+
+            <script>
+            // If you receive the openPositions as a string like: "UX/UI Designer, Automation Test Engineer"
+            const openPositionsRaw = "{{openPositions}}"; // Replace this dynamically via your template engine
+
+            // Split the string into an array
+            const openPositions = openPositionsRaw.split(',').map(item => item.trim());
+
+            const jobList = document.getElementById("job-list");
+
+            openPositions.forEach(position => {
+                if (position) {
+                const li = document.createElement("li");
+                li.textContent = position;
+                jobList.appendChild(li);
+                }
+            });
+            </script>
+
             </section>
 
             <!-- Call to Action Section -->
@@ -100,20 +117,20 @@
                 ">
                     SEND YOUR CV AND COVER LETTER TO:
                 </p>
-                <a href="mailto:{{contactEmail}}" class="
+                <a href="mailto:{{carrierlink}}" class="
                     inline-block bg-yellow-500 text-black font-bold
                     py-3 px-6 rounded-full text-xl
                     hover:bg-yellow-600 transition duration-300 ease-in-out
                     shadow-lg hover:shadow-xl
                 ">
-                    {{contactEmail}}
+                    {{carrierlink}}
                 </a>
             </section>
 
             <!-- Contact Information Footer -->
             <footer class="w-full mt-6 text-gray-600 text-base">
                 <p class="text-gray-900 font-bold">{{organizationName}}</p>
-                <p>{{phoneNumber}}</p>
+                <!-- <p>{{carrierlink}}</p> -->
                 <p>{{addressLine1}} ,{{location}}</p>
                 <p><a href="mailto:{{organizationWebsite}}" class="text-gray-700 hover:underline">{{organizationWebsite}}</a></p>
             </footer>

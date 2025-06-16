@@ -20,6 +20,11 @@ import organizationPlanModel from "../../models/PlanModel/organizationPlan.model
 import { sendEmail } from '../../Utils/sendEmail.js'
 import mongoose from "mongoose"
 import PlanModel from '../../models/PlanModel/Plan.model.js';
+import PortalModel from '../../models/PortalSetUp/portalsetup.js';
+import { sendEmail1 } from '../../Utils/sendEmail.js'
+import AiScreening from '../../models/AiScreeing/AiScreening.model.js';
+
+
 
 export const newEmployeeLogin = async (req, res) => {
   try {
@@ -46,13 +51,15 @@ export const newEmployeeLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) return badRequest(res, 'Wrong password');
 
+
     // Fallback role ID
-    const fallbackRoleId = "682d720520fe5f388cb401a4";
+    const fallbackRoleId = "684d4c99faae552a1e6891af";
 
     // Determine role IDs
     const roleIds = Array.isArray(employee.roleId) && employee.roleId.length > 0
       ? employee.roleId
       : [fallbackRoleId];
+
 
     // Fetch role details
     const roleDetails = await roleModel.find({ _id: { $in: roleIds } });
@@ -140,12 +147,39 @@ export const SuperAdminRegister = async (req, res) => {
 
     await newOrganization.save();
 
+
+    const adminRole = new roleModel({
+      roleName: "admin",
+      status: "active",
+      organizationId: newOrganization._id
+    });
+
+    // Automatically set all Boolean fields to true
+    const allKeys = Object.keys(adminRole.toObject());
+    allKeys.forEach(key => {
+      const value = adminRole[key];
+      if (typeof value === "boolean") {
+        adminRole[key] = true;
+      } else if (typeof value === "object" && value !== null) {
+        // Handle nested boolean objects like jobPostDashboard, jobApplications
+        Object.keys(value).forEach(subKey => {
+          if (typeof value[subKey] === "boolean") {
+            value[subKey] = true;
+          }
+        });
+      }
+    });
+
+    await adminRole.save();
+
+
     // Step 2: Create employee linked to the organization
     const newEmployee = new employeModel({
       userName,
       email,
       password: hashedPassword,
       UserType: "Owner",
+      roleId:adminRole._id,
       // roleId: roleIds,
       status: 'active',
       organizationId: newOrganization._id
@@ -158,6 +192,82 @@ export const SuperAdminRegister = async (req, res) => {
     newOrganization.carrierlink = `https://candidate-portal.fincooperstech.com/CareerPage/${newOrganization._id}`;
     await newOrganization.save();
 
+
+
+    // Step 5: Create default AI screening config
+    const defaultAiScreening = new AiScreening({
+      organizationId: newOrganization._id,
+      name: "AI Configuration & Settings",
+      description: "Configure AI model parameters, screening criteria, and automation settings",
+      coreSettings: {
+        qualificationThreshold: 50,
+        automaticScreening: true
+      },
+   screeningCriteria: [
+  {
+    name: "Skills",
+    description: "Check relevant technical skills match",
+    weight: 11.11
+  },
+  {
+    name: "Experience",
+    description: "Evaluate professional experience for the job",
+    weight: 11.11
+  },
+  {
+    name: "Education",
+    description: "Validate minimum education requirement",
+    weight: 11.11
+  },
+  {
+    name: "Certifications",
+    description: "Check for relevant certifications",
+    weight: 11.11
+  },
+  {
+    name: "Project Exposure",
+    description: "Assess involvement in relevant projects",
+    weight: 11.11
+  },
+  {
+    name: "Leadership_Initiative",
+    description: "Assess leadership or initiative traits",
+    weight: 11.11
+  },
+  {
+    name: "Cultural_Fit",
+    description: "Evaluate alignment with company values",
+    weight: 11.11
+  },
+  {
+    name: "Communication_Skills",
+    description: "Assess clarity and professionalism in communication",
+    weight: 11.11
+  },
+  {
+    name: "Learning_Ability",
+    description: "Evaluate continuous learning and adaptability",
+    weight: 11.11
+  }
+],
+
+      createdBy: newEmployee._id,
+      isActive: true
+    });
+
+    await defaultAiScreening.save();
+
+
+
+    // step 6:-  create a Portal //
+
+    const createPortal = new PortalModel({
+      organizationId:newOrganization._id
+    })
+
+    await createPortal.save();
+
+    
     // Step 4: Generate JWT
     const payload = {
       Id: newEmployee._id,
@@ -165,6 +275,7 @@ export const SuperAdminRegister = async (req, res) => {
       UserType: newEmployee.UserType,
       organizationId: newOrganization._id,
     };
+
 
     const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN);
 
@@ -370,6 +481,16 @@ export const createNewEmployee = async (req, res) => {
     });
 
     await newEmployee.save();
+
+    if (activePlan.NumberOfUsers > 0) {
+      const Updateservice = await organizationPlanModel.findOneAndUpdate(
+        { organizationId: organizationId },
+        { $inc: { NumberOfUsers: -1 } }, // Decrement the count
+        { new: true }
+      );
+    }
+
+
 
     // Generate JWT
     // const payload = {
@@ -1620,13 +1741,13 @@ export const forgotPasswordForEmployee = async (req, res) => {
     }
 
     // Generate reset token and expiry
-    const resetToken = employee.getResetPasswordToken(); 
-    console.log("resetToken",resetToken)
+    const resetToken = employee.getResetPasswordToken();
+    console.log("resetToken", resetToken)
     // This sets passwordResetToken & passwordResetExpires
     await employee.save({ validateBeforeSave: false });
 
     // Prepare reset URL
-    const resetUrl = `https://hrms-api.fincooperstech.com/v1/api/auth/employee/resetPassword/${resetToken}`;
+    const resetUrl = `https://hr-portal.fincooperstech.com/EmployeePasswordReset/${resetToken}`;
 
     // Prepare email message
     const message = `
@@ -1645,7 +1766,7 @@ export const forgotPasswordForEmployee = async (req, res) => {
 
     // Send email
     try {
-      await sendEmail({
+      await sendEmail1({
         to: employee.email,
         subject: "Employee Password Reset Request",
         html: message,
@@ -1674,7 +1795,7 @@ export const resetEmployeePassword = async (req, res) => {
     if (!password) {
       return badRequest(res, "Please provide a new password.");
     }
-    console.log("token",token)
+    console.log("token", token)
 
     // Hash token again to match with DB
     // const passwordResetToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -1682,10 +1803,10 @@ export const resetEmployeePassword = async (req, res) => {
 
     // Find employee with valid token
     const employee = await employeModel.findOne({
-      passwordResetToken:token, // match the token directly
+      passwordResetToken: token, // match the token directly
       passwordResetExpires: { $gt: Date.now() }, // token not expired
     });
-    console.log("employee",employee)
+    console.log("employee", employee)
 
     if (!employee) {
       return badRequest(res, "Invalid or expired reset token.");
@@ -1694,7 +1815,7 @@ export const resetEmployeePassword = async (req, res) => {
     // Set new password
     const salt = await bcrypt.genSalt(10);
     employee.password = await bcrypt.hash(password, salt);
-    console.log("employee.password",employee.password)
+    console.log("employee.password", employee.password)
 
     // Clear reset token fields
     employee.passwordResetToken = undefined;

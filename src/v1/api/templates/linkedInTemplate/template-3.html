@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Vacancy - Design 5</title>
+    <title>We Are Hiring - Dynamic Design</title>
     <!-- Tailwind CSS CDN for easy styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Inter for a modern look -->
@@ -20,69 +20,90 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh; /* Keep for initial centering */
-            background-color: #f3f4f6; /* Light gray background */
+            background-color: #f0f0f0; /* Light gray background */
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
     <!-- Main container for the job vacancy poster -->
     <div class="
-        bg-gray-200 text-gray-900 rounded-xl shadow-2xl
+        bg-white text-gray-900 rounded-xl shadow-2xl
         w-[800px] h-[600px] /* Fixed width and height as requested */
         flex flex-col
-        relative overflow-hidden /* Ensure nothing leaks out of this div */
+        relative overflow-hidden
     ">
-        <!-- Top Banner with "WE ARE HIRING" -->
+        <!-- Top Header Section with Gradient -->
         <div class="
-            w-full h-[180px] bg-teal-800 text-white
-            flex items-center justify-center p-4
+            w-full h-[180px] bg-gradient-to-r from-teal-800 to-teal-500
+            flex flex-col items-center justify-center text-white p-4
             relative
         ">
-            <h1 class="text-6xl font-extrabold tracking-tight">WE ARE HIRING</h1>
-            <!-- Decorative teal line -->
-            <div class="absolute bottom-0 left-0 w-full h-2 bg-teal-400"></div>
+            <h1 class="text-6xl font-extrabold tracking-tight mb-2">WE ARE HIRING</h1>
+            <p class="text-2xl font-semibold opacity-90">Join Our Vibrant Team!</p>
+            <!-- Small decorative wave/line -->
+            <div class="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-teal-300 to-teal-400"></div>
         </div>
 
         <!-- Main Content Area -->
-        <div class="relative z-10 flex flex-col  text-center">
-            <h2 class="text-4xl font-bold text-teal-500 mb-6 ">EXPLORE OUR OPEN ROLES</h2>
+        <div class="relative z-10 flex flex-col flex-grow px-10 py-6 text-center justify-between">
+            <div>
+                <h2 class="text-4xl font-bold text-teal-600 mb-6">EXPLORE OPPORTUNITIES</h2>
 
-            <div class=" items-center justify-center items-center ">
-                <!-- Job Listings Column 1 -->
-                <div class="flex items-center justify-center">
-                    <ul class="list-none text-2xl font-medium text-gray-700 space-y-2">
-                        <li> {{position}}</li>
-                    </ul>
-                </div>
+                <div class="grid flex items-center justify-center">
+                    <!-- Job Listings Column 1 -->
+                    <div class="flex flex-col items-center ">
+                <ul id="job-list" class="list-none text-2xl font-medium text-gray-700 space-y-2"></ul>
 
+                <script>
+                // If you receive the openPositions as a string like: "UX/UI Designer, Automation Test Engineer"
+                const openPositionsRaw = "{{openPositions}}"; // Replace this dynamically via your template engine
+
+                // Split the string into an array
+                const openPositions = openPositionsRaw.split(',').map(item => item.trim());
+
+                const jobList = document.getElementById("job-list");
+
+                openPositions.forEach(position => {
+                    if (position) {
+                    const li = document.createElement("li");
+                    li.textContent = position;
+                    jobList.appendChild(li);
+                    }
+                });
+                </script>
+
+                    </div>
+
+                    
                 </div>
             </div>
 
             <!-- Call to Action Section -->
-            <section class=" flex-col flex items-center justify-center mt-8  ">
+            <section class="mt-8 w-full">
                 <p class="
-                    text-2xl font-semibold text-gray-800 
-                    mb-4 
+                    text-xl font-bold text-gray-800
+                    mb-4
                 ">
-                    SEND YOUR RESUME TO:
+                    READY TO KICKSTART YOUR CAREER?
                 </p>
-                <a href="mailto:{{contactEmail}}" class="
-                    inline-block bg-teal-500 text-white font-bold
-                    py-3 px-8 rounded-full text-xl
-                    hover:bg-teal-600 transition duration-300 ease-in-out
-                    shadow-lg hover:shadow-xl
+                <a href="mailto:{{carrierlink}}" class="
+                    inline-block bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold
+                    py-3 px-8 rounded-full 
+                    hover:from-teal-600 hover:to-teal-700 transition duration-300 ease-in-out
+                    shadow-lg hover:shadow-xl mt-4
                 ">
-                    {{contactEmail}}
+                    APPLY NOW!
+                    {{carrierlink}}
                 </a>
-                <div class="mt-6">
-                    <footer class="mt-auto text-gray-600 text-lg  flex-col flex items-center justify-center ">
-                    <p class="font-bold text-gray-800 mb-1">{{organizationName}}.</p>
-                    <p>{{phoneNumber}} | {{contactEmail}}</p>
-                    <p>{{addressLine1}} ,{{location}}</p>
-                    <p><a href="mailto:{{organizationWebsite}}" class="text-teal-600 hover:underline">{{organizationWebsite}}</a></p>
-                </footer>
-                </div>
             </section>
+
+            <!-- Contact Information Footer -->
+            <footer class="mt-auto text-gray-600 text-lg pt-4">
+                <p class="font-bold text-gray-800 mb-1">{{organizationName}}</p>
+                <!-- <p>+{{carrierlink}} | {{contactEmail}}</p> -->
+                <p>{{addressLine1}} ,{{location}}</p>
+                <p><a href="mailto:{{organizationWebsite}}"  class="text-teal-600 hover:underline">{{organizationWebsite}}</a></p>
+            </footer>
         </div>
     </div>
 </body>

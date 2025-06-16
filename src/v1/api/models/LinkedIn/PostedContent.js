@@ -16,7 +16,7 @@ const PostedContentSchema = new mongoose.Schema(
     },
     message: {
       type: String,
-      required: true
+      required: false
     },
     imageUrls: [{
       type: String
@@ -37,8 +37,8 @@ const PostedContentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['draft', 'posted', 'failed'],
-      default: 'draft'
+      enum: ['processing', 'ready', 'posted', 'failed','draft'],
+      default: 'processing'
     },
     organizationId: { 
       type: mongoose.Schema.Types.ObjectId,

@@ -27,7 +27,6 @@ const s3Client = new S3Client({
 const spacesCDN = 'https://cdn.fincooper.in'; // Your CDN base URL
 
 const uploadToSpaces = async (bucketName, filePathInBucket, fileContent, acl = 'public-read', contentType) => {
-  console.log("bucketName" , bucketName)
 
   const fileBuket = `${process.env.PATH_BUCKET}/LOS/IMAGE/${Date.now()}_${bucketName.originalname}`;
 

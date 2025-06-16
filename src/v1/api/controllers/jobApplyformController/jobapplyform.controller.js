@@ -27,6 +27,9 @@ import {processAIScreeningForCandidate} from  "../../controllers/AIController/ai
 import AIRule from "../../models/AiScreeing/AIRule.model.js";
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js";
 import targetCompanyModel from "../../models/companyModel/targetCompany.model.js"
+import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
+import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
 
 // Run at 11:59 PM every day
 cron.schedule("59 23 * * *", async () => {
@@ -332,7 +335,8 @@ if (portalsetUpDetail) {
     ) {
       await sendThankuEmail(emailId, name.toUpperCase() , jobPost?.position , organizationFind?.name?.toUpperCase());
     }
-
+// job apply google sheete data save 
+  await jobApplyToGoogleSheet(jobApplyForm._id)
 
     const AIRuleData = await AIRule.findOne({ AutomaticScreening: true });
      if(AIRule){
@@ -758,6 +762,7 @@ export const getAllJobApplied = async (req, res) => {
 export const getJobAppliedById = async (req, res) => {
   try {
     const id = req.params.id;
+    const organizationId = req.employee.organizationId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return badRequest(res, "Invalid Job Application ID");
@@ -873,8 +878,6 @@ export const getJobAppliedById = async (req, res) => {
         },
       },
       { $unwind: { path: "$jobPostDetail", preserveNullAndEmptyArrays: true } },
-
-
       {
         $lookup: {
           from: "jobdescriptions",
@@ -883,9 +886,7 @@ export const getJobAppliedById = async (req, res) => {
           as: "jobDescriptionDetail",
         },
       },
-      { $unwind: { path: "$jobDescriptionDetail", preserveNullAndEmptyArrays: true }
-      },
-
+      { $unwind: { path: "$jobDescriptionDetail", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "newdesignations",
@@ -962,6 +963,32 @@ export const getJobAppliedById = async (req, res) => {
     if (!jobApplication || jobApplication.length === 0) {
       return success(res, "Job application not found", null);
     }
+  // Find all candidate IDs to find prev/next
+const candidates = await jobApply
+  .find({ organizationId: new ObjectId(organizationId) })
+  .sort({ createdAt: -1 })
+  .select('_id')
+  .lean(); // optional but improves performance
+
+// Ensure both sides are strings for reliable comparison
+const index = candidates.findIndex((c) => c._id.toString() === id.toString());
+
+let previousCandidateId = null;
+let nextCandidateId = null;
+
+if (index > 0) {
+  previousCandidateId = candidates[index - 1]._id;
+}
+if (index < candidates.length - 1) {
+  nextCandidateId = candidates[index + 1]._id;
+}
+
+// Ensure jobApplication[0] exists before assigning
+if (jobApplication[0]) {
+  jobApplication[0].previousCandidateId = previousCandidateId;
+  jobApplication[0].nextCandidateId = nextCandidateId;
+}
+
 
     return success(res, "Job application details fetched successfully", jobApplication[0]);
   } catch (error) {
@@ -969,6 +996,7 @@ export const getJobAppliedById = async (req, res) => {
     return UnknownError(res, error);
   }
 };
+
 
 
 // create _id by get detail
@@ -1690,6 +1718,7 @@ export const getDashboardSummary = async (req, res) => {
           createdAt: { $gte: startDate, $lte: endDate },
           departmentId: { $ne: null },
           orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+          // orgainizationId: new ObjectId(orgainizationId) // Filter by organization
         }
       },
       {
@@ -1701,6 +1730,7 @@ export const getDashboardSummary = async (req, res) => {
         $count: "totalDepartments"
       }
     ]);
+
 
     // avarage response time for job applications
     const avgResponse = await jobApply.aggregate([
@@ -2059,7 +2089,7 @@ export const getDashboardSummary = async (req, res) => {
 
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate);
+    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate , orgainizationId);
 
 
     // Get current month vs previous month stats
@@ -3001,6 +3031,7 @@ export const AnalizedCandidate = async (req, res) => {
 export const DeepAnalize = async (req, res) => {
   try {
     const Id = req.params.id;
+    const orgainizationId=req.employee.organizationId;
     if (!Id) {
       return badRequest(res, "Candidate Id not provided");
     }
@@ -3045,11 +3076,118 @@ export const DeepAnalize = async (req, res) => {
       };
     }
 
+
+const candidates = await ScreeningResultModel
+  .find({organizationId:orgainizationId})
+  .sort({ createdAt: -1 }) // latest created first
+  .select("candidateId")
+  .lean();
+
+const index = candidates.findIndex(c => c.candidateId.toString() == Id);
+
+
+let previousCandidateId = null;
+let nextCandidateId = null;
+
+if (index > 0) {
+  previousCandidateId = candidates[index - 1].candidateId;
+}
+if (index < candidates.length - 1) {
+  nextCandidateId = candidates[index + 1].candidateId;
+}
+
+// Assign to response object
+finddata.previousCandidateId = previousCandidateId;
+finddata.nextCandidateId = nextCandidateId;
+
+
+
     return success(res, "fetch Screen Results", finddata);
   } catch (error) {
     return unknownError(res, error);
   }
 };
+
+
+
+
+export const getAllDeepAnalyses = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not provided");
+    }
+
+    // Extract pagination params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Count total documents for pagination
+    const total = await ScreeningResultModel.countDocuments({ organizationId });
+
+    // Fetch paginated results
+    const results = await ScreeningResultModel.find({ organizationId })
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }) // latest first
+      .lean();
+
+    // Enrich each result
+    const enrichedResults = await Promise.all(
+      results.map(async (result) => {
+        const candidateId = result.candidateId;
+        const findResume = await jobApply.findById(candidateId).lean();
+        const findJd = await jobPostModel.findById(result.jobPostId).lean();
+
+        let jobdescription = null;
+        if (findJd?.jobDescriptionId) {
+          jobdescription = await JobDescriptionModel.findById(findJd.jobDescriptionId).lean();
+        }
+
+        // Resume details
+        if (findResume) {
+          result.resume = findResume.resume;
+
+          result.userInfo = {
+            name: findResume.name,
+            email: findResume.emailId,
+            mobile: findResume.mobileNumber,
+            position: findResume.position,
+            experience: findResume.totalExperience,
+            JobType: findResume.JobType,
+            currentCTC: findResume.currentCTC,
+            expectedCTC: findResume.expectedCTC,
+          };
+        }
+
+        // Job description details
+        if (jobdescription) {
+          result.jobdescription = {
+            JobSummary: jobdescription?.jobDescription?.JobSummary || "",
+            responsibilities: jobdescription?.jobDescription?.RolesAndResponsibilities || [],
+            keySkills: jobdescription?.jobDescription?.KeySkills || [],
+          };
+        }
+
+        return result;
+      })
+    );
+
+    return success(res, "Fetched AI screening results", {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      results: enrichedResults,
+    });
+  } catch (error) {
+    console.error("getAllDeepAnalyses Error:", error);
+    return unknownError(res, error);
+  }
+};
+
+
 
 
 
@@ -3062,9 +3200,8 @@ export const getDashboardOverview = async (req, res) => {
     const organizationId = req.employee.organizationId;
 
     const filter = {
-      organizationId
+      organizationId: new ObjectId(organizationId),
     };
-
 
     // Period-based filtering
     if (period == '7d' || period == '30d') {
@@ -3128,6 +3265,15 @@ export const getDashboardOverview = async (req, res) => {
         { $sort: { total: -1 } }
       ])
     ]);
+
+   console.log('Dashboard Overview Data:', {
+      totalApplications,
+      approvedApplications,
+      rejectedApplications,
+      avgProcessingSpeed,
+      avgConfidence,
+      departmentStats
+   })
 
     const totalApps = totalApplications || 0;
     const approved = approvedApplications || 0;
@@ -3372,7 +3518,7 @@ export const getScreeningAnalytics = async (req, res) => {
 
     const filter = {
       createdAt: { $gte: startDate, $lte: endDate },
-      organizationId: req.employee.organizationId
+      organizationId: new ObjectId(req.employee.organizationId)
     };
     if (department) filter.department = department;
 
@@ -3685,6 +3831,227 @@ export const getJobApplyFields = async (req, res) => {
 };
 
 
+
+export const calculatexcelcount = async (req, res) => {
+  try{
+
+    const orgainizationId = req.employee.organizationId;
+    const count = req.body.count;
+    if(!orgainizationId) {
+      return badRequest(res, "Organization ID not provided");
+    }
+
+    const activePlan=await organizationPlanModel.findOne({ organizationId: orgainizationId, isActive: true }).lean();
+    if(!activePlan) {
+      return badRequest(res, "No active plan found for this organization");
+    }
+
+    const createdAt = new Date(activePlan.createdAt);
+    const expiryDate = new Date(createdAt);
+    expiryDate.setDate(expiryDate.getDate() + (activePlan.Numberofdownloads || 0));
+
+    if(new Date() > expiryDate) {
+      return badRequest(res, "Your plan has expired. Please renew your plan to continue using the service.");
+    }
+
+
+    if(count> activePlan.Numberofdownloads) {
+      return badRequest(res, `You can only download ${activePlan.Numberofdownloads} times. Please upgrade your plan to download more.`);
+    }
+
+
+    // decrese Numberofdownloads from active plan
+
+    if(activePlan.Numberofdownloads > 0) {
+      const Updateservice = await organizationPlanModel.findOneAndUpdate(
+        { organizationId: orgainizationId, isActive: true },
+        { $inc: { Numberofdownloads: -count } },
+        { new: true }
+      ).lean();
+    }
+
+
+    return success(res, "Excel download successfully", { remainingDownloads: activePlan.Numberofdownloads - count });
+  }
+  catch(error){
+    console.error("Error in calculatexcelcount:", error);
+    return unknownError(res, error);
+  }
+}
+
+
+export const exportJobApplicationsExcel = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not provided");
+    }
+
+    const jobAppliedDetails = await jobApply.aggregate([
+      {
+        $match: {
+          organizationId: new mongoose.Types.ObjectId(organizationId),
+          status: "active",
+        },
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "department",
+        },
+      },
+      {
+        $unwind: {
+          path: "$department",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "jobposts",
+          localField: "jobPostId",
+          foreignField: "_id",
+          as: "jobPostDetail",
+        },
+      },
+      {
+        $unwind: {
+          path: "$jobPostDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "jobPostDetail.designationId",
+          foreignField: "_id",
+          as: "designationDetail",
+        },
+      },
+      {
+        $unwind: {
+          path: "$designationDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "jobPostDetail.subDepartmentId",
+          foreignField: "subDepartments._id",
+          as: "subDepartmentDetail",
+        },
+      },
+      {
+        $unwind: {
+          path: "$subDepartmentDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          subDepartment: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$subDepartmentDetail.subDepartments",
+                  as: "sub",
+                  cond: {
+                    $eq: ["$$sub._id", "$jobPostDetail.subDepartmentId"],
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          candidateUniqueId: 1,
+          name: 1,
+          mobileNumber: 1,
+          emailId: 1,
+          resume: 1,
+          AI_Screeing_Result: 1,
+          AI_Screeing_Status: 1,
+          AI_Score: 1,
+          AI_Confidence: 1,
+          jobPostId: 1,
+          resumeShortlisted: 1,
+          Remark: 1,
+          JobType: 1,
+          currentCTC: 1,
+          expectedCTC: 1,
+          isEligible: 1,
+          summary: 1,
+          matchPercentage: 1,
+          lastOrganization: 1,
+          position: 1,
+          createdAt: 1,
+          department: "$department.name",
+          designation: "$designationDetail.name",
+          subDepartment: "$subDepartment.name",
+        },
+      },
+    ]);
+
+    if (jobAppliedDetails.length === 0) {
+      return success(res, "No job applications found", []);
+    }
+
+    const fileUrl = await generateExcelAndUpload(jobAppliedDetails, "Job_Applications_Report");
+
+    return success(res, "Excel file generated and uploaded", { url: fileUrl });
+  } catch (error) {
+    console.error("Export Excel Error:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+
+export const assignCandidateUniqueIds = async (req, res) => {
+  try {
+    const { organizationId } = req.query;
+
+    if (!organizationId || !mongoose.Types.ObjectId.isValid(organizationId)) {
+      return badRequest(res, "Valid organizationId is required");
+    }
+
+    const candidates = await jobApply.find({ orgainizationId: organizationId })
+      .sort({ createdAt: 1 }) // Sort by latest first
+      .select("_id")
+      .lean();
+
+    if (!candidates.length) {
+      return success(res, "No candidates found to update", []);
+    }
+
+    const bulkOps = candidates.map((candidate, index) => {
+      const paddedNumber = (index + 1).toString().padStart(3, "0"); // FIN001
+      return {
+        updateOne: {
+          filter: { _id: candidate._id },
+          update: { $set: { candidateUniqueId: `FIN${paddedNumber}` } }
+        }
+      };
+    });
+
+    const result = await jobApply.bulkWrite(bulkOps);
+
+    return success(res, "Candidate IDs updated successfully", {
+      totalUpdated: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error in assignCandidateUniqueIds:", error.message);
+    return UnknownError(res, error);
+  }
+};
 
 
 

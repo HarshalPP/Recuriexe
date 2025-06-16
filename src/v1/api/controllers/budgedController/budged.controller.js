@@ -314,6 +314,56 @@ export const updateDepartmentBudget = async (req, res) => {
 };
 
 
+export const bulkUpdateDepartmentBudgetsByIds = async (req, res) => {
+  try {
+    const { allocatedBudget, numberOfEmployees, budgetId } = req.body;
+
+    if (!Array.isArray(budgetId) || budgetId.length === 0) {
+      return badRequest(res, 'budgetId must be a non-empty array');
+    }
+
+    if(!numberOfEmployees){
+      return badRequest(res, 'Number of employees is required');
+    }
+    if(!allocatedBudget){
+      return badRequest(res, 'Allocated budget is required');
+    }
+    //  Validate budget values
+    if (
+      (allocatedBudget !== undefined && allocatedBudget < 0) ||
+      (numberOfEmployees !== undefined && numberOfEmployees < 0)
+    ) {
+      return badRequest(res, 'Allocated budget and number of employees must be non-negative');
+    }
+
+    const results = [];
+
+    for (const id of budgetId) {
+      const departmentBudget = await BudgetModel.findById(id);
+
+      if (!departmentBudget) {
+        return badRequest(res,'Department budget not found');
+      }
+
+      if (allocatedBudget !== undefined) departmentBudget.allocatedBudget = allocatedBudget;
+      if (numberOfEmployees !== undefined) departmentBudget.numberOfEmployees = numberOfEmployees;
+
+      try {
+        await departmentBudget.save();
+        return success(res, 'Budget Update Succesful');
+      } catch (err) {
+        console.error(`Error saving budget ID ${id}:`, err);
+        return unknownError(res, `Error saving budget ID ${id}: ${err.message}`);
+      }
+    }
+
+  } catch (error) {
+    console.error('Bulk update error:', error);
+    return unknownError(res, error);
+  }
+};
+
+
 // get Budget Dashboard //
 export const getBudgetDashboard = async (req, res) => {
   try {
@@ -844,13 +894,6 @@ export const manBudgetDashboardApi = async (req, res) => {
           desingationId: "$desingationId",
           numberOfEmployees: { $ifNull: ["$numberOfEmployees", 0] },
           allocatedBudget: { $ifNull: ["$allocatedBudget", 0] },
-          // perEmployeeLPA: {
-          //   $cond: [
-          //     { $eq: ["$numberOfEmployees", 0] },
-          //     0,
-          //     { $divide: ["$allocatedBudget", "$numberOfEmployees"] }
-          //   ]
-          // },
           perEmployeeLPA: {
             $cond: [
               { $eq: ["$numberOfEmployees", 0] },
@@ -1242,6 +1285,9 @@ const organizationId = req.employee.organizationId
           // subDepartmentName: { $arrayElemAt: ["$sunDepartmentDetail.name", 0] },
           //  subDepartmentName: "$subDepartmentName.name",
           subDepartmentName: "$subDepartment.name",
+           designationId: { $arrayElemAt: ["$designation._id", 0] },
+          departmentId: { $arrayElemAt: ["$departmentDetail._id", 0] },
+subDepartmentId: "$subDepartment._id",
           isSubDepartment: {
             $cond: {
               if: {
@@ -1348,6 +1394,9 @@ const organizationId = req.employee.organizationId
           designationName: { $arrayElemAt: ["$designation.name", 0] },
           departmentName: { $arrayElemAt: ["$department.name", 0] },
 subDepartmentName: "$subDepartment.name",
+          designationId: { $arrayElemAt: ["$designation._id", 0] },
+          departmentId: { $arrayElemAt: ["$department._id", 0] },
+subDepartmentId: "$subDepartment._id",
           numberOfEmployees: 1,
           usedBudget: 1,
           allocatedBudget: 1,
@@ -1396,6 +1445,9 @@ subDepartmentName: "$subDepartment.name",
           designationName: dept.designationName || "",
           departmentName: dept.departmentName || "",
           subDepartmentName: dept.subDepartmentName || "",
+          designationId:dept.designationId,
+             subDepartmentId:dept.subDepartmentId,
+             departmentId:dept.departmentId,
           // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
           // isSubDepartment: dept.isSubDepartment || false,
           numberOfEmployees: dept.numberOfEmployees || 0,
@@ -1413,6 +1465,9 @@ subDepartmentName: "$subDepartment.name",
           designationName: dept.designationName || "",
           departmentName: dept.departmentName || "",
           subDepartmentName: dept.subDepartmentName || "",
+             designationId:dept.designationId,
+             subDepartmentId:dept.subDepartmentId,
+             departmentId:dept.departmentId,
           // departmentDisplayName: dept.displayName || dept.departmentName || "N/A",
           // isSubDepartment: dept.isSubDepartment || false,
           numberOfEmployees: dept.numberOfEmployees || 0,

@@ -9,7 +9,11 @@ import fs from 'fs';
 import path from 'path';
 import handlebars from 'handlebars';
 import puppeteer from 'puppeteer';
+import pLimit from 'p-limit';
+
 import { handleSingleFileUpload, handleMultipleFileUpload } from "../../services/uploadservices/upload.service.js"
+import { log } from 'console';
+
 
 export const exchangeCodeForToken = async (org, code) => {
   try {
@@ -602,44 +606,43 @@ export const PostgetAnalytics = async (organizationId) => {
 // };
 
 
-const TEMPLATE_DIR = path.join(process.cwd(), 'src', 'v1', 'api', 'templates', 'linkedInTemplate');
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
-/**
- * Render HTML using template and data
- */
-async function renderTemplate(templateName, data) {
-  const template = await loadTemplate(templateName);
-  return template(data);
-}
+// Template rendering setup
+const TEMPLATE_DIR = path.join(__dirname, '..', 'templates', 'linkedInTemplate');
+const templateCache = {};
 
-/**
- * Load and compile HTML template
- */
-async function loadTemplate(templateName) {
-  const filePath = path.join(TEMPLATE_DIR, `${templateName}.html`);
-  const source = fs.readFileSync(filePath, 'utf-8');
-  return handlebars.compile(source, { strict: true });
-}
+// Concurrency limit: 1 concurrent image generation at a time
+const renderLimit = pLimit(1);
 
 let browser = null;
-async function initBrowser() {
-  if (!browser) {
+
+ async function renderTemplate(templateName, data) {
+  if (!templateCache[templateName]) {
+    const filePath = path.join(TEMPLATE_DIR, `${templateName}.html`);
+    const source = fs.readFileSync(filePath, 'utf-8');
+    templateCache[templateName] = handlebars.compile(source, { strict: true });
+  }
+  return templateCache[templateName](data);
+}
+
+// Init Puppeteer with reconnect logic
+ async function initBrowser() {
+  if (!browser || !browser.isConnected()) {
     browser = await puppeteer.launch({
-      headless: 'new',
+      headless: true,
       args: [
         '--no-sandbox',
-        '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
       ],
     });
   }
   return browser;
 }
-async function convertHtmlToImage(html, options = {}) {
+
+// Convert HTML to image with error handling and cleanup
+ async function convertHtmlToImage(html, options = {}) {
   const {
     width = 800,
     height = 600,
@@ -649,49 +652,197 @@ async function convertHtmlToImage(html, options = {}) {
     deviceScaleFactor = 2,
   } = options;
 
+  let page;
+
   try {
     const browserInstance = await initBrowser();
-    const page = await browserInstance.newPage();
+    page = await browserInstance.newPage();
+
     await page.setViewport({
       width: parseInt(width),
       height: parseInt(height),
       deviceScaleFactor: parseInt(deviceScaleFactor),
     });
-    await page.setContent(html, { waitUntil: ['networkidle0', 'domcontentloaded'] });
-    // wait for any fonts/animations
-    await new Promise((r) => setTimeout(r, 500));
+
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
     const screenshotOptions = { type: format, fullPage };
     if (format === 'jpeg') screenshotOptions.quality = parseInt(quality);
     if (!fullPage) {
-      screenshotOptions.clip = { x: 0, y: 0, width: parseInt(width), height: parseInt(height) };
+      screenshotOptions.clip = {
+        x: 0,
+        y: 0,
+        width: parseInt(width),
+        height: parseInt(height),
+      };
     }
+
     const imageBuffer = await page.screenshot(screenshotOptions);
-    await page.close();
     return imageBuffer;
   } catch (err) {
-    console.error('Error converting HTML to image:', err);
+    console.error('Error converting HTML to image:', err.message);
     throw err;
+  } finally {
+    if (page) {
+      await page.close().catch(console.error); // Safely close page
+    }
   }
 }
-export const generateLinkedInPost = async (jobData) => {
-  console.log("Job Data:", jobData);
 
-  // Helper to safely access nested properties
+ async function generateTemplateImage(templateId, templateData, handleSingleFileUpload) {
+  const templateName = `template-${templateId}`;
+
+  try {
+    const html = await renderTemplate(templateName, templateData);
+
+    // Run under concurrency limit
+    const imageBuffer = await renderLimit(() => convertHtmlToImage(html));
+
+    const uploadResult = await handleSingleFileUpload({
+      buffer: imageBuffer,
+      originalname: `linkedin_post_template_${templateId}_${Date.now()}.png`,
+      mimetype: 'image/png'
+    }, 'HRMS/IMAGE');
+
+    return {
+      templateId,
+      imageUrl: uploadResult
+    };
+  } catch (error) {
+    console.error(`Error generating template-${templateId}:`, error.message);
+    return {
+      templateId,
+      error: error.message
+    };
+  }
+}
+
+// export const generateLinkedInPost = async (jobData) => {
+//   console.log("Job Data:", jobData);  
+
+//   const safeAccess = (obj, ...props) =>
+//     props.reduce((acc, prop) => (acc && acc[prop] !== undefined ? acc[prop] : null), obj);
+
+//   // --- Extract Job Data ---
+//   const position = jobData.position || "Not specified";
+//   const department = safeAccess(jobData, 'department', 'name') || "Admin";
+//   const subDepartment = safeAccess(jobData, 'subDepartment', 'name') || "Office Management";
+//   const employmentType = safeAccess(jobData, 'employmentType', 'title') || "On-site";
+//   const location = jobData.Worklocation?.name || "Remote";
+//   const experience = jobData.experience || "Not specified";
+
+//   const qualifications = Array.isArray(jobData.qualificationId)
+//     ? jobData.qualificationId.map(q => q.name || "").filter(Boolean).join(", ")
+//     : "Not specified";
+
+//   const gender = jobData.gender || "Not specified";
+//   const ageLimit = jobData.AgeLimit || "No Limit";
+//   const noOfPosition = jobData.noOfPosition || 0;
+
+//   const keySkills = jobData.jobDescriptionId?.jobDescription?.KeySkills || [];
+//   const responsibilities = jobData.jobDescriptionId?.jobDescription?.RolesAndResponsibilities || [];
+//   const jobDescription = jobData.jobDescriptionId?.jobDescription?.JobSummary || "";
+
+//   const organizationName = jobData?.organizationId?.name ?? "Your organisation Name";
+//   const organizationWebsite = jobData?.organizationId?.website ?? "https://example.com";     
+//   const contactEmail = jobData?.organizationId?.contactEmail ?? "contact@example.com";
+//   const carrierlink = jobData?.organizationId?.carrierlink ?? "";
+//   const logo = jobData?.organizationId?.logo ?? "Logo_URI";
+//   const addressLine1 = jobData?.organizationId?.addressLine1 ?? "address";
+
+//   // --- Step 1: Generate Post Text via AI ---
+//   const prompt = `
+//   Generate a LinkedIn job post using the following details:
+//   - **Job Title**: ${position}
+//   - **Department**: ${department} / ${subDepartment}
+//   - **Employment Type**: ${employmentType}
+//   - **Location**: ${location}
+//   - **Experience Required**: ${experience}
+//   - **Qualification**: ${qualifications}
+//   - **Gender Preference**: ${gender}
+//   - **Age Limit**: ${ageLimit}
+//   - **Positions Available**: ${noOfPosition}
+//   - **Job Summary**: ${jobDescription}
+//   - **Key Skills**: ${keySkills.slice(0, 5).join(', ') || "Various skills"}
+//   - **Key Responsibilities**: ${responsibilities.slice(0, 3).join(', ') || "General duties"}
+//   - **OrganizationName**: ${organizationName}
+//   - **organizationWebsite**: ${organizationWebsite}
+//   - **ContactEmail**: ${contactEmail}
+//   - **carrierlink**: ${carrierlink}
+//   - **Address**: ${addressLine1}
+
+//   **Style Guidelines**:
+//   - Use emojis (🚨, 📍, 🧑‍💻, ⚡, 🔹, 📩).
+//   - Bold headings for sections.
+//   - Bullet points for skills/responsibilities.
+//   - Professional yet engaging tone.
+//   - End with relevant hashtags.
+  
+//   Return the final post as a JSON object like:
+//   {
+//     "post": "🚨 We're Hiring!..."
+//   }
+//   `;
+
+//   const aiResponse = await generateAIResponse(prompt);
+//   const postText = aiResponse.post || aiResponse.text || "Failed to generate post.";
+
+//   // --- Step 2: Prepare Template Data ---
+//   const templateData = {
+//     jobTitle: position,
+//     openPositions: [position],
+//     contactEmail,
+//     carrierlink,
+//     postContent: postText,
+//     position,
+//     department,
+//     subDepartment,
+//     employmentType,
+//     location,
+//     experience,
+//     qualifications,
+//     gender,
+//     ageLimit,
+//     noOfPosition,
+//     jobDescription,
+//     keySkills: keySkills.slice(0, 5),
+//     responsibilities: responsibilities.slice(0, 3),
+//     organizationName,
+//     organizationWebsite,
+//     logo,
+//     addressLine1,
+//   };
+
+//   // --- Step 3: Generate All Templates in Parallel ---
+//   const templateIds = [1, 2, 3, 4, 5];
+//   const templatePromises = templateIds.map(id => generateTemplateImage(id, templateData));
+
+//   const results = await Promise.all(templatePromises);
+
+//   return {
+//     postText,
+//     templates: results
+//   };
+// };
+
+export const generateLinkedInPost = async (positions, jobData) => {
+  console.log("positions",positions);
+  
   const safeAccess = (obj, ...props) =>
     props.reduce((acc, prop) => (acc && acc[prop] !== undefined ? acc[prop] : null), obj);
 
-  // --- Step 1: Extract Data from jobData ---
+  // --- Extract Job Data from main job ---
   const position = jobData.position || "Not specified";
   const department = safeAccess(jobData, 'department', 'name') || "Admin";
   const subDepartment = safeAccess(jobData, 'subDepartment', 'name') || "Office Management";
   const employmentType = safeAccess(jobData, 'employmentType', 'title') || "On-site";
   const location = jobData.Worklocation?.name || "Remote";
   const experience = jobData.experience || "Not specified";
-
-  const qualifications = Array.isArray(jobData.qualificationId)
-    ? jobData.qualificationId.map(q => q.name || "").filter(Boolean).join(", ")
-    : "Not specified";
+const qualifications = Array.isArray(jobData.qualificationId)
+  ? jobData.qualificationId
+      .map(q => q.name || "")
+      .filter(Boolean)
+  : [];
 
   const gender = jobData.gender || "Not specified";
   const ageLimit = jobData.AgeLimit || "No Limit";
@@ -702,106 +853,101 @@ export const generateLinkedInPost = async (jobData) => {
   const jobDescription = jobData.jobDescriptionId?.jobDescription?.JobSummary || "";
 
   const organizationName = jobData?.organizationId?.name ?? "Your organisation Name";
-  const organizationWebsite = jobData?.organizationId?.website ?? "https://example.com";  
+  const organizationWebsite = jobData?.organizationId?.website ?? "https://example.com";        
   const contactEmail = jobData?.organizationId?.contactEmail ?? "contact@example.com";
-  const phoneNumber = jobData?.organizationId?.contactNumber ?? "+123-456-7890";
+  const carrierlink = jobData?.organizationId?.carrierlink ?? "";
   const logo = jobData?.organizationId?.logo ?? "Logo_URI";
   const addressLine1 = jobData?.organizationId?.addressLine1 ?? "address";
 
-  // --- Step 2: Build Prompt for AI ---
-  const prompt = `
-  Generate a LinkedIn job post using the following details:
-  - **Job Title**: ${position}
-  - **Department**: ${department} / ${subDepartment}
-  - **Employment Type**: ${employmentType}
-  - **Location**: ${location}
-  - **Experience Required**: ${experience}
-  - **Qualification**: ${qualifications}
-  - **Gender Preference**: ${gender}
-  - **Age Limit**: ${ageLimit}
-  - **Positions Available**: ${noOfPosition}
-  - **Job Summary**: ${jobDescription}
-  - **Key Skills**: ${keySkills.slice(0, 5).join(', ') || "Various skills"}
-  - **Key Responsibilities**: ${responsibilities.slice(0, 3).join(', ') || "General duties"}
-  - **OrganizationName**: ${organizationName}
-  - **organizationWebsite**: ${organizationWebsite}
-  - **ContactEmail**: ${contactEmail}
-  - **PhoneNumber**: ${phoneNumber}
-  - **CompanyLogo**: ${logo}
-  - **Address**: ${addressLine1}
-
-   
-  
-  **Style Guidelines**:
-  - Use emojis (🚨, 📍, 🧑‍💻, ⚡, 🔹, 📩).
-  - Bold headings for sections.
-  - Bullet points for skills/responsibilities.
-  - Professional yet engaging tone.
-  - End with relevant hashtags.
-  
-  Return the final post as a JSON object like:
-  {
-    "post": "🚨 We're Hiring!..."
+  // Format position list
+  let positionText = '';
+  if (positions.length === 1) {
+    positionText = `as a ${positions[0]}`;
+  } else {
+    positionText = 'for Multiple Roles:\n' +
+      positions.map((pos, index) => `• Position ${index + 1}: ${pos}`).join('\n');
   }
-  `;
 
+  // Build prompt
+const prompt = `
+Generate a LinkedIn job post using the following job data. 
+Return the response **only as a string** of LinkedIn-friendly post content. 
+
+Job Data:
+Company: ${organizationName}
+Position(s): ${positions.join(', ')}
+Location: ${location}
+Experience Required: ${experience}
+Employment Type: ${employmentType}
+Department: ${department}
+Careers Link: ${carrierlink || organizationWebsite}
+
+Key Skills:
+${keySkills.slice(0, 8).map(skill => `• ${skill}`).join('\n')}
+
+Return only the LinkedIn post string. Do not return any JSON object.
+`;
+
+
+let postText = "Failed to generate post.";
+
+try {
   const aiResponse = await generateAIResponse(prompt);
-  const postText = aiResponse.post || aiResponse.text || "Failed to generate post.";
+  console.log("Raw AI Response:", aiResponse);
 
-  // --- Step 3: Inject into HTML Template ---
+  if (!aiResponse) {
+    throw new Error("Empty AI response");
+  }
+
+  if (typeof aiResponse === 'string') {
+    postText = aiResponse;
+  } else if (aiResponse.post || aiResponse.text) {
+    postText = aiResponse.post || aiResponse.text;
+  } else {
+    throw new Error("Invalid AI response structure");
+  }
+} catch (err) {
+  console.error("AI Generation Failed:", err.message);
+}
+  // Prepare template data dynamically
   const templateData = {
-    jobTitle: position,
-    openPositions: [position],
-    contactEmail: contactEmail,
-    phoneNumber: phoneNumber,
+    jobTitle: positions.length == 1 ? positions[0] : "Multiple Positions",
+    openPositions: positions,
+    // position: positions[0] || "Job Position", // <-- Add this line
+    contactEmail,
+    carrierlink,
     postContent: postText,
-    position,
     department,
     subDepartment,
     employmentType,
     location,
     experience,
-    qualifications,
-    gender,
-    ageLimit,
-    noOfPosition,
-    jobDescription,
+    qualifications: qualifications.slice(0, 5),
     keySkills: keySkills.slice(0, 5),
     responsibilities: responsibilities.slice(0, 3),
     organizationName,
     organizationWebsite,
     logo,
-    addressLine1,
+    addressLine1
   };
 
-  const results = [];
-
-  for (let i = 1; i <= 5; i++) {
-    const templateName = `template-${i}`;
-
-    try {
-      const html = await renderTemplate(templateName, templateData);
-      const imageBuffer = await convertHtmlToImage(html);
-
-      const uploadResult = await handleSingleFileUpload({
-        buffer: imageBuffer,
-        originalname: `linkedin_post_template_${i}_${Date.now()}.png`,
-        mimetype: 'image/png'
-      }, 'HRMS/IMAGE');
-
-      results.push({
-        templateId: i,
-        imageUrl: uploadResult
-      });
-
-    } catch (error) {
-      console.error(`Error generating template-${i}:`, error.message);
-      results.push({
-        templateId: i,
-        error: error.message
-      });
-    }
+  // Add dynamic position fields if multiple
+  if (positions.length > 1) {
+    positions.forEach((pos, idx) => {
+      templateData[`position${idx + 1}`] = pos;
+    });
+  } else {
+    templateData.position = positions[0];
   }
+
+  console.log("templateData",templateData);
+  
+
+  // Generate templates
+  const templateIds = [1, 2, 3, 4, 5];
+  const templatePromises = templateIds.map(id => generateTemplateImage(id, templateData));
+
+  const results = await Promise.all(templatePromises);
 
   return {
     postText,

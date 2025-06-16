@@ -1,6 +1,6 @@
 import express from "express";
 const router = express.Router();
-import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById , getJobApplyFields }  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel , assignCandidateUniqueIds}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -16,11 +16,15 @@ router.get("/getDashboardSummary"  ,  verifyEmployeeToken ,getDashboardSummary)
 router.get("/getDashboardMetrics" ,  verifyEmployeeToken , getDashboardMetrics)
 router.get("/getJobAppliedById/:id" , verifyEmployeeToken , getJobAppliedById)
 router.get("/getJobApplyFields" , verifyEmployeeToken , getJobApplyFields)
+router.post("/calculatexcelcount" , verifyEmployeeToken , calculatexcelcount)
+router.post("/exportJobApplicationsExcel" , verifyEmployeeToken , exportJobApplicationsExcel)
+router.get("/assignCandidateUniqueIds" , verifyEmployeeToken , assignCandidateUniqueIds)
 
 
 // AI Analizer //
 router.get("/analizedCandidate" , verifyEmployeeToken , AnalizedCandidate)
 router.get("/viewAnalizedata/:id" , verifyEmployeeToken  , DeepAnalize)
+router.get("/getAllDeepAnalyses" , verifyEmployeeToken , getAllDeepAnalyses)
 router.get("/AIDashboard" ,verifyEmployeeToken , getDashboardOverview )
 router.get("/getScreeningAnalytics" , verifyEmployeeToken , getScreeningAnalytics)
 

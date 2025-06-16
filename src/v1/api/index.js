@@ -85,6 +85,8 @@ import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
 import favoriteRouter from "./routes/dashboardFavoritRoutes/favorite.router.js"
 
+
+
 const router = Router();
 
 //expense
@@ -105,14 +107,22 @@ import masterDropDownRouter from "./routes/masterDropDown/dropDown.routes.js"
 import PlanRouter from "./routes/PlanRutes/plan.routes.js"
 import targetCompany from "./routes/companyRoutes/targetCompany.routes.js"
 
-//
+// Linkedin Routes
 import postRoutes from "./routes/Linkedin/post.routes.js"
 import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
 import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 
+//Gmail routes
+import authRoutes from "./routes/GmailRoute/auth.routes.js"
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
+import {bulkJobApplyToGoogleSheet} from "./controllers/googleSheet/jobApplyGoogleSheet.js"
+
+// Dynamic Career Form Routes //
+import valueRouter from "./routes/dynamicCarrer/value.router.js";
+import formRouter from "./routes/dynamicCarrer/form.route.js";
+import inputRouter from "./routes/dynamicCarrer/input.route.js";
 //expense
 router.use("/expenseCategory",expenseCategoryRouter)
 router.use("/expenseType",expenseTypeRouter)
@@ -129,6 +139,7 @@ router.use("/expenseRole",expenseRoleRoute)
 router.use("/userExpense",userExpenseRoute)
 router.use('/favorite',favoriteRouter)
 router.use("/templete" , templete)
+
 
 // Add API routes here for REGISTER //
 
@@ -237,9 +248,18 @@ router.use('/post', postRoutes);
 router.use('/linkedin', linkedinRoutes);
 router.use("/organizations", organizationRoutes);
 
+// Gmail Sending
+
+router.use("/auth",authRoutes)
+
+router.get("/googlesheet",bulkJobApplyToGoogleSheet)
 
 
 // verification suit router 
 router.use("/apis", apiRouter)
+
+router.use("/input",inputRouter);
+router.use("/form",formRouter);
+router.use("/value",valueRouter);
 
 export default router;

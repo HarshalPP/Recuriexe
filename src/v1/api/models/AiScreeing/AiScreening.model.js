@@ -36,6 +36,11 @@ const AiScreeningSchema = new Schema({
       default: null
     },
 
+    autoScreening:{
+        type:Boolean,
+        default:true
+    },
+
     name: {
         type: String,
     },

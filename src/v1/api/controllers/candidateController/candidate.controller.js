@@ -16,6 +16,8 @@ import {offerLetterPDF , generateOfferLetterPDF , generateOfferLetterPDF1}  from
 import bcrypt from "bcrypt"
 import mailSwitchModel from "../../models/mailModel/mailSwitch.model.js"
 
+import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+
 
   // Schdeule Interview //
 
@@ -405,7 +407,12 @@ export const changeResumeShortlistedStatus = async (req, res) => {
 
     const updatedCandidates = await jobApplyFormModel.find({ _id: { $in: ids } });
 
-    return success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
+     success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
+     
+         for (const candidate of updatedCandidates) {
+      await jobApplyToGoogleSheet(candidate._id);
+    }
+
   } catch (error) {
     return unknownError(res, error);
   }

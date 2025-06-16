@@ -60,9 +60,9 @@ export async function addDropDown(req) {
 
 export async function getDropDownList(req) {
   try {
-    const { status } = req.query;
+    const { status = "active" } = req.query;
     const employeeId = req.employee.id;
-    // const organizationId = req.employee.organizationId;
+    const organizationId = req.employee.organizationId;
 
     if (!status) {
       return returnFormatter(false, "Status is required.");
@@ -73,10 +73,10 @@ export async function getDropDownList(req) {
 
     const list = await dropDownModel.find({
       status: { $in: queryStatus },
-      // $or: [
-        // { organizationId: organizationId },
-        // { organizationId: null }
-      // ]
+      $or: [
+        { organizationId: organizationId },
+        { organizationId: null }
+      ]
     }).select("name status");
 
     // Convert alwaysActive -> active in response
@@ -121,9 +121,11 @@ export async function updateDropDownById(req) {
     if (!id) return returnFormatter(false, "Drop down ID is required");
     const updateData = formatDropDown(req);
 
+    const manDropDownDetail = await dropDownModel.findById(id)
+     if (manDropDownDetail.status === "alwaysActive") return returnFormatter(false, "This dropdown is system-defined and cannot be modified");
     const existing = await dropDownModel.findOne({ name: updateData.name, _id: { $ne: id } });
-    if (existing) return returnFormatter(false, "Name already exists.");
 
+    if (existing) return returnFormatter(false, "Name already exists.");  
     const updated = await dropDownModel.findByIdAndUpdate(id, updateData, { new: true });
     if (!updated) return returnFormatter(false, "DropDown not found.");
     return returnFormatter(true, "DropDown updated.", updated);
@@ -198,7 +200,7 @@ export async function createsubDropDown(req) {
     }
 
     // Check if dropDown exists and is active
-    const dropDown = await dropDownModel.findOne({ _id: dropDownId, status: "active" });
+    const dropDown = await dropDownModel.findOne({ _id: dropDownId });
     if (!dropDown) {
       return returnFormatter(false, "Drop Down not found");
     }
@@ -288,7 +290,7 @@ export async function nameBySubDropDownGet(req) {
   try {
     const { name, status= "active"} = req.query;
     const employeeId = req.employee.id;
-    // const organizationId = req.employee.organizationId;
+    const organizationId = req.employee.organizationId;
 
     const employee = await employeeModel.findById(employeeId, { status: "active" });
     if (!employee) {
@@ -311,13 +313,13 @@ export async function nameBySubDropDownGet(req) {
   name: name.trim(),
   status: { $in: ["active", "alwaysActive"] }
 });
-    if (!dropDownActiveOrNot) {
-      return returnFormatter(false, `${name} Inactive`);
-    }
+    // if (!dropDownActiveOrNot) {
+    //   return returnFormatter(false, `${name} Inactive`);
+    // }
 
     
-    const subDropList = await subdropDownModel.find({ dropDownId: dropDownVerify._id, status: status }).select('name status');
-    // const subDropList = await subdropDownModel.find({ organizationId: organizationId, dropDownId: dropDownVerify._id, status: status }).select('name status');
+    // const subDropList = await subdropDownModel.find({ dropDownId: dropDownVerify._id, status: status }).select('name status');
+    const subDropList = await subdropDownModel.find({ organizationId: organizationId, dropDownId: dropDownVerify._id, status: status }).select('name status');
     return returnFormatter(true, `${name} list`, subDropList);
   } catch (error) {
     return returnFormatter(false, error.message);

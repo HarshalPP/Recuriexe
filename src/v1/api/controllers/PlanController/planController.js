@@ -119,7 +119,8 @@ export const assignPlanToOrganization = async (req, res) => {
       isActive: true,
       NumberOfJobPosts: plan.NumberOfJobPosts,
       NumberOfUsers: plan.NumberOfUsers,
-      NumberofAnalizers: plan.NumberofAnalizers
+      NumberofAnalizers: plan.NumberofAnalizers,
+      Numberofdownloads: plan.Numberofdownloads,
     };
 
     if (existingOrgPlan) {

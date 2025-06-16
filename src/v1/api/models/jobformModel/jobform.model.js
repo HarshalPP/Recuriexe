@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import settingcandidate from "../../models/settingModel/candidatesetting.model.js"
+import JobPost from "../../models/jobPostModel/jobPost.model.js"
 const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 import moment from "moment-timezone";
@@ -248,15 +249,24 @@ const jobApplyModelSchema = new Schema(
 
 
 jobApplyModelSchema.pre("save", async function (next) {
-  console.log("called")
   try {
     if (!this.isNew || this.candidateUniqueId) return next();
 
+    // If organizationId is not set, derive from jobPostId
+    if (!this.organizationId && this.jobPostId) {
+      const jobPost = await JobPost.findById(this.jobPostId).select("organizationId").lean();
+      if (jobPost && jobPost.organizationId) {
+        this.organizationId = jobPost.organizationId;
+      } else {
+        return next(new Error("Cannot generate candidateUniqueId: organizationId not found in jobPost."));
+      }
+    }
+
     const organizationId = this.organizationId;
-    let setting = await settingcandidate.findOne({organizationId});
+
+    let setting = await settingcandidate.findOne({ organizationId });
     if (!setting) {
-      setting = new settingcandidate({organizationId});
-      await setting.save();
+      setting = await settingcandidate.create({ organizationId });
     }
 
     setting.candidateIdCounter += 1;
@@ -264,9 +274,7 @@ jobApplyModelSchema.pre("save", async function (next) {
 
     const parts = [];
 
-    if (setting.candidateIdPrefix) {
-      parts.push(setting.candidateIdPrefix);
-    }
+    if (setting.candidateIdPrefix) parts.push(setting.candidateIdPrefix);
 
     if (setting.candidateIdUseDate && setting.candidateIdDateFormat) {
       parts.push(moment().format(setting.candidateIdDateFormat));
@@ -279,11 +287,9 @@ jobApplyModelSchema.pre("save", async function (next) {
       parts.push(random);
     }
 
-    parts.push(setting.candidateIdCounter.toString().padStart(setting.candidateIdPadLength, "0"));
+    parts.push(setting.candidateIdCounter.toString().padStart(setting.candidateIdPadLength || 0, "0"));
 
-    if (setting.candidateIdSuffix) {
-      parts.push(setting.candidateIdSuffix);
-    }
+    if (setting.candidateIdSuffix) parts.push(setting.candidateIdSuffix);
 
     this.candidateUniqueId = parts.join("");
 

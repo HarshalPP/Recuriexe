@@ -1,3 +1,4 @@
+import OrganizationModel from "../../models/organizationModel/organization.model.js";
 import PortalModel from "../../models/PortalSetUp/portalsetup.js"
 
 export const createPortalService = async (data) => {
@@ -18,6 +19,8 @@ export const getAllPortalsService = async (organizationId) => {
   try {
     // Find existing portal data for the organization
     const existingPortal = await PortalModel.findOne({ organizationId }).populate('organizationId');
+
+    const findOrg = await OrganizationModel.findById(organizationId).select('carrierlink')
     
     // If portal data exists, return it
     if (existingPortal) {

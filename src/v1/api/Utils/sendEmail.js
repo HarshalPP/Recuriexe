@@ -166,3 +166,49 @@ export const sendEmail = async (options) => {
     throw new Error('Failed to send email');
   }
 };
+
+export const sendEmail1 = async (options) => {
+  try {
+    if (!options.to) {
+      throw new Error('Recipient email is required');
+    }
+
+    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+
+    const msg = {
+      from: "support@fincoopers.tech", // must be verified in SendGrid
+      to: recipients,
+      subject: options.subject || 'No Subject',
+      html: options.html || '',
+    };
+
+    if (options.cc) msg.cc = [].concat(options.cc);
+    if (options.bcc) msg.bcc = [].concat(options.bcc);
+
+    if (options.Attachments?.length) {
+      msg.attachments = options.Attachments.map(att => ({
+        content: att.content || '',
+        filename: att.filename || 'attachment',
+        type: att.contentType || 'application/octet-stream',
+        disposition: 'attachment',
+      }));
+    }
+
+    const info = await sgMail.send(msg);
+    console.log('Email sent with SendGrid, messageId:', info[0]?.headers['x-message-id'] || 'N/A');
+    return info;
+  } catch (error) {
+    console.error('Error sending email:', error);
+
+    if (error.response) {
+      console.error('SendGrid API error details:', {
+        status: error.response.status,
+        body: error.response.body,
+      });
+      const errorMessage = error.response.body?.errors?.[0]?.message || 'Unknown error';
+      throw new Error(`SendGrid Error: ${errorMessage}`);
+    }
+
+    throw new Error('Failed to send email');
+  }
+};

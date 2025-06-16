@@ -5,56 +5,34 @@ import Postsettingcandidate from "../../models/settingModel/jobPostsetting.model
 
 // get setting //
 
-const getsetting = async(organizationId)=>{
-    try {
-        let settings = await setting.findOne({organizationId})
-        if (!settings) {
-            settings = new setting({organizationId:organizationId}); // use default schema values
-            // settings.organizationId = organizationId; // Ensure organizationId is set
-            await settings.save();
-          }
-          return settings;
+const getsetting = async (organizationId) => {
+  try {
+    let settings = await setting.findOne({ organizationId });
 
-
-    } catch (error) {   
-        console.log(error)
-        return error;
+    if (!settings) {
+      settings = await setting.create({ organizationId }); // Use default values
     }
-}
+
+    return settings;
+  } catch (error) {
+    console.error("Error in getsetting:", error);
+    return error;
+  }
+};
 
 // Update settings
-const updateSettings = async (data , organizationId) => {
-    let settings = await setting.findOne({organizationId});
-    if (!settings) {
-      setting = new setting(); 
-    }
+// UPDATE organization-specific settings
+const updateSettings = async (data, organizationId) => {
+  let settings = await setting.findOne({ organizationId });
 
-      // Use findByIdAndUpdate with new data and return the updated document
-  const updatedSetting = await setting.findByIdAndUpdate(
-    settings._id,
-    { $set: data },
-    { new: true } // Return the updated document
-  );
-
-  return updatedSetting;
-
-
-  };
-
-
-  // Update candidate setting //
-
-const updatecandidatesetting = async (data , organizationId) => {
-  let settings = await settingcandidate.findOne({organizationId});
-
-  // If no existing settings, create a new one
   if (!settings) {
-    settings = await settingcandidate.create(data);
+    // If settings not found, create them using provided data
+    settings = await setting.create({ ...data, organizationId });
     return settings;
   }
 
-  // If settings exist, update them
-  const updatedSetting = await settingcandidate.findByIdAndUpdate(
+  // Update existing settings
+  const updatedSetting = await setting.findByIdAndUpdate(
     settings._id,
     { $set: data },
     { new: true }
@@ -64,35 +42,53 @@ const updatecandidatesetting = async (data , organizationId) => {
 };
 
 
-  // get candidate setting //
+  // Update candidate setting //
 
-  const candidatesetting = async(organizationId)=>{
-    try {
+// Update candidate setting
+const updatecandidatesetting = async (data, organizationId) => {
+  let settings = await settingcandidate.findOne({ organizationId });
 
-        let settings = await settingcandidate.findOne({organizationId})
-        if (!settings) {
-            settings = new settingcandidate({organizationId:organizationId}); // use default schema values
-            await settings.save();
-          }
+  // If not found, create new settings with organizationId
+  if (!settings) {
+    settings = await settingcandidate.create({ ...data, organizationId });
+    return settings;
+  }
 
-          return settings;
+  // Update and return the updated document
+  const updatedSetting = await settingcandidate.findByIdAndUpdate(
+    settings._id,
+    { $set: data },
+    { new: true }
+  );
 
+  return updatedSetting;
+};
 
-    } catch (error) {   
-        console.log(error)
-        return error;
+// Get candidate setting
+const candidatesetting = async (organizationId) => {
+  try {
+    let settings = await settingcandidate.findOne({ organizationId });
+
+    if (!settings) {
+      settings = await settingcandidate.create({ organizationId }); // default values
     }
 
+    return settings;
+  } catch (error) {
+    console.error("Error fetching candidate setting:", error);
+    return error;
   }
+};
 
 
   // Job candidate //
 
+// Update job post settings
 const updateJobPostSetting = async (data, organizationId) => {
   let settings = await Postsettingcandidate.findOne({ organizationId });
 
   if (!settings) {
-    // Ensure organizationId is included in data for creation
+    // Ensure organizationId is added during creation
     settings = await Postsettingcandidate.create({ ...data, organizationId });
     return settings;
   }
@@ -106,24 +102,22 @@ const updateJobPostSetting = async (data, organizationId) => {
   return updatedSetting;
 };
 
-
-
-
+// Get job post settings
 const getJobPostSetting = async (organizationId) => {
   try {
-    let settings = await Postsettingcandidate.findOne({organizationId});
+    let settings = await Postsettingcandidate.findOne({ organizationId });
+
     if (!settings) {
-      settings = new Postsettingcandidate(); // Use default values from schema
-      settings.organizationId = organizationId
-      await settings.save();
+      settings = await Postsettingcandidate.create({ organizationId }); // Use defaults from schema
     }
 
     return settings;
   } catch (error) {
-    console.log(error);
-    return error;
+    console.error("Error in getJobPostSetting:", error);
+    throw error;
   }
 };
+
 
 
 

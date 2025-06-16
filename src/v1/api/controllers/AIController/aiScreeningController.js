@@ -109,7 +109,7 @@ export const getAiScreeningById = async (req, res) => {
 export const updateAiScreening = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, coreSettings, scoringWeights, screeningCriteria } = req.body;
+        const { name, description, coreSettings, scoringWeights, screeningCriteria , autoScreening } = req.body;
 
         if (!id) {
             return badRequest(res, "Screening ID is required");
@@ -125,6 +125,7 @@ export const updateAiScreening = async (req, res) => {
         screening.description = description || screening.description;
         screening.coreSettings = coreSettings || screening.coreSettings;
         screening.scoringWeights = scoringWeights || screening.scoringWeights;
+        screening.autoScreening=autoScreening || screening.autoScreening
 
         // Convert `id` to `_id` to preserve identity
         if (Array.isArray(screeningCriteria)) {

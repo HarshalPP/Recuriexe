@@ -53,6 +53,11 @@ const planSchema = new Schema({
         default: 0,
 
     },
+
+    Numberofdownloads:{
+        type: Number,
+        default: 0,
+    }
     }, { timestamps: true });
 
 

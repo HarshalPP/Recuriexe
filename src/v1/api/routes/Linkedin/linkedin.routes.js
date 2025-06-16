@@ -3,7 +3,6 @@ import express from 'express';
 import {
   redirectToLinkedIn,
   handleCallback,
-  postContent,
   // postContentWithFilesUGC,
   cancelScheduledPost,
   reschedulePost,
@@ -14,6 +13,8 @@ import {
   saveDraftPost,
   getDraftPosts,
   generatePostText,
+  getPostGenStatus,
+  editDraftPost
 } from '../../controllers/LinkedIn/linkedin.controller.js';
 
 const router = express.Router();
@@ -23,8 +24,6 @@ router.get("/auth/linkedin", redirectToLinkedIn);
 router.get("/auth/linkedin/callback", handleCallback);
 
 // Post routes
-router.post("/post", postContent);
-
 router.post("/posts/publish",  postMultipleContentWithFilesUGC);
 // Scheduled posts management
 router.get("/scheduled-posts", getAllPostByorgId);
@@ -43,8 +42,17 @@ router.post("/save-posts", saveDraftPost);
 // Get all draft posts
 router.get("/posts/drafts", getDraftPosts);
 
+// Edit the drafts
+router.patch("/posts/draft/:draftId",editDraftPost);
+
+
 //
-router.get('/generate-post/:jobId', generatePostText);
+router.get('/generate-post/:jobIds', generatePostText);
+
+
+router.get('/status/:id', getPostGenStatus);
+
+
 
 
 export default router;

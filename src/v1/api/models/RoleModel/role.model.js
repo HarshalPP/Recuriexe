@@ -201,7 +201,6 @@ const roleSchema = new Schema(
       type: Boolean,
       default: false
     },
-
     jobPostDashboard: {
       canViewAll: {
         type: Boolean,
@@ -215,6 +214,9 @@ const roleSchema = new Schema(
         type: Boolean, default: false
       },
       canToggleStatus : {
+        type: Boolean, default: false
+      },
+      jobPostApprove: {
         type: Boolean, default: false
       },
     },

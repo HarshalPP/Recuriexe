@@ -47,56 +47,55 @@ export const getSettings = async (req, res) => {
 
   
 // GET /api/settings
+// GET /api/candidate-settings
 export const candidatesettings = async (req, res) => {
-    try {
-      const organizationId = req.employee.organizationId 
-      const settings = await settingService.candidatesetting(organizationId);
-      return success(res , "get list" , settings)
-    //   res.status(200).json({ success: true, data: settings });
-    } catch (error) {
-      return UnknownError(res , "Interval server error")
-    }
-  };
-
-
-  
-  
-  // PATCH /api/settings
-  export const updatecandidatesettings = async (req, res) => {
-    try {
-      const organizationId = req.employee?.organizationId 
-      const updated = await settingService.updatecandidatesetting(req.body , organizationId);
-      return success(res , "Update successfully" , updated)
-    } catch (error) {
-      console.log(error)
-        return UnknownError(res , "Interval server error")
-    }
-  };
-
-
-
-
-  // Jobpost //
-  export const getJobPostSettings = async (req, res) => {
   try {
-    const organizationId = req.employee?.organizationId
-    const settings = await settingService.getJobPostSetting(organizationId);
-    return success(res, "Fetched job post settings", settings);
+    const organizationId = req.employee.organizationId;
+    const settings = await settingService.candidatesetting(organizationId);
+    return success(res, "Candidate settings fetched successfully", settings);
   } catch (error) {
+    console.error("Error in candidatesettings:", error);
+    return UnknownError(res, "Internal server error");
+  }
+};
+
+// PATCH /api/candidate-settings
+export const updatecandidatesettings = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const updated = await settingService.updatecandidatesetting(req.body, organizationId);
+    return success(res, "Candidate settings updated successfully", updated);
+  } catch (error) {
+    console.error("Error in updatecandidatesettings:", error);
     return UnknownError(res, "Internal server error");
   }
 };
 
 
 
-// jOB POST //
+
+
+  // Jobpost //
+ // GET /api/job-post-settings
+export const getJobPostSettings = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+    const settings = await settingService.getJobPostSetting(organizationId);
+    return success(res, "Fetched job post settings", settings);
+  } catch (error) {
+    console.error("Error in getJobPostSettings:", error);
+    return UnknownError(res, "Internal server error");
+  }
+};
+
+// PATCH /api/job-post-settings
 export const updateJobPostSettings = async (req, res) => {
   try {
-    const organizationId = req.employee?.organizationId || null;
+    const organizationId = req.employee?.organizationId;
     const updated = await settingService.updateJobPostSetting(req.body, organizationId);
     return success(res, "Updated job post settings successfully", updated);
   } catch (error) {
-    console.log(error);
+    console.error("Error in updateJobPostSettings:", error);
     return UnknownError(res, "Internal server error");
   }
 };

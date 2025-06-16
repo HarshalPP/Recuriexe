@@ -9,12 +9,14 @@ import jobApply from "../../models/jobformModel/jobform.model.js"
 import designationModel from "../../models/designationModel/designation.model.js"
 import DepartmentBudget from "../../models/budgedModel/budged.model.js"
 import BudgetModel from "../../models/budgedModel/budged.model.js"
+import roleModel from "../../models/RoleModel/role.model.js"
 import jobPostingsetting from "../../models/settingModel/jobPostsetting.model.js"
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import mongoose from "mongoose"
 const ObjectId = mongoose.Types.ObjectId;
 import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import PlanModel from "../../models/PlanModel/Plan.model.js"
+import {generateJobPostExcelAndUpload} from "../../Utils/excelUploader.js"
 
 // Helper function to convert package string to budget amount
 const convertPackageToBudget = (packageString) => {
@@ -164,6 +166,26 @@ export const jobPostAddDirect = async (req, res) => {
     req.body.organizationId = req.employee.organizationId;
     req.body.createdByHrId = req.employee.id;
 
+const employeeDetails = await employeModel
+  .findById(req.employee.id)
+  .populate({
+    path: 'roleId',
+    model: 'role',
+  });
+
+ const roleDetails = await roleModel.findById(employeeDetails.roleId[0]._id).select('roleName jobPostApprove');
+
+let jobPostStatus = "pending";
+// Define the allowed roles (in lowercase)
+const autoApproveRoles = ['admin', 'productowner', 'superadmin'];
+if (roleDetails) {
+  const roleName = roleDetails.roleName?.toLowerCase();
+  if (autoApproveRoles.includes(roleName)) {
+    // jobPostStatus = "active";
+  } else if (roleDetails.jobPostDashboard.jobPostApprove) {
+    jobPostStatus = "active";
+  }
+}
     // Optional: validate required fields
     const requiredFields = ['designationId', 'departmentId', 'subDepartmentId'];
     for (const field of requiredFields) {
@@ -186,7 +208,6 @@ export const jobPostAddDirect = async (req, res) => {
       return badRequest(res, "Plan has expired. Please renew or upgrade your plan.");
     }
     
-       // ✅ Check number of job posts against plan limit
   // ✅ Check job post usage
     const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg });
     if (currentJobPostCount >= activePlan.NumberOfJobPosts) {
@@ -205,7 +226,7 @@ export const jobPostAddDirect = async (req, res) => {
     req.body.position = findDesignation.name;
 
     const findBudget = await BudgetModel.findOne({
-      departmentId: findDesignation.subDepartmentId,
+      // departmentId: findDesignation.subDepartmentId,
       desingationId: findDesignation._id,
       organizationId: req.body.organizationId,
     });
@@ -214,11 +235,15 @@ export const jobPostAddDirect = async (req, res) => {
       return badRequest(res, "Please set budget first");
     }
 
-    const userBudget = Number(req.body.budget);
 
-    if (isNaN(userBudget) || userBudget <= 0) {
-      return badRequest(res, "Invalid budget amount");
-    }
+    const userBudgetLpa = Number(req.body.budget);
+
+if (isNaN(userBudgetLpa) || userBudgetLpa <= 0) {
+  return badRequest(res, "Invalid budget amount");
+}
+
+// Convert LPA to amount (e.g. 4.5 LPA -> 450000)
+const userBudget = userBudgetLpa * 100000;
 
     // Update usedBudget
     findBudget.usedBudget = (findBudget.usedBudget || 0) + userBudget;
@@ -227,11 +252,20 @@ export const jobPostAddDirect = async (req, res) => {
     if (findBudget.usedBudget > findBudget.allocatedBudget) {
       return badRequest(res, "Used budget exceeds allocated budget");
     }
-
+// save budget data 
     await findBudget.save();
     req.body.budgetId = findBudget._id || null;
     const jobPost = new jobPostModel(req.body);
     await jobPost.save();
+
+       // ✅ Decrease NumberOfJobPosts from active plan
+    if (activePlan.NumberOfJobPosts > 0) {
+        const Updateservice = await organizationPlanModel.findOneAndUpdate(
+        { organizationId: NewOrg },
+        { $inc: { NumberOfJobPosts: -1 } }, // Decrement the count
+        { new: true }
+      );
+    }
 
     return success(res, "Job Post Added Successfully", jobPost);
   } catch (error) {
@@ -240,6 +274,168 @@ export const jobPostAddDirect = async (req, res) => {
   }
 };
 
+
+// export const jobPostapproveAndReject = async (req, res) => {
+//   try {
+//     const { jobPostId, status, remark } = req.body;
+//     const employeeId = req.employee.id;
+
+//     if (!jobPostId) {
+//       return badRequest(res, "Job Post ID is required.");
+//     }
+
+//     // Step 1: Get employee with role
+//     const employeeDetails = await employeModel
+//       .findById(employeeId)
+//       .select('employeName roleId')
+//       .populate({ path: 'roleId', model: 'role' });
+
+//     if (!employeeDetails || !employeeDetails.roleId || !employeeDetails.roleId.length) {
+//       return badRequest(res, "Employee or role not found.");
+//     }
+
+//     const roleDetails = employeeDetails.roleId[0];
+//     const allowedRoles = ['admin', 'productowner', 'superadmin'];
+//     const roleName = roleDetails.roleName?.toLowerCase();
+
+//     const isAllowed =
+//       allowedRoles.includes(roleName) || roleDetails.jobPostApprove === true;
+
+//     if (!isAllowed) {
+//       return badRequest(res, "You are not authorized to approve or reject job posts.");
+//     }
+
+//     // Step 2: Validate inputs
+//     if (!["approve", "reject"].includes(status)) {
+//       return badRequest(res, "Invalid status. Must be 'approve' or 'reject'.");
+//     }
+
+//     if (status === "reject" && (!remark || remark.trim() === "")) {
+//       return badRequest(res, "Remark is required when rejecting.");
+//     }
+
+//     // Step 3: Fetch current job post
+//     const jobPost = await jobPostModel.findById(jobPostId);
+//     if (!jobPost) {
+//       return badRequest(res, "Job post not found.");
+//     }
+
+//     if (jobPost.status === "active" && status === "approve") {
+//       return badRequest(res, "Job post is already approved.");
+//     }
+
+//     if (jobPost.status === "reject" && status === "reject") {
+//       return badRequest(res, "Job post is already rejected.");
+//     }
+
+//     // Step 4: Update job post
+//     const updateData = {
+//       status: status === "approve" ? "active" : "reject",
+//       jobPostApproveEmployeeId: employeeId,
+//       jobPostApproveDate: new Date(),
+//       jobPostApproveRemark: remark,
+//     };
+
+//     const updatedJobPost = await jobPostModel.findByIdAndUpdate(
+//       jobPostId,
+//       { $set: updateData },
+//       { new: true }
+//     );
+
+//     updateData.employeeName = employeeDetails.employeName;
+//     delete updateData.jobPostApproveEmployeeId;
+
+//     return success(res, `Job post ${status}d successfully.`, {
+//       data: updateData,
+//     });
+//   } catch (error) {
+//     console.error("Job post update error:", error);
+//     return unknownError(res, "Server error", error);
+//   }
+// };
+
+
+export const jobPostapproveAndReject = async (req, res) => {
+  try {
+    const { jobPostIds, status, remark } = req.body;
+    const employeeId = req.employee.id;
+
+    if (!Array.isArray(jobPostIds) || jobPostIds.length === 0) {
+      return badRequest(res, "jobPostIds must be a non-empty array.");
+    }
+
+    if (!["approve", "reject"].includes(status)) {
+      return badRequest(res, "Invalid status. Must be 'approve' or 'reject'.");
+    }
+
+    if (status === "reject" && (!remark || remark.trim() === "")) {
+      return badRequest(res, "Remark is required when rejecting.");
+    }
+
+    // Step 1: Get employee and role
+    const employeeDetails = await employeModel
+      .findById(employeeId)
+      .select('employeName roleId')
+      .populate({ path: 'roleId', model: 'role' });
+
+    if (!employeeDetails || !employeeDetails.roleId || !employeeDetails.roleId.length) {
+      return badRequest(res, "Employee or role not found.");
+    }
+
+    const roleDetails = employeeDetails.roleId[0];
+    console.log('roleDetails',roleDetails)
+    const allowedRoles = ['admin', 'productowner', 'superadmin'];
+    const roleName = roleDetails.roleName?.toLowerCase();
+    const isAllowed = roleDetails.jobPostDashboard.jobPostApprove === true;
+
+    if (!isAllowed) {
+      return badRequest(res, "You are not authorized to approve or reject job posts.");
+    }
+
+    // Step 2: Loop through each jobPostId
+    const results = [];
+
+    for (const jobPostId of jobPostIds) {
+      const jobPost = await jobPostModel.findById(jobPostId);
+
+      if (!jobPost) {
+        return badRequest(res, "Job post not found." );
+        
+      }
+
+      if (jobPost.status === "active" && status === "approve") {
+return badRequest(res, "Job post already approved.");
+      }
+
+      if (jobPost.status === "reject" && status === "reject") {
+        return badRequest(res, "Job post already rejected." );
+      }
+
+      const updateData = {
+        status: status === "approve" ? "active" : "reject",
+        jobPostApproveEmployeeId: employeeId,
+        jobPostApproveDate: new Date(),
+        jobPostApproveRemark: remark,
+      };
+
+      try {
+        await jobPostModel.findByIdAndUpdate(jobPostId, { $set: updateData });
+        results.push({
+          status: updateData.status,
+          approvedBy: employeeDetails.employeName,
+        });
+      } catch (err) {
+        console.error(`Failed to update job post ${jobPostId}:`, err);
+        results.push({ _id: jobPostId, success: false, message: "Update failed." });
+      }
+    }
+
+    return success(res, `job post ${status} Succesful`, results);
+  } catch (error) {
+    console.error("Job post bulk update error:", error);
+    return unknownError(res, "Server error", error);
+  }
+};
 
 
 
@@ -597,9 +793,10 @@ export const getAllJobPost = async (req, res) => {
     }
 
     if (status) {
-      matchStage.status = status;
+      matchStage.status = status
+    }else{
+      matchStage.status = 'active';
     }
-
 
     if(JobType){
       matchStage.JobType = { $regex: JobType, $options: "i" };
@@ -765,7 +962,7 @@ export const getAllJobPost = async (req, res) => {
 
       {
         $lookup: {
-          from: "qualifications",
+          from: "subdropdowns",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualification",
@@ -1098,7 +1295,7 @@ console.log('matchStage',matchStage)
 
       {
         $lookup: {
-          from: "qualifications",
+          from: "subdropdowns",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualification",
@@ -1435,15 +1632,25 @@ if (showAllDashbBoardData !== "all") {
       // jobPostExpired: false
     });
 
+        const totalJobsPending = await jobPostModel.countDocuments({
+       ...commonMatchFilter,
+        status :'pending',
+    });
+
+            const totalJobsReject = await jobPostModel.countDocuments({
+       ...commonMatchFilter,
+        status :'reject',
+    });
 // dont remove this line after total count check active jobs    
   commonMatchFilter.status = 'active'
     // 1. Total Active Jobs (Live Positions)
     const totalActiveJobs = await jobPostModel.countDocuments({
        ...commonMatchFilter,
       // organizationId : new ObjectId(organizationId),
-      // jobPostExpired: false
+      jobPostExpired: false
     });
 
+    
 
     // 2. Total Open Positions (Vacancies - sum of all noOfPosition)
     const totalOpenPositionsResult = await jobPostModel.aggregate([
@@ -1750,11 +1957,19 @@ if (showAllDashbBoardData !== "all") {
     const dashboardData = {
       totalActiveJobs: {
         count: totalActiveJobs,
-        label: "total Active Jobs"
+        label: "Active Job Post"
       },
       totalJobs: {
         count: totalJobs,
-        label: "total Jobs"
+        label: "total Job Post"
+      },
+      totalJobsReject: {
+        count: totalJobsReject,
+        label: "Job Post Reject"
+      },
+      totalJobsPending: {
+        count: totalJobsPending,
+        label: "Job Post Pending"
       },
       totalOpenPositions: {
         count: totalOpenPositions,
@@ -2277,6 +2492,139 @@ if (showAllDashbBoardData !== "all") {
 };
 
 
+// export expport jobpost //
+
+
+export const exportJobPostsExcel = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not provided");
+    }
+
+    const jobPosts = await jobPostModel.aggregate([
+      {
+        $match: {
+          organizationId: new mongoose.Types.ObjectId(organizationId),
+          status: "active",
+        },
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "department",
+        },
+      },
+      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+
+    {
+  $lookup: {
+    from: "newdepartments",
+    let: { subDeptId: "$subDepartmentId" }, // assuming subDepartmentId is the field in the main document
+    pipeline: [
+      { $unwind: "$subDepartments" },
+      {
+        $match: {
+          $expr: {
+            $eq: ["$subDepartments._id", "$$subDeptId"]
+          }
+        }
+      },
+      {
+        $project: {
+          name: "$subDepartments.name"
+        }
+      }
+    ],
+    as: "subDepartmentDetail"
+  }
+},
+{
+  $unwind: {
+    path: "$subDepartmentDetail",
+    preserveNullAndEmptyArrays: true
+  }
+},
+
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "designationId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "designation",
+        },
+      },
+      { $unwind: { path: "$designation", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          pipeline: [{ $project: { _id: 0, name: 1 } }],
+          as: "branch",
+        },
+      },
+      { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+       {
+        $lookup: {
+          from: "employmenttypes",
+          localField: "employmentTypeId",
+          foreignField: "_id",
+          as: "employmentType",
+        },
+      },
+      {
+        $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true },
+      },
+
+            {
+        $lookup: {
+          from: "employeetypes",
+          localField: "employeeTypeId",
+          foreignField: "_id",
+          as: "employeeType",
+        },
+      },
+      { $unwind: { path: "$employeeType", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          jobPostId: 1,
+          position: 1,
+          JobType: 1,
+          noOfPosition: 1,
+          status: 1,
+          expiredDate: 1,
+          createdAt: 1,
+          department: "$department.name",
+          subDepartment:"$subDepartmentDetail.name",
+          designation: "$designation.name",
+          employmentType:"$employmentType.title",
+          employeeType:"$employeeType.title",
+          branch: "$branch.name",
+        },
+      },
+    ]);
+
+    if (!jobPosts.length) {
+      return success(res, "No job posts found", []);
+    }
+
+    const fileUrl = await generateJobPostExcelAndUpload(jobPosts, "Job_Posts_Report");
+
+    return success(res, "Excel file generated and uploaded", { url: fileUrl });
+  } catch (error) {
+    console.error("Export Job Posts Excel Error:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+
 
 
 
@@ -2334,5 +2682,40 @@ export const assignJobPostIdsToOldPosts = async (req, res) => {
   } catch (error) {
     console.error("Error assigning jobPostId:", error);
     return res.status(500).json({ message: "Server error", error });
+  }
+};
+
+
+import qualificationModel from "../../models/QualificationModel/qualification.model.js";
+import subDropDownModel from "../../models/masterDropDownModel/masterDropDownValue.model.js";
+import { returnFormatter } from "../../formatters/common.formatter.js"; // adjust to your utils path
+
+export const qualificationDataUpdate = async (req, res) => {
+  try {
+    const jobPosts = await jobPostModel.find({}).lean();
+
+    for (const jobPost of jobPosts) {
+      const newQualificationIds = [];
+
+      for (const qualificationId of jobPost.qualificationId || []) {
+        const oldQual = await qualificationModel.findById(qualificationId).lean();
+        if (!oldQual || !oldQual.name) continue;
+
+        const newQual = await subDropDownModel.findOne({ name: oldQual.name }).lean();
+
+        if (newQual?._id) {
+          newQualificationIds.push(newQual._id);
+        }
+      }
+
+      // update document
+      await jobPostModel.findByIdAndUpdate(jobPost._id, {
+        qualificationId: newQualificationIds.length ? newQualificationIds : [],
+      });
+    }
+
+    return res.status(200).json(returnFormatter(true, "Qualification IDs migrated successfully."));
+  } catch (error) {
+    return res.status(500).json(returnFormatter(false, error.message));
   }
 };
