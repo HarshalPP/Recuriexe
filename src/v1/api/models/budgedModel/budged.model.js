@@ -35,7 +35,10 @@ const departmentBudgetSchema = new mongoose.Schema({
     required: true,
     default:0,
   },
-
+  jobPostForNumberOfEmployees: {
+    type: Number,
+    default:0,
+  },
   status: {
     type: String,
     enum : ["active","inactive"],

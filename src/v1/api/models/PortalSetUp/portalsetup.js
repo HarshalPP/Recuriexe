@@ -25,13 +25,25 @@ const candidateSchema = new Schema(
       type: String,
       default:""
     },
+    PortalNameFont: {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
+    },
     header: {
       type: String,
       default:""
     },
+     headerFont:  {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
+    },
     footer: {
       type: String,
       default:""
+    },
+         footerFont:  {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
     },
     WorkingDayWithHour: {
       type: String,
@@ -147,11 +159,23 @@ const candidateSchema = new Schema(
     },
     bannerPhoto: { type: String, default: "" },
     mainHeaderText: { type: String, default: "" },
+         mainHeaderTextFont:  {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
+    },
     headerText: { type: String, default: "" },
+         headerTextFont:  {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
+    },
     whyJoinOrganization : {type:Boolean , default :true},
     tipsForApplying : {type :Boolean , default:true},
     proTip : {
       proTipTitle : {type :String, default:""},
+           proTipTitleFont:  {
+      fontSize: { type: String, default: "" },
+  fontColor: { type: String, default: "" },
+    },
       appliGuidelinesTitle :{type:String , default : ""}
     },
     minDaysBetweenApplications: {type :Number , default : null},

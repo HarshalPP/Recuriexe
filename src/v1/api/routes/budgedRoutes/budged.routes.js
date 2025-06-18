@@ -3,8 +3,9 @@ const router = express.Router()
 
 import {setOrganizationBudget , UpdateOrganizationBudget ,  getOrganization , allocateDepartmentBudget ,
      getDepartmentWiseBudgets , updateDepartmentBudget , getBudgetDashboard , getBudgetAnalytics ,
-      manBudgetDashboardApi , getSetBudgetDesingation , manBudgetDashboard , budgetVerify , 
+      manBudgetDashboardApi , getSetBudgetDesingation , budgetSetUpListApi , budgetVerify , 
       bulkUpdateDepartmentBudgetsByIds , 
+      updateAllBudgetsWithJobPostCount,
      } from "../../controllers/budgedController/budged.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
@@ -18,7 +19,7 @@ router.get("/getOrganization" , verifyEmployeeToken , getOrganization)
 
 router.post("/getBudgetDetail" , verifyEmployeeToken , getSetBudgetDesingation)
 
-router.get('/manBudgetDashboard' ,verifyEmployeeToken , manBudgetDashboard)
+router.get('/manBudgetDashboard' ,verifyEmployeeToken , budgetSetUpListApi)
 // Budged with Department wise //
 router.get("/budgetVerify", verifyEmployeeToken , budgetVerify)
 router.post("/allocateDepartmentBudget" , verifyEmployeeToken , allocateDepartmentBudget)
@@ -31,6 +32,8 @@ router.post("/bulkUpdateBudgetsByIds" , verifyEmployeeToken , bulkUpdateDepartme
 // Budged Dashboard and Analytics //
 router.get("/getBudgetDashboard" , verifyEmployeeToken , getBudgetDashboard)
 router.get("/getBudgetAnalytics" , verifyEmployeeToken , getBudgetAnalytics)
+
+router.get("/updateAllBudgetsWithJobPostCount", updateAllBudgetsWithJobPostCount )
 
 
 

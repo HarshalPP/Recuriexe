@@ -6,7 +6,7 @@ import { IsAuthenticated , verifyEmployeeToken } from "../../middleware/authicat
 import {newEmployeeLogin , updateEmployee , updateEmployeeById , getAllJoiningEmployee , getAllEmploye  , 
         getEmployeeById , getAllEmployeeInfo , getEmployeeCount , employeeTreeHierarchy ,allEmployeDetail, 
          SuperAdminRegister ,  SuperAdminUpdate , createNewEmployee , getAllEmployeeInfodata , 
-         employeeActiveInactive , addNewEmployee , updateEmployeePassword,forgotPasswordForEmployee,resetEmployeePassword  } from "../../controllers/authController/newEmployeeLogin.js"
+         employeeActiveInactive , addNewEmployee , updateEmployeePassword,forgotPasswordForEmployee,resetEmployeePassword , adminByUpdateEmployeeId } from "../../controllers/authController/newEmployeeLogin.js"
 
 import {registerSuperAdmin , loginSuperAdmin} from "../../controllers/authController/superAdmin.controller.js"
 import { registerUser } from "../../controllers/authController/user.controller.js"
@@ -33,6 +33,7 @@ router.get("/newjoinee" ,  verifyEmployeeToken , getAllJoiningEmployee)
 router.post("/addNewEmployee" ,verifyEmployeeToken ,addNewEmployee)
 router.get("/getAllEmployee" , verifyEmployeeToken , getAllEmploye)
 router.get("/getAllEmployeeInfodata", verifyEmployeeToken, getAllEmployeeInfodata) // GET all employee info
+router.post('/employee/adminByUpdate',verifyEmployeeToken ,  adminByUpdateEmployeeId)
 router.get('/getEmployeeById/:id', getEmployeeById); // GET by ID
 router.get("/employee/all",getAllEmployeeInfo)
 router.get("/getEmployeeCount",verifyEmployeeToken , getEmployeeCount)

@@ -194,7 +194,6 @@ export const generateAIScreening = async (prompt, fileUrl) => {
 
     return jsonResponse;
   } catch (error) {
-    console.error("Gemini API Error:", error);
     return error;
   }
 };

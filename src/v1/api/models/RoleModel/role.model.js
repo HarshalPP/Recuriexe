@@ -213,7 +213,7 @@ const roleSchema = new Schema(
       newJobPost: {
         type: Boolean, default: false
       },
-      canToggleStatus : {
+      canToggleStatus: {
         type: Boolean, default: false
       },
       jobPostApprove: {
@@ -234,6 +234,22 @@ const roleSchema = new Schema(
         type: Boolean, default: false
       },
     },
+    socialMedia: {
+      newPost: {
+        type: Boolean,
+        default: false
+      },
+      draft: {
+        type: Boolean,
+        default: false,
+      },
+      scheduledPost: {
+        type: Boolean, default: false
+      },
+      calendar: {
+        type: Boolean, default: false
+      },
+    }
   },
   {
     timestamps: true,

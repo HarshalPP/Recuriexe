@@ -1103,15 +1103,13 @@ ${resume}
       );
     }
 
-
-
     const data = await jobApply.findOneAndUpdate(
   { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
   {
     AI_Screeing_Result: `${updateData?.decision}`,
     AI_Screeing_Status: "Completed",
     AI_Score:Number(updateData.overallScore),
-    AI_Confidence:Number(updateData.AI_Confidence),
+    AI_Confidence:0,
     lastOrganization:Array.isArray(lastOrganization) ? lastOrganization : []
   },
   { new: true }
@@ -1309,7 +1307,7 @@ Respond ONLY with a JSON object in this exact format:
         { new: true, upsert: true }
       );
 
-      return success("AI Screening Rejected due to resume validation failure", rejectionData);
+      // return success("AI Screening Rejected due to resume validation failure", rejectionData);
     }
 
   // 1. Fetch AI Screening config from DB
@@ -1580,6 +1578,7 @@ ${resume}
 
     } = aiResult;
 
+
         // Upsert AI screening data
     const filter = { candidateId };
       const updateData = {
@@ -1622,13 +1621,11 @@ ${resume}
     AI_Screeing_Result: `${updateData?.decision}`,
     AI_Screeing_Status: "Completed",
     AI_Score:Number(updateData.overallScore),
-    AI_Confidence:Number(updateData.AI_Confidence),
+    AI_Confidence:0,
     lastOrganization: Array.isArray(lastOrganization) ? lastOrganization : []
   },
   { new: true }
 );
-
-
 
 
         // Upsert operation: update if exists, else create
@@ -1646,7 +1643,6 @@ ${resume}
         { new: true }
       );
     }
-
 
 
   } catch (error) {

@@ -111,6 +111,7 @@ import targetCompany from "./routes/companyRoutes/targetCompany.routes.js"
 import postRoutes from "./routes/Linkedin/post.routes.js"
 import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
 import organizationRoutes from "./routes/Linkedin/organization.routes.js"
+import socialMedia from "./routes/Linkedin/social.media.routes.js"
 
 //Gmail routes
 import authRoutes from "./routes/GmailRoute/auth.routes.js"
@@ -247,6 +248,8 @@ router.use("/verifyDocs" ,  verifyDocs)
 router.use('/post', postRoutes);
 router.use('/linkedin', linkedinRoutes);
 router.use("/organizations", organizationRoutes);
+router.use("/socialmedia", socialMedia );
+
 
 // Gmail Sending
 

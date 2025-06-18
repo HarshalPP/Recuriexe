@@ -45,8 +45,8 @@ const ScreeningResultSchema = new Schema({
     Leadership_Initiative:{type:Number , required:false},
     Cultural_Fit:{type:Number , required:false},
     Communication_Skills:{type:Number , required:false},
-    Learning_Ability:{type:Number , required:false}
-    
+    Learning_Ability:{type:Number , required:false},
+    CertificateMatch:{type:Number , required:false}
   },
   criteria: { type: [CriteriaSchema], required: false },
   acceptReason: { type: [ReasonPointSchema], required: false },

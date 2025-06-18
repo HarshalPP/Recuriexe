@@ -294,7 +294,18 @@ export const updateDepartmentBudget = async (req, res) => {
     if (!departmentBudget) {
       return notFound(res, 'Department budget not found');
     }
-
+    if(!allocatedBudget) {
+      return badRequest(res, 'Allocated budget is required');
+    }
+    if(!numberOfEmployees) {
+      return badRequest(res, 'Number of employees is required');
+    }
+       if (departmentBudget.usedBudget > allocatedBudget) {
+      return badRequest(
+        res,
+        `Allocated budget ${allocatedBudget}. cannot be less than used budget ${departmentBudget.usedBudget}.`
+      );
+    }
     // Validate budget values (optional)
     if (allocatedBudget < 0 || numberOfEmployees < 0) {
       return badRequest(res, 'Allocated budget and number of employees must be non-negative');
@@ -343,6 +354,14 @@ export const bulkUpdateDepartmentBudgetsByIds = async (req, res) => {
 
       if (!departmentBudget) {
         return badRequest(res,'Department budget not found');
+      }
+      const designationDetail = await designationModel.findById(departmentBudget.desingationId)
+      
+          if (departmentBudget.usedBudget > allocatedBudget) {
+        return badRequest(
+          res,
+          `Allocated budget must be ≥ used budget for: ${designationDetail.name}`
+        );
       }
 
       if (allocatedBudget !== undefined) departmentBudget.allocatedBudget = allocatedBudget;
@@ -796,6 +815,190 @@ export const getBudgetAnalytics = async (req, res) => {
 };
 
 
+// export const manBudgetDashboardApi = async (req, res) => {
+//   try {
+//     const { departmentId, desingationId, search } = req.query;
+
+//     const organizationId = req.employee.organizationId
+//     const filter = {};
+
+//     if (departmentId) {
+//       const departmentIdsArray = departmentId.split(',').map(id => new mongoose.Types.ObjectId(id));
+//       filter.departmentId = { $in: departmentIdsArray };
+//     }
+
+//     if (desingationId) {
+//       const desingationIdsArray = desingationId.split(',').map(id => new mongoose.Types.ObjectId(id));
+//       filter.desingationId = { $in: desingationIdsArray };
+//     }
+
+//     if (organizationId) {
+//       filter.organizationId = new mongoose.Types.ObjectId(organizationId);
+//     }
+//     const data = await BudgetModel.aggregate([
+//       { $match: filter },
+//       {
+//         $lookup: {
+//           from: 'newdepartments',
+//           let: { subDeptId: '$departmentId' },
+//           pipeline: [
+//             {
+//               $match: {
+//                 $expr: {
+//                   $gt: [
+//                     {
+//                       $size: {
+//                         $filter: {
+//                           input: '$subDepartments',
+//                           as: 'sub',
+//                           cond: { $eq: ['$$sub._id', '$$subDeptId'] }
+//                         }
+//                       }
+//                     },
+//                     0
+//                   ]
+//                 }
+//               }
+//             }
+//           ],
+//           as: 'department'
+//         }
+//       },
+//       { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+
+//       // Find matching subDepartment inside the department
+//       {
+//         $addFields: {
+//           subDepartment: {
+//             $first: {
+//               $filter: {
+//                 input: "$department.subDepartments",
+//                 as: "sub",
+//                 cond: { $eq: ["$$sub._id", "$departmentId"] }
+//               }
+//             }
+//           }
+//         }
+//       },
+
+//       // Lookup designation
+//       {
+//         $lookup: {
+//           from: 'newdesignations',
+//           localField: 'desingationId',
+//           foreignField: '_id',
+//           as: 'designation',
+//         }
+//       },
+//       { $unwind: { path: "$designation", preserveNullAndEmptyArrays: true } },
+
+//       ...(search
+//         ? [{
+//           $match: {
+//             $or: [
+//               { "department.name": { $regex: search, $options: 'i' } },
+//               { "subDepartment.name": { $regex: search, $options: 'i' } },
+//               { "designation.name": { $regex: search, $options: 'i' } }
+//             ]
+//           }
+//         }]
+//         : []),
+//       {
+//         $addFields: {
+//           departmentName: { $ifNull: ["$department.name", ""] },
+//           subDepartmentName: { $ifNull: ["$subDepartment.name", ""] },
+//           createdAt: {$ifNull :["$createdAt", ""]},
+//           updatedAt: {$ifNull :["$updatedAt", ""]},
+//           departmentId: "$departmentId",
+//           desingationName: { $ifNull: ["$designation.name", ""] },
+//           desingationId: "$desingationId",
+//           numberOfEmployees: { $ifNull: ["$numberOfEmployees", 0] },
+//           allocatedBudget: { $ifNull: ["$allocatedBudget", 0] },
+//           usedBudget : {$ifNull :["$usedBudget", 0]},
+//           jobPostForNumberOfEmployees : {$ifNull :["$jobPostForNumberOfEmployees",0]},
+//           perEmployeeLPA: {
+//   $cond: [
+//     { $eq: ["$numberOfEmployees", 0] },
+//     0,
+//     {
+//       $divide: ["$allocatedBudget", "$numberOfEmployees"]
+//     }
+//   ]
+// }
+
+//         }
+//       },
+// { $sort: { createdAt: -1 } },
+//       {
+//         $group: {
+//           _id: null,
+//           totalSubDepartments: { $addToSet: "$departmentId" },
+//           totalEmployees: { $sum: "$numberOfEmployees" },
+//           totalAllocatedBudget: { $sum: "$allocatedBudget" },
+//           totalUsedBudget : {$sum : "$usedBudget"},
+//           records: {
+//             $push: {
+//               _id: "$_id",
+//               departmentName: "$departmentName",
+//               subDepartmentName: "$subDepartmentName",
+//               desingationName: "$desingationName",
+//               departmentId: "$departmentId",
+//               desingationId: "$desingationId",
+//               numberOfEmployees: "$numberOfEmployees",
+//               allocatedBudget: "$allocatedBudget",
+//               perEmployeeLPA: "$perEmployeeLPA",
+//               usedBudget: "$usedBudget",
+//               jobPostForNumberOfEmployees:"$jobPostForNumberOfEmployees",
+//               createdAt:"$createdAt",
+//               updatedAt:"$updatedAt",
+//             }
+//           }
+//         }
+//       },
+//       {
+//   $addFields: {
+//     totalDepartments: { $size: "$totalSubDepartments" },
+//     averageAllocatedBudget: {
+//   $cond: [
+//     { $eq: ["$totalEmployees", 0] },
+//     0,
+//     { $round: [{ $divide: ["$totalAllocatedBudget", "$totalEmployees"] }, 2] }
+//   ]
+// }
+//   }
+// },
+//       {
+//         $project: {
+//           totalDepartments: 1,
+//           totalEmployees: 1,
+//           totalAllocatedBudget: 1,
+//           totalUsedBudget:1,
+//           averageAllocatedBudget: 1,
+//           records: 1
+//         }
+//       },
+      
+//     ]);
+
+//     return success(res, "Budget Dashboard List", {
+//       data: data[0] || {
+//         totalDepartments: 0,
+//         totalEmployees: 0,
+//         totalAllocatedBudget: 0,
+//         totalUsedBudget:0,
+//         averageAllocatedBudget: 0,
+//         records: []
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error in department dashboard API:", error);
+//     return unknownError(res, error);
+//   }
+// };
+
+
+
 export const manBudgetDashboardApi = async (req, res) => {
   try {
     const { departmentId, desingationId, search } = req.query;
@@ -803,10 +1006,10 @@ export const manBudgetDashboardApi = async (req, res) => {
     const organizationId = req.employee.organizationId
     const filter = {};
 
-    if (departmentId) {
-      const departmentIdsArray = departmentId.split(',').map(id => new mongoose.Types.ObjectId(id));
-      filter.departmentId = { $in: departmentIdsArray };
-    }
+    // if (departmentId) {
+    //   const departmentIdsArray = departmentId.split(',').map(id => new mongoose.Types.ObjectId(id));
+    //   filter.departmentId = { $in: departmentIdsArray };
+    // }
 
     if (desingationId) {
       const desingationIdsArray = desingationId.split(',').map(id => new mongoose.Types.ObjectId(id));
@@ -818,50 +1021,7 @@ export const manBudgetDashboardApi = async (req, res) => {
     }
     const data = await BudgetModel.aggregate([
       { $match: filter },
-      {
-        $lookup: {
-          from: 'newdepartments',
-          let: { subDeptId: '$departmentId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $gt: [
-                    {
-                      $size: {
-                        $filter: {
-                          input: '$subDepartments',
-                          as: 'sub',
-                          cond: { $eq: ['$$sub._id', '$$subDeptId'] }
-                        }
-                      }
-                    },
-                    0
-                  ]
-                }
-              }
-            }
-          ],
-          as: 'department'
-        }
-      },
-      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
-
-      // Find matching subDepartment inside the department
-      {
-        $addFields: {
-          subDepartment: {
-            $first: {
-              $filter: {
-                input: "$department.subDepartments",
-                as: "sub",
-                cond: { $eq: ["$$sub._id", "$departmentId"] }
-              }
-            }
-          }
-        }
-      },
-
+  
       // Lookup designation
       {
         $lookup: {
@@ -873,48 +1033,176 @@ export const manBudgetDashboardApi = async (req, res) => {
       },
       { $unwind: { path: "$designation", preserveNullAndEmptyArrays: true } },
 
-      ...(search
-        ? [{
-          $match: {
-            $or: [
-              { "department.name": { $regex: search, $options: 'i' } },
-              { "subDepartment.name": { $regex: search, $options: 'i' } },
-              { "designation.name": { $regex: search, $options: 'i' } }
+       ...(departmentId
+    ? [{
+        $match: {
+          "designation.subDepartmentId": {
+            $in: departmentId.split(',').map(id => new mongoose.Types.ObjectId(id))
+          }
+        }
+      }]
+    : []),
+      {
+  $lookup: {
+    from: 'newdepartments',
+    let: {
+      deptId: '$designation.departmentId',
+      subDeptId: '$designation.subDepartmentId'
+    },
+    pipeline: [
+      {
+        $match: {
+          $expr: {
+            $cond: [
+              { $ne: ['$$subDeptId', null] },
+              {
+                $and: [
+                  { $eq: ['$_id', '$$deptId'] },
+                  {
+                    $gt: [
+                      {
+                        $size: {
+                          $filter: {
+                            input: '$subDepartments',
+                            as: 'sub',
+                            cond: { $eq: ['$$sub._id', '$$subDeptId'] }
+                          }
+                        }
+                      },
+                      0
+                    ]
+                  }
+                ]
+              },
+              { $eq: ['$_id', '$$deptId'] } // fallback if subDeptId is null
             ]
           }
-        }]
-        : []),
+        }
+      }
+    ],
+    as: 'department'
+  }
+},
+{ $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+{
+  $addFields: {
+    subDepartment: {
+      $first: {
+        $filter: {
+          input: "$department.subDepartments",
+          as: "sub",
+          cond: { $eq: ["$$sub._id", "$designation.subDepartmentId"] }
+        }
+      }
+    }
+  }
+},
+      //    {
+      //   $lookup: {
+      //     from: 'newdepartments',
+      //     let: { subDeptId: '$designation.subDepartmentId' },
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           $expr: {
+      //             $gt: [
+      //               {
+      //                 $size: {
+      //                   $filter: {
+      //                     input: '$subDepartments',
+      //                     as: 'sub',
+      //                     cond: { $eq: ['$$sub._id', '$$subDeptId'] }
+      //                   }
+      //                 }
+      //               },
+      //               0
+      //             ]
+      //           }
+      //         }
+      //       }
+      //     ],
+      //     as: 'department'
+      //   }
+      // },
+      // { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
 
+      // // Find matching subDepartment inside the department
+      // {
+      //   $addFields: {
+      //     subDepartment: {
+      //       $first: {
+      //         $filter: {
+      //           input: "$department.subDepartments",
+      //           as: "sub",
+      //           cond: { $eq: ["$$sub._id", "$departmentId"] }
+      //         }
+      //       }
+      //     }
+      //   }
+      // },
+      // ...(search
+      //   ? [{
+      //     $match: {
+      //       $or: [
+      //         { "department.name": { $regex: search, $options: 'i' } },
+      //         { "subDepartment.name": { $regex: search, $options: 'i' } },
+      //         { "designation.name": { $regex: search, $options: 'i' } }
+      //       ]
+      //     }
+      //   }]
+      //   : []),
+      ...(search
+  ? [{
+      $match: {
+        $or: [
+          { "department.name": { $regex: search, $options: 'i' } },
+          { "subDepartment.name": { $regex: search, $options: 'i' } },
+          { "designation.name": { $regex: search, $options: 'i' } },
+          ...(isFinite(Number(search))
+            ? [
+                { usedBudget: Number(search) },
+                { jobPostForNumberOfEmployees: Number(search) },
+                { numberOfEmployees: Number(search) },
+                { allocatedBudget: Number(search) }
+              ]
+            : [])
+        ]
+      }
+    }]
+  : []),
       {
         $addFields: {
           departmentName: { $ifNull: ["$department.name", ""] },
           subDepartmentName: { $ifNull: ["$subDepartment.name", ""] },
+          createdAt: {$ifNull :["$createdAt", ""]},
+          updatedAt: {$ifNull :["$updatedAt", ""]},
           departmentId: "$departmentId",
           desingationName: { $ifNull: ["$designation.name", ""] },
           desingationId: "$desingationId",
           numberOfEmployees: { $ifNull: ["$numberOfEmployees", 0] },
           allocatedBudget: { $ifNull: ["$allocatedBudget", 0] },
+          usedBudget : {$ifNull :["$usedBudget", 0]},
+          jobPostForNumberOfEmployees : {$ifNull :["$jobPostForNumberOfEmployees",0]},
           perEmployeeLPA: {
-            $cond: [
-              { $eq: ["$numberOfEmployees", 0] },
-              0,
-              {
-                $divide: [
-                  { $divide: ["$allocatedBudget", "$numberOfEmployees"] },
-                  100000
-                ]
-              }
-            ]
-          }
+  $cond: [
+    { $eq: ["$numberOfEmployees", 0] },
+    0,
+    {
+      $divide: ["$allocatedBudget", "$numberOfEmployees"]
+    }
+  ]
+}
+
         }
       },
-
+{ $sort: { createdAt: -1 } },
       {
         $group: {
           _id: null,
           totalSubDepartments: { $addToSet: "$departmentId" },
           totalEmployees: { $sum: "$numberOfEmployees" },
           totalAllocatedBudget: { $sum: "$allocatedBudget" },
+          totalUsedBudget : {$sum : "$usedBudget"},
           records: {
             $push: {
               _id: "$_id",
@@ -926,33 +1214,37 @@ export const manBudgetDashboardApi = async (req, res) => {
               numberOfEmployees: "$numberOfEmployees",
               allocatedBudget: "$allocatedBudget",
               perEmployeeLPA: "$perEmployeeLPA",
+              usedBudget: "$usedBudget",
+              jobPostForNumberOfEmployees:"$jobPostForNumberOfEmployees",
+              createdAt:"$createdAt",
+              updatedAt:"$updatedAt",
             }
           }
         }
       },
-
       {
-        $addFields: {
-          totalDepartments: { $size: "$totalSubDepartments" },
-          averageAllocatedBudget: {
-            $cond: [
-              { $eq: [{ $size: "$totalSubDepartments" }, 0] },
-              0,
-              { $divide: ["$totalAllocatedBudget", { $size: "$totalSubDepartments" }] }
-            ]
-          }
-        }
-      },
-
+  $addFields: {
+    totalDepartments: { $size: "$totalSubDepartments" },
+    averageAllocatedBudget: {
+  $cond: [
+    { $eq: ["$totalEmployees", 0] },
+    0,
+    { $round: [{ $divide: ["$totalAllocatedBudget", "$totalEmployees"] }, 2] }
+  ]
+}
+  }
+},
       {
         $project: {
           totalDepartments: 1,
           totalEmployees: 1,
           totalAllocatedBudget: 1,
+          totalUsedBudget:1,
           averageAllocatedBudget: 1,
           records: 1
         }
-      }
+      },
+      
     ]);
 
     return success(res, "Budget Dashboard List", {
@@ -960,6 +1252,7 @@ export const manBudgetDashboardApi = async (req, res) => {
         totalDepartments: 0,
         totalEmployees: 0,
         totalAllocatedBudget: 0,
+        totalUsedBudget:0,
         averageAllocatedBudget: 0,
         records: []
       }
@@ -970,7 +1263,6 @@ export const manBudgetDashboardApi = async (req, res) => {
     return unknownError(res, error);
   }
 };
-
 
 
 export const getSetBudgetDesingation = async (req, res) => {
@@ -1099,7 +1391,7 @@ export const getSetBudgetDesingation = async (req, res) => {
 //   }
 // };
 
-export const manBudgetDashboard = async (req, res) => {
+export const budgetSetUpListApi = async (req, res) => {
   try {
     const { year = new Date().getFullYear(), period = 7, } = req.query;
     const periodInDays = parseInt(period);
@@ -1209,34 +1501,6 @@ const organizationId = req.employee.organizationId
   }
 },
       { $unwind: { path: "$subDepartment", preserveNullAndEmptyArrays: true } },
-
-      //  {
-      //       $lookup: {
-      //         from: 'newdepartments',
-      //         let: { subDeptId: '$designation.subDepartmentId' },
-      //         pipeline: [
-      //           {
-      //             $match: {
-      //               $expr: {
-      //                 $gt: [
-      //                   {
-      //                     $size: {
-      //                       $filter: {
-      //                         input: '$subDepartments',
-      //                         as: 'sub',
-      //                         cond: { $eq: ['$$sub._id', '$$subDeptId'] }
-      //                       }
-      //                     }
-      //                   },
-      //                   0
-      //                 ]
-      //               }
-      //             }
-      //           }
-      //         ],
-      //         as: 'sunDepartmentDetail'
-      //       }
-      //     },
 
       {
         $addFields: {
@@ -1490,6 +1754,8 @@ subDepartmentId: "$subDepartment._id",
 export const budgetVerify = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
+
+
     const { subDepartmentId, desingationId } = req.query
 
     if (!subDepartmentId) {
@@ -1506,20 +1772,38 @@ export const budgetVerify = async (req, res) => {
 
     const findBudget = await BudgetModel.findOne({
       // departmentId: subDepartmentId,
-      organizationId: organizationId,
-      desingationId: desingationId
+      organizationId: new ObjectId(organizationId),
+      desingationId: new ObjectId(desingationId)
     });
 
     if (!findBudget || findBudget.allocatedBudget === 0 || findBudget.numberOfEmployees === 0) {
       return badRequest(res, "Please set budget first");
     }
 
+
+       const jobPosts = await jobPostModel.aggregate([
+      {
+        $match: {
+          organizationId: new ObjectId(organizationId),
+          designationId: new ObjectId(desingationId),
+          subDepartmentId: new ObjectId(subDepartmentId),
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalNoOfPositions: { $sum: "$noOfPosition" }
+        }
+      }
+    ]);
+        const totalNoOfPositions = jobPosts[0]?.totalNoOfPositions || 0;
+
     const budgetData = {
       allocatedBudget: findBudget.allocatedBudget,
       usedBudget: findBudget.usedBudget,
       allocatedBudgetLPA: (findBudget.allocatedBudget / 100000).toFixed(2),
       usedBudgetLPA: (findBudget.usedBudget / 100000).toFixed(2),
-      numberOfEmployees: findBudget.numberOfEmployees,
+      numberOfEmployees: findBudget.numberOfEmployees - Number(totalNoOfPositions),
     };
 
     return success(res, "budget Detail", budgetData)
@@ -1528,3 +1812,41 @@ export const budgetVerify = async (req, res) => {
     return unknownError(res, error);
   }
 }
+
+
+export const updateAllBudgetsWithJobPostCount = async (req, res) => {
+  try {
+    const allBudgets = await BudgetModel.find({});
+
+    for (const budget of allBudgets) {
+      if (!budget.desingationId) continue;
+
+      const jobPostData = await jobPostModel.aggregate([
+        {
+          $match: {
+            organizationId : new mongoose.Types.ObjectId(budget.organizationId),
+            designationId: new mongoose.Types.ObjectId(budget.desingationId)
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalPositions: { $sum: "$noOfPosition" }
+          }
+        }
+      ]);
+
+      const jobPostCount = jobPostData?.[0]?.totalPositions || 0;
+
+      console.log('jobPostCount',jobPostCount ,budget.organizationId )
+      // Update the budget
+      budget.jobPostForNumberOfEmployees = jobPostCount;
+      await budget.save();
+    }
+
+    return success(res, 'All department budgets updated with job post counts');
+  } catch (error) {
+    console.error("Error updating budgets with job post data:", error);
+    return unknownError(res, error);
+  }
+};

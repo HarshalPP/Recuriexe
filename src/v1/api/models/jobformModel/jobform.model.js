@@ -71,7 +71,7 @@ const jobApplyModelSchema = new Schema(
       enum: ["recommended", "request"],
       default:'request'
     },
-    branchId: { type: ObjectId, ref: "newbranch" },
+    branchId: [{ type: ObjectId, ref: "newbranch" , default:[] }],
     positionWebsite: { type: String, default: "" },
     departmentWebsite: { type: String, default: "" },
     salary: { type: Number, default: null },

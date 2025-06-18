@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 
-import { success, badRequest, serverValidation, unknownError, unauthorized } from "../../formatters/globalResponse.js"
+import { success, badRequest, serverValidation, unknownError, unauthorized , notFound } from "../../formatters/globalResponse.js"
 
 import employeModel from "../../models/employeemodel/employee.model.js"
 import departmentModel from "../../models/deparmentModel/deparment.model.js"
@@ -19,6 +19,7 @@ import OrganizationModel from '../../models/organizationModel/organization.model
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import { sendEmail } from '../../Utils/sendEmail.js'
 import mongoose from "mongoose"
+import { ObjectId } from 'mongodb';
 import PlanModel from '../../models/PlanModel/Plan.model.js';
 import PortalModel from '../../models/PortalSetUp/portalsetup.js';
 import { sendEmail1 } from '../../Utils/sendEmail.js'
@@ -52,16 +53,15 @@ export const newEmployeeLogin = async (req, res) => {
     if (!isMatch) return badRequest(res, 'Wrong password');
 
 
-    // Fallback role ID
-    const fallbackRoleId = "684d4c99faae552a1e6891af";
 
     // Determine role IDs
     const roleIds = Array.isArray(employee.roleId) && employee.roleId.length > 0
-      ? employee.roleId
-      : [fallbackRoleId];
+      ? employee.roleId:[];
 
+    if(roleIds.length === 0){
+      return badRequest(res , "Role is not set")
+    }
 
-    // Fetch role details
     const roleDetails = await roleModel.find({ _id: { $in: roleIds } });
     const roleNames = roleDetails.map(role => role.roleName);
     // Generate JWT
@@ -91,7 +91,6 @@ export const newEmployeeLogin = async (req, res) => {
     return unknownError(res, error);
   }
 };
-
 
 
 
@@ -207,47 +206,47 @@ export const SuperAdminRegister = async (req, res) => {
   {
     name: "Skills",
     description: "Check relevant technical skills match",
-    weight: 11.11
+    weight: 20
   },
   {
     name: "Experience",
     description: "Evaluate professional experience for the job",
-    weight: 11.11
+    weight: 20
   },
   {
     name: "Education",
     description: "Validate minimum education requirement",
-    weight: 11.11
+    weight: 20
   },
   {
     name: "Certifications",
     description: "Check for relevant certifications",
-    weight: 11.11
+    weight: 20
   },
   {
     name: "Project Exposure",
     description: "Assess involvement in relevant projects",
-    weight: 11.11
+    weight: 0
   },
   {
     name: "Leadership_Initiative",
     description: "Assess leadership or initiative traits",
-    weight: 11.11
+    weight: 0
   },
   {
     name: "Cultural_Fit",
     description: "Evaluate alignment with company values",
-    weight: 11.11
+    weight: 0
   },
   {
     name: "Communication_Skills",
     description: "Assess clarity and professionalism in communication",
-    weight: 11.11
+    weight:20
   },
   {
     name: "Learning_Ability",
     description: "Evaluate continuous learning and adaptability",
-    weight: 11.11
+    weight: 0
   }
 ],
 
@@ -441,6 +440,9 @@ export const createNewEmployee = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    if(!roleId){
+      return  badRequest(res, 'role is Rerquired');
+    }
     // Validate roles
     const validRoles = await roleModel.find({ _id: { $in: roleId } });
     if (!validRoles) {
@@ -744,12 +746,16 @@ export const getAllEmployeeInfodata = async (req, res) => {
           employeName: 1,
           workEmail: 1,
           email: 1,
+          status:1,
           mobileNo: 1,
           employeUniqueId: 1,
           roleName: "$role.roleName",
           designation: "$designation.name",
+          designationId: "$designation._id",
           subDepartmentName: "$subDepartment.matchedSubDept.name",
+          subDepartmentId: "$subDepartment.matchedSubDept._id",
           department: "$department.name",
+          departmentId: "$department._id",
 
         }
       },
@@ -992,6 +998,292 @@ export const updateEmployee = async (req, res) => {
   }
 };
 
+// export const adminByUpdateEmployeeId = async (req, res) => {
+//   try {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         errorName: "serverValidation",
+//         errors: errors.array(),
+//       });
+//     }
+
+//     let { ...updateFields } = req.body;
+    
+//     const id = req.body.employeeId
+//     if(!id){
+//       return badRequest(res ,"Employee Id Required ")
+//     }
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return badRequest(res, "Valid ID is required");
+//     }
+
+//     const objectIdFields = [
+//       "branchId",
+//       "reportingManagerId",
+//       "departmentId",
+//       "secondaryDepartmentId",
+//       "seconSubDepartmentId",
+//       "designationId",
+//       "workLocationId",
+//       "constCenterId",
+//       "employementTypeId",
+//       "employeeTypeId",
+//       "subDepartmentId",
+//     ];
+
+//     objectIdFields.forEach(field => {
+//       if (updateFields[field]) {
+//         if (Array.isArray(updateFields[field])) {
+//           updateFields[field] = updateFields[field]
+//             .map(value => mongoose.Types.ObjectId.isValid(value) ? new mongoose.Types.ObjectId(value) : null)
+//             .filter(value => value !== null);
+//         } else {
+//           updateFields[field] = mongoose.Types.ObjectId.isValid(updateFields[field])
+//             ? new mongoose.Types.ObjectId(updateFields[field])
+//             : null;
+//         }
+//       } else {
+//         updateFields[field] = undefined;
+//       }
+//     });
+
+//     const fileFields = [
+//       "employeePhoto",
+//       "resume",
+//       "offerLetter",
+//       "bankDetails",
+//       "aadhar",
+//       "panCard",
+//       "educationCertification",
+//       "experienceLetter",
+//       "employmentProof",
+//     ];
+
+
+//     fileFields.forEach(field => {
+//       if (req.body[field]) {
+//         updateFields[field] = req.body[field]; // dynamic URL directly assigned
+//       }
+//     });
+
+
+//     const employee = await employeModel.findById(id);
+//     if (!employee) return badRequest(res, "Employee Not Found");
+
+//     if (updateFields.password && employee.password !== updateFields.password) {
+//       const salt = await bcrypt.genSalt(10);
+//       updateFields.password = await bcrypt.hash(updateFields.password, salt);
+//       updateFields.passwordChangedAt = new Date();
+//     }
+
+//     if (updateFields.roleId) {
+//       const newRoleIds = Array.isArray(updateFields.roleId)
+//         ? updateFields.roleId.map(String)
+//         : [String(updateFields.roleId)];
+
+//       const existingRoleIds = Array.isArray(employee.roleId)
+//         ? employee.roleId.map(r => String(r))
+//         : [String(employee.roleId)];
+
+//       const roleChanged = newRoleIds.length !== existingRoleIds.length ||
+//         newRoleIds.some(role => !existingRoleIds.includes(role));
+
+//       if (roleChanged) updateFields.passwordChangedAt = new Date();
+//     }
+
+//     const allowedFields = [
+//       "employeName",
+//       "email",
+//       "userName",
+//       "workEmail",
+//       "permanentAddress",
+//       "currentAddress",
+//       "fatherName",
+//       "mobileNo",
+//       "emergencyNumber",
+//       "fathersMobileNo",
+//       "mothersMobileNo",
+//       "familyIncome",
+//       "bankAccount",
+//       "totalExperience",
+//       "currentAddressPincode",
+//       "permanentAddressPincode",
+//       "uanNumber",
+//       "joiningDate",
+//       "dateOfBirth",
+//       "startDate",
+//       "endDate",
+//     ];
+
+//     const numberTypeFields = [
+//       "mobileNo",
+//       "emergencyNumber",
+//       "fathersMobileNo",
+//       "mothersMobileNo",
+//       "familyIncome",
+//       "bankAccount",
+//       "totalExperience",
+//       "currentAddressPincode",
+//       "uanNumber",
+//       "currentCTC",
+//       "location.coordinates",
+//     ];
+
+//     allowedFields.forEach(field => {
+//       if (req.body[field] !== undefined) {
+//         if (fileFields.includes(field) || objectIdFields.includes(field)) {
+//           updateFields[field] = req.body[field];
+//         } else if (["joiningDate", "dateOfBirth", "startDate", "endDate"].includes(field)) {
+//           const parsedDate = new Date(req.body[field]);
+//           if (!isNaN(parsedDate.getTime())) updateFields[field] = parsedDate;
+//         } else if (numberTypeFields.includes(field)) {
+//           updateFields[field] = !isNaN(parseInt(req.body[field])) ? parseInt(req.body[field]) : undefined;
+//         } else {
+//           updateFields[field] = req.body[field];
+//         }
+//       }
+//     });
+
+//     if (req.body.latitude !== undefined && req.body.longitude !== undefined) {
+//       const latitude = parseFloat(req.body.latitude);
+//       const longitude = parseFloat(req.body.longitude);
+
+//       if (!isNaN(latitude) && !isNaN(longitude)) {
+//         updateFields.location = {
+//           type: "Point",
+//           coordinates: [longitude, latitude],
+//         };
+//       } else {
+//         return badRequest(res, "Invalid latitude or longitude provided. Both must be numbers.");
+//       }
+//     }
+
+//     updateFields.updatedFrom = "finexe";
+//     const updateData = await employeModel.findByIdAndUpdate(id, updateFields, { new: true });
+
+//     success(res, "Updated Employee", updateData);
+
+//     let lastEntry = updateData.activeInactiveReason?.[updateData.activeInactiveReason.length - 1] || {};
+//     let actionTakenBy = "Not Available";
+
+//     if (lastEntry?.actionTakenBy) {
+//       const actionTakenById = await employeModel.findById(lastEntry.actionTakenBy);
+//       actionTakenBy = actionTakenById?.employeName || "Not Available";
+//     }
+
+//     const fetchName = async (model, id, key = "name") => {
+//       if (!id) return "Not Available";
+//       const doc = await model.findById(id);
+//       return doc?.[key] || "Not Available";
+//     };
+
+//     const branchName = await fetchName(branchModel, updateData.branchId);
+//     const companyName = req.body.company || "Not Available";
+
+//     const roles = await roleModel.find({ _id: { $in: updateData.roleId } });
+//     const roleName = roles.length > 0 ? roles.map(role => role.roleName).join(", ") : "Not Available";
+
+//     const reportingManagerName = await fetchName(employeModel, updateData.reportingManagerId, "employeName");
+//     const departmentName = await fetchName(departmentModel, updateData.departmentId);
+//     const subDepartmentName = await fetchName(departmentModel, updateData.subDepartmentId);
+//     const secondaryDepartmenName = await fetchName(departmentModel, updateData.secondaryDepartmentId);
+//     const seconSubDepartmentName = await fetchName(departmentModel, updateData.seconSubDepartmentId);
+//     const designationName = await fetchName(designationModel, updateData.designationId);
+//     const workLocationName = await fetchName(workLocationModel, updateData.workLocationId);
+//     const constCenterName = await fetchName(costCenterModel, updateData.constCenterId, "title");
+//     const employementTypeName = await fetchName(employmentTypeModel, updateData.employementTypeId, "title");
+//     const employeeTypeName = await fetchName(employeTypeModel, updateData.employeeTypeId, "title");
+
+//     const referedBy = await employeModel.findOne({ employeUniqueId: req.body.referedById });
+//     const referedBYName = referedBy?.employeName || "Not Available";
+
+//     // await employeeGoogleSheet(
+//     //   updateData,
+//     //   branchName,
+//     //   companyName,
+//     //   roleName,
+//     //   reportingManagerName,
+//     //   departmentName,
+//     //   subDepartmentName,
+//     //   secondaryDepartmenName,
+//     //   seconSubDepartmentName,
+//     //   designationName,
+//     //   workLocationName,
+//     //   constCenterName,
+//     //   employementTypeName,
+//     //   employeeTypeName,
+//     //   referedBYName,
+//     //   actionTakenBy
+//     // );
+//   } catch (err) {
+//     console.error("Update Employee Error:", err);
+//     return res.status(500).json({ message: err });
+//   }
+// };
+
+
+export const adminByUpdateEmployeeId = async (req, res) => {
+  try {
+    const { employeeId, email, employeName, userName, designationId, departmentId, subDepartmentId } = req.body;
+
+    const organizationId = req.employee.organizationId
+
+    if (!employeeId) {
+      return badRequest(res ,"Employee Id Required ")
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+      return badRequest(res , "Invalid Employee Id");
+    }
+
+    const employee = await employeModel.findById(employeeId);
+    if (!employee) {
+      return notFound(res ,"Employee not found");
+    }
+
+    // Check if email already exists for another employee
+    if (email) {
+      const existingEmail = await employeModel.findOne({
+        email: email,
+        _id: { $ne: employeeId },
+        organizationId : new ObjectId(organizationId),
+      });
+
+      if (existingEmail) {
+        return badRequest(res , "Email already exists for another employee");
+      }
+    }
+
+    // Build update object
+    const updateFields = {};
+
+    if (email) updateFields.email = email.trim();
+    if (employeName) updateFields.employeName = employeName.trim();
+    if (userName) updateFields.userName = userName.trim();
+    if (designationId && mongoose.Types.ObjectId.isValid(designationId)) {
+      updateFields.designationId = new mongoose.Types.ObjectId(designationId);
+    }
+    if (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) {
+      updateFields.departmentId = new mongoose.Types.ObjectId(departmentId);
+    }
+    if (subDepartmentId && mongoose.Types.ObjectId.isValid(subDepartmentId)) {
+      updateFields.subDepartmentId = new mongoose.Types.ObjectId(subDepartmentId);
+    }
+
+    const updatedEmployee = await employeModel.findByIdAndUpdate(
+      employeeId,
+      { $set: updateFields },
+      { new: true }
+    );
+
+return success(res ,"Employee updated successfully",{ data: updatedEmployee});
+
+  } catch (err) {
+    console.error("Update Error:", err);
+   return unknownError(res , "Internal Server Error", err);
+  }
+};
 
 
 export const updateEmployeePassword = async (req, res) => {
@@ -1823,7 +2115,6 @@ export const resetEmployeePassword = async (req, res) => {
       passwordResetToken: token, // match the token directly
       passwordResetExpires: { $gt: Date.now() }, // token not expired
     });
-    console.log("employee", employee)
 
     if (!employee) {
       return badRequest(res, "Invalid or expired reset token.");

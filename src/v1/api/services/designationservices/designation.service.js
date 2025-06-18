@@ -61,7 +61,7 @@ export const addDesignation = async (bodyData, createdBy, organizationId) => {
 
     // Create new DepartmentBudget entry
     const departmentBudgetData = {
-      departmentId: newDesignation.subDepartmentId , // Make sure you pass departmentId in bodyData
+      departmentId: newDesignation.subDepartmentId || null, // Make sure you pass departmentId in bodyData
       desingationId: newDesignation._id,
       createdBy:createdBy,
       organizationId: organizationId,

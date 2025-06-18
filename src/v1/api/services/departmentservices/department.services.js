@@ -153,15 +153,36 @@ export const getDepartmentById = async (departmentId) => {
 // ----------------- Get All Departments ----------------- //
 
 
+// export const getnewdepartment = async (req) => {
+//   try {
+//     const organizationId = req.employee.organizationId;
+//     const departments = await newDepartmentModel.find({organizationId})
+//       .populate({path:'createdBy' , select:'employeName'})
+//     // if (departments.length === 0) {
+//     //   return returnFormatter(false, "No departments found");
+//     // }
+//     return returnFormatter(true, "Departments found", departments);
+//   } catch (error) {
+//     return returnFormatter(false, error.message);
+//   }
+// };
+
+
 export const getnewdepartment = async (req) => {
   try {
     const organizationId = req.employee.organizationId;
-    const departments = await newDepartmentModel.find({organizationId})
-      .populate({path:'createdBy' , select:'employeName'})
-    // if (departments.length === 0) {
-    //   return returnFormatter(false, "No departments found");
-    // }
-    return returnFormatter(true, "Departments found", departments);
+
+    const departments = await newDepartmentModel.find({ organizationId })
+      .populate({ path: 'createdBy', select: 'employeName' })
+      .lean(); // use lean() to allow plain JS array manipulation
+
+    // Filter out inactive sub-departments
+    const filteredDepartments = departments.map(dept => ({
+      ...dept,
+      subDepartments: (dept.subDepartments || []).filter(sub => sub.isActive)
+    }));
+
+    return returnFormatter(true, "Departments found", filteredDepartments);
   } catch (error) {
     return returnFormatter(false, error.message);
   }
@@ -170,15 +191,14 @@ export const getnewdepartment = async (req) => {
 
 
 
+
 export const getDepartmentFromJobApply = async (req) => {
   try {
     const organizationId = req.employee.organizationId;
 
-    console.log('organizationId', organizationId)
     // Step 1: Fetch jobApply entries for this organization
-    const jobApplyDetail = await jobApplyModel.find({ organizationId : new ObjectId(organizationId) }).select("departmentId");
+    const jobApplyDetail = await jobApplyModel.find({ orgainizationId : new ObjectId(organizationId) }).select("departmentId");
     
-console.log("jobApplyDetail", jobApplyDetail)
     // Step 2: Extract unique department IDs from jobApply entries
     const departmentIds = [...new Set(jobApplyDetail.map(d => d.departmentId).filter(Boolean))];
 
@@ -210,9 +230,46 @@ export const getnewdepartmentByToken = async (req) => {
   }
 };
 
+// export const getAllDepartments = async (req) => {
+//   try {
+//     const organizationId = req.employee.organizationId;
+//     const departments = await newDepartmentModel.find({ organizationId })
+//       .populate({ path: "createdBy", select: "employeName" });
+
+//     if (departments.length === 0) {
+//       return returnFormatter(false, "No departments found");
+//     }
+
+
+//     // Flatten sub-departments
+//     const result = departments.flatMap((dept) => {
+//       if (!dept.subDepartments || dept.subDepartments.length === 0) {
+//         return [{ departmentId: dept._id, departmentName: dept.name, isSubDepartment: false }];
+//       }
+      
+
+//       return dept.subDepartments.map((sub) => ({
+//         departmentId: dept._id,
+//         departmentName: dept.name,
+//         subDepartmentId: sub._id,
+//         subDepartmentName: sub.name,
+//         isSubDepartment: true,
+//         isActive: sub.isActive,
+//         createdAt: dept.createdAt,
+//       }));
+//     });
+
+//     return returnFormatter(true, "Departments with sub-departments", result);
+//   } catch (error) {
+//     return returnFormatter(false, error.message);
+//   }
+// };
+
+
 export const getAllDepartments = async (req) => {
   try {
     const organizationId = req.employee.organizationId;
+
     const departments = await newDepartmentModel.find({ organizationId })
       .populate({ path: "createdBy", select: "employeName" });
 
@@ -220,15 +277,17 @@ export const getAllDepartments = async (req) => {
       return returnFormatter(false, "No departments found");
     }
 
-
-    // Flatten sub-departments
     const result = departments.flatMap((dept) => {
-      if (!dept.subDepartments || dept.subDepartments.length === 0) {
-        return [{ departmentId: dept._id, departmentName: dept.name, isSubDepartment: false }];
-      }
-      
+      // Filter only active sub-departments
+      const activeSubDepartments = (dept.subDepartments || []).filter(sub => sub.isActive);
 
-      return dept.subDepartments.map((sub) => ({
+      if (activeSubDepartments.length === 0) {
+        // Skip departments that have no active sub-departments
+        return [];
+      }
+
+      // Return each active sub-department
+      return activeSubDepartments.map((sub) => ({
         departmentId: dept._id,
         departmentName: dept.name,
         subDepartmentId: sub._id,
@@ -239,11 +298,12 @@ export const getAllDepartments = async (req) => {
       }));
     });
 
-    return returnFormatter(true, "Departments with sub-departments", result);
+    return returnFormatter(true, "Departments with active sub-departments", result);
   } catch (error) {
     return returnFormatter(false, error.message);
   }
 };
+
 
 
 export const departmentDropDown = async (req) => {

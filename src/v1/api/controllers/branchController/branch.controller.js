@@ -17,7 +17,8 @@ import {
     updateBranch,
     deactivateBranch,
     getAllInactiveBranch,
-    allBranchHrms
+    allBranchHrms,
+    getBranchByJobPost,
   } from "../../services/branchservices/branch.service.js"
   
   import newBranch from "../../models/branchModel/branch.model.js"
@@ -200,6 +201,18 @@ import {
   export async function allBranch(req, res) {
     try {
       const { status, message, data } = await allBranchHrms(req, req.body);
+      return status ? success(res, message, data) : badRequest(res, message);
+    } catch (error) {
+      return unknownError(res, error.message);
+    }
+  }
+
+
+    
+  //---------------------------- Get all branch ---------------------------------------
+  export async function getBranchByJobPostApi(req, res) {
+    try {
+      const { status, message, data } = await getBranchByJobPost(req, res);
       return status ? success(res, message, data) : badRequest(res, message);
     } catch (error) {
       return unknownError(res, error.message);

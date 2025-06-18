@@ -465,3 +465,269 @@ export const deleteDepartment = async (req, res) => {
   }
 };
 
+
+
+
+
+export const deleteSubdepartment = async (req, res) => {
+  try {
+    const { departmentIds, subDepartmentId } = req.body;
+
+    if (!Array.isArray(departmentIds) || departmentIds.length === 0) {
+      return badRequest(res, "Please provide valid departmentIds as an array.");
+    }
+
+    const undeletedDepartments = [];
+    const modifiedSubDepartments = [];
+
+    for (const deptId of departmentIds) {
+      const department = await newDepartmentModel.findById(deptId);
+      if (!department) {
+        undeletedDepartments.push({
+          departmentId: deptId,
+          reason: "Department not found"
+        });
+        continue;
+      }
+
+      // If subDepartmentId is provided, set isActive: false instead of removing
+      if (subDepartmentId) {
+        const subDeptIndex = department.subDepartments.findIndex(
+          (sub) => sub._id.toString() === subDepartmentId
+        );
+
+        if (subDeptIndex === -1) {
+          undeletedDepartments.push({
+            departmentId: deptId,
+            subDepartmentId,
+            reason: "Sub-department not found in department"
+          });
+          continue;
+        }
+
+        department.subDepartments[subDeptIndex].isActive = false;
+        await department.save();
+
+        modifiedSubDepartments.push({
+          departmentId: deptId,
+          subDepartmentId,
+          message: "Sub-department deactivated successfully"
+        });
+
+        continue; // Skip full department deletion logic
+      }
+
+      // Department-level usage checks
+      const issues = [];
+
+      const isUsedInJobPosts = await newdesingationModel.findOne({ departmentId: deptId, isActive: true });
+      if (isUsedInJobPosts) issues.push("linked to active designations");
+
+      const isUsedInEmployees = await employeModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInEmployees) issues.push("linked to active employees");
+
+      const isUsedInJobApplications = await jobPostModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInJobApplications) issues.push("linked to active job posts");
+
+      const isUsedInJobForms = await JobApplyModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInJobForms) issues.push("linked to active job applications");
+
+      const isUsedInBudgets = await DepartmentBudget.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInBudgets) issues.push("linked to active department budgets");
+
+      if (issues.length > 0) {
+        undeletedDepartments.push({
+          departmentId: deptId,
+          departmentName: department.name,
+          reason: `Cannot delete - ${issues.join(", ")}`
+        });
+        continue;
+      }
+
+      // Safe to delete entire department
+      await newDepartmentModel.findByIdAndDelete(deptId);
+    }
+
+    const deletedCount = subDepartmentId
+      ? 0
+      : departmentIds.length - undeletedDepartments.length;
+
+    return success(res, {
+      message: subDepartmentId
+        ? `${modifiedSubDepartments.length} sub-department(s) deactivated successfully`
+        : `${deletedCount} department(s) deleted successfully`,
+      modifiedSubDepartments,
+      notDeleted: undeletedDepartments
+    });
+
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+};
+
+
+
+export const deleteDepartmentOrSubdepartment = async (req, res) => {
+  try {
+    const { departmentIds, subDepartmentId } = req.body;
+
+    if (!Array.isArray(departmentIds) || departmentIds.length === 0) {
+      return badRequest(res, "Please provide valid departmentIds as an array.");
+    }
+
+    const undeletedDepartments = [];
+    const modifiedSubDepartments = [];
+
+    for (const deptId of departmentIds) {
+      const department = await newDepartmentModel.findById(deptId);
+      if (!department) {
+        undeletedDepartments.push({
+          departmentId: deptId,
+          reason: "Department not found"
+        });
+        continue;
+      }
+
+      if (subDepartmentId) {
+        // Handle sub-department deactivation
+        const subDeptIndex = department.subDepartments.findIndex(
+          (sub) => sub._id.toString() === subDepartmentId
+        );
+
+        if (subDeptIndex === -1) {
+          undeletedDepartments.push({
+            departmentId: deptId,
+            subDepartmentId,
+            reason: "Sub-department not found in department"
+          });
+          continue;
+        }
+
+        department.subDepartments[subDeptIndex].isActive = false;
+        await department.save();
+
+        modifiedSubDepartments.push({
+          departmentId: deptId,
+          subDepartmentId,
+          message: "Sub-department deactivated successfully"
+        });
+
+        continue; // Skip department deletion
+      }
+
+      // Department-level usage checks
+      const issues = [];
+
+      const isUsedInJobPosts = await newdesingationModel.findOne({ departmentId: deptId, isActive: true });
+      if (isUsedInJobPosts) issues.push("linked to active designations");
+
+      const isUsedInEmployees = await employeModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInEmployees) issues.push("linked to active employees");
+
+      const isUsedInJobApplications = await jobPostModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInJobApplications) issues.push("linked to active job posts");
+
+      const isUsedInJobForms = await JobApplyModel.findOne({ departmentId: deptId, status: "active" });
+      if (isUsedInJobForms) issues.push("linked to active job applications");
+
+      // const isUsedInBudgets = await DepartmentBudget.findOne({ departmentId: deptId, status: "active" });
+      // if (isUsedInBudgets) issues.push("linked to active department budgets");
+
+      if (issues.length > 0) {
+        undeletedDepartments.push({
+          departmentId: deptId,
+          departmentName: department.name,
+          reason: `Cannot delete - ${issues.join(", ")}`
+        });
+        continue;
+      }
+
+      // Safe to delete department
+      await newDepartmentModel.findByIdAndDelete(deptId);
+    }
+
+    const deletedCount = subDepartmentId
+      ? 0
+      : departmentIds.length - undeletedDepartments.length;
+
+    return success(res, {
+      message: subDepartmentId
+        ? `${modifiedSubDepartments.length} sub-department(s) deactivated successfully`
+        : `${deletedCount} department(s) deleted successfully`,
+      modifiedSubDepartments,
+      notDeleted: undeletedDepartments
+    });
+
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+};
+
+
+//Update Department //
+
+
+export const updateDepartmentOrSubdepartment = async (req, res) => {
+  try {
+    const { departmentId, name, subDepartmentId, subDepartmentName } = req.body;
+
+    if (!departmentId) {
+      return badRequest(res, "Department ID is required.");
+    }
+
+    const department = await newDepartmentModel.findById(departmentId);
+    if (!department) {
+      return notFound(res, "Department not found.");
+    }
+
+    const responseData = {};
+
+    // Update department name if provided
+    if (name && typeof name === "string") {
+      department.name = name.trim();
+      responseData.updatedDepartment = {
+        _id: departmentId,
+        name: department.name,
+      };
+    }
+
+    // Update sub-department if both ID and name are provided
+    if (subDepartmentId && subDepartmentName && typeof subDepartmentName === "string") {
+      const subDeptIndex = department.subDepartments.findIndex(
+        (sub) => sub._id.toString() === subDepartmentId
+      );
+
+      if (subDeptIndex === -1) {
+        return badRequest(res, "Sub-department not found.");
+      }
+
+      department.subDepartments[subDeptIndex].name = subDepartmentName.trim();
+
+      responseData.updatedSubDepartment = {
+        _id: subDepartmentId,
+        name: department.subDepartments[subDeptIndex].name,
+      };
+    }
+
+    await department.save();
+
+    if (!responseData.updatedDepartment && !responseData.updatedSubDepartment) {
+      return badRequest(res, "No valid update fields provided.");
+    }
+
+    return success(res, {
+      message: "Update successful",
+      ...responseData,
+    });
+
+  } catch (error) {
+    console.log(error);
+    return unknownError(res, error.message);
+  }
+};
+
+
+
+
+
+

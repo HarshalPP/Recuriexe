@@ -1,6 +1,9 @@
 import express from "express";
 const router = express.Router();
-import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview , RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview , getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel , assignCandidateUniqueIds}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview ,
+     RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview ,
+      getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel ,
+       assignCandidateUniqueIds , convertBranchIdToArray}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -27,6 +30,9 @@ router.get("/viewAnalizedata/:id" , verifyEmployeeToken  , DeepAnalize)
 router.get("/getAllDeepAnalyses" , verifyEmployeeToken , getAllDeepAnalyses)
 router.get("/AIDashboard" ,verifyEmployeeToken , getDashboardOverview )
 router.get("/getScreeningAnalytics" , verifyEmployeeToken , getScreeningAnalytics)
+
+// data update 
+router.get("/convertBranchIdToArray",convertBranchIdToArray)
 
 
 export default router;

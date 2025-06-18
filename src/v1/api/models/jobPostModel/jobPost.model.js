@@ -5,6 +5,33 @@ const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 import moment from "moment-timezone";
 
+
+const ScreeningCriteria = new Schema({
+    name: {
+        type: String,
+    },
+    description: {
+        type: String,
+    },
+    weight: {
+        type: Number,
+    },
+    isActive: {
+        type: Boolean,
+        default: true,
+    },
+    confidence: {
+        type: Number,
+        default: 0,
+    },
+    experience: {
+        type: String,
+    }
+},{
+    _id:true, // Ensure each criteria has its own unique ID
+});
+
+
 const jobPostingModelSchema = new Schema(
   {
     employmentTypeId: { type: ObjectId, ref: "employmentType" },
@@ -126,6 +153,8 @@ const jobPostingModelSchema = new Schema(
       ref: "newworklocation",
       default: null,
     },
+
+    screeningCriteria: [ScreeningCriteria],
     
 
 

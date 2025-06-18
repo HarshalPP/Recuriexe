@@ -666,8 +666,8 @@ export const createBulkDesignations = async (req, res) => {
 
     const budgetEntries = inserted.map(designation => ({
       // departmentId,
-      desingationId: designation._id,
-      departmentId: subDepartmentId,
+      desingationId: designation._id ,
+      departmentId: subDepartmentId || null,
       organizationId,
       createdBy :req.employee?.id ||null,
       allocatedBudget: 0,
@@ -767,8 +767,6 @@ export const deleteDesignations = async (req, res) => {
       const isUsedInJobApply = await JobApplyModel.findOne({ position: id.name, status: "active" });
       if (isUsedInJobApply) usedIn.push("job applications");
 
-      const isUsedInBudgets = await budgetModel.findOne({ desingationId: id, status: "active" });
-      if (isUsedInBudgets) usedIn.push("budget");
 
       const isUsedInEmployees = await employeModel.findOne({ designationId: id, status: "active" });
       if (isUsedInEmployees) usedIn.push("Users");

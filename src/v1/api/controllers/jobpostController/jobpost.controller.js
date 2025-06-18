@@ -166,6 +166,7 @@ export const jobPostAddDirect = async (req, res) => {
     req.body.organizationId = req.employee.organizationId;
     req.body.createdByHrId = req.employee.id;
 
+    const {noOfPosition } = req.body
 const employeeDetails = await employeModel
   .findById(req.employee.id)
   .populate({
@@ -227,30 +228,34 @@ if (roleDetails) {
 
     const findBudget = await BudgetModel.findOne({
       // departmentId: findDesignation.subDepartmentId,
-      desingationId: findDesignation._id,
-      organizationId: req.body.organizationId,
+      desingationId: new ObjectId(findDesignation._id),
+      organizationId: new ObjectId(req.employee.organizationId),
     });
 
     if (!findBudget || findBudget.allocatedBudget === 0 || findBudget.numberOfEmployees === 0) {
       return badRequest(res, "Please set budget first");
     }
 
+    const userBudget = Number(req.body.budget);
 
-    const userBudgetLpa = Number(req.body.budget);
-
-if (isNaN(userBudgetLpa) || userBudgetLpa <= 0) {
+if (isNaN(userBudget) || userBudget <= 0) {
   return badRequest(res, "Invalid budget amount");
 }
 
-// Convert LPA to amount (e.g. 4.5 LPA -> 450000)
-const userBudget = userBudgetLpa * 100000;
 
     // Update usedBudget
     findBudget.usedBudget = (findBudget.usedBudget || 0) + userBudget;
-
+    findBudget.jobPostForNumberOfEmployees = (findBudget?.jobPostForNumberOfEmployees || 0) + noOfPosition;
     // Optional: check if usedBudget exceeds allocatedBudget
+    // console.log('findBudget.usedBudget',findBudget.usedBudget,"findBudget.allocatedBudget",findBudget.allocatedBudget)
     if (findBudget.usedBudget > findBudget.allocatedBudget) {
       return badRequest(res, "Used budget exceeds allocated budget");
+    }
+
+    // console.log('noOfPosition + findBudget.jobPostForNumberOfEmployees', findBudget.jobPostForNumberOfEmployees)
+    if((findBudget.jobPostForNumberOfEmployees) > findBudget.numberOfEmployees){
+      return badRequest(res , `Total job posts cannot exceed allocated employees`)
+      // return badRequest(res , "No of Position cannot be greater than allocated Employees budget")
     }
 // save budget data 
     await findBudget.save();
@@ -1140,7 +1145,7 @@ export const getAllJobPostBypermission = async (req, res) => {
   matchStage.createdByHrId = new ObjectId(createdByHrId);
 }
 
-console.log('matchStage',matchStage)
+// console.log('matchStage',matchStage)
     let branchObjectIds = [];
     if (branchIds) {
       branchObjectIds = branchIds
@@ -1389,6 +1394,7 @@ console.log('matchStage',matchStage)
           MaxAI_Score: 1,
           MinAI_Score: 1,
           AI_Screening: 1,
+          screeningCriteria:1,
           createdAt: 1,
         },
       },

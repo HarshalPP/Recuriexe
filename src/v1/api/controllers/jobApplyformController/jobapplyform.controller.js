@@ -20,17 +20,17 @@ import mailSwitchesModel from "../../models/mailModel/mailSwitch.model.js"
 import designationModel from "../../models/designationModel/designation.model.js";
 import cron from 'node-cron';
 import ScreeningResultModel from "../../models/screeningResultModel/screeningResult.model.js";
-import portalsetUpModel  from "../../models/PortalSetUp/portalsetup.js"
+import portalsetUpModel from "../../models/PortalSetUp/portalsetup.js"
 import organizationModel from "../../models/organizationModel/organization.model.js"
 import dayjs from 'dayjs';
-import {processAIScreeningForCandidate} from  "../../controllers/AIController/aiConfig.controller.js"
+import { processAIScreeningForCandidate } from "../../controllers/AIController/aiConfig.controller.js"
 import AIRule from "../../models/AiScreeing/AIRule.model.js";
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js";
 import targetCompanyModel from "../../models/companyModel/targetCompany.model.js"
-import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
-
+import AiScreening from "../../models/AiScreeing/AiScreening.model.js";
 // Run at 11:59 PM every day
 cron.schedule("59 23 * * *", async () => {
   try {
@@ -209,16 +209,16 @@ cron.schedule("59 23 * * *", async () => {
 // }
 
 
-export const jobApplyFormAdd = async (req, res) => {  
+export const jobApplyFormAdd = async (req, res) => {
   try {
-      
 
 
-    const { emailId, jobPostId, resume ,name, } = req.body;
-// not hanlde organization 
+
+    const { emailId, jobPostId, resume, name, } = req.body;
+    // not hanlde organization 
     const organizationFind = await organizationModel.findOne().select('name')
-// not hanlde organization 
-const portalsetUpDetail = await portalsetUpModel.findOne().select('maxApplicationsPerEmployee minDaysBetweenApplications')
+    // not hanlde organization 
+    const portalsetUpDetail = await portalsetUpModel.findOne().select('maxApplicationsPerEmployee minDaysBetweenApplications')
 
 
     if (!jobPostId) {
@@ -242,35 +242,35 @@ const portalsetUpDetail = await portalsetUpModel.findOne().select('maxApplicatio
     //   return badRequest(res, "You have already applied for this job.");
     // }
 
-if (portalsetUpDetail) {
-  const maxApplications = portalsetUpDetail.maxApplicationsPerEmployee;
-  const minDaysGap = portalsetUpDetail.minDaysBetweenApplications;
+    if (portalsetUpDetail) {
+      const maxApplications = portalsetUpDetail.maxApplicationsPerEmployee;
+      const minDaysGap = portalsetUpDetail.minDaysBetweenApplications;
 
-  const now = new Date();
-  const minDate = new Date(now);
-  minDate.setDate(minDate.getDate() - minDaysGap);
+      const now = new Date();
+      const minDate = new Date(now);
+      minDate.setDate(minDate.getDate() - minDaysGap);
 
-  // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
-  const recentApplications = await jobApply.find({
-    emailId,
-    // jobPostId: jobPostId,
-    createdAt: { $gte: minDate }
-  }).sort({ createdAt: -1 });
+      // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
+      const recentApplications = await jobApply.find({
+        emailId,
+        // jobPostId: jobPostId,
+        createdAt: { $gte: minDate }
+      }).sort({ createdAt: -1 });
 
-  // 🚫 Too many applications within restricted period
-  if (recentApplications.length >= maxApplications) {
-    const lastAppliedAt = new Date(recentApplications[0].createdAt);
-    const nextAllowedDate = new Date(lastAppliedAt);
-    nextAllowedDate.setDate(nextAllowedDate.getDate() + minDaysGap);
-    
-    const daysLeft = Math.ceil((nextAllowedDate - now) / (1000 * 60 * 60 * 24));
+      // 🚫 Too many applications within restricted period
+      if (recentApplications.length >= maxApplications) {
+        const lastAppliedAt = new Date(recentApplications[0].createdAt);
+        const nextAllowedDate = new Date(lastAppliedAt);
+        nextAllowedDate.setDate(nextAllowedDate.getDate() + minDaysGap);
 
- return badRequest(
-  res,
-`Not eligible to apply. Try again after ${daysLeft} day(s) on ${nextAllowedDate.toDateString()}.`
-);
-  }
-}
+        const daysLeft = Math.ceil((nextAllowedDate - now) / (1000 * 60 * 60 * 24));
+
+        return badRequest(
+          res,
+          `Not eligible to apply. Try again after ${daysLeft} day(s) on ${nextAllowedDate.toDateString()}.`
+        );
+      }
+    }
     if (!resume) {
       return badRequest(res, "Please upload your resume before applying.");
     }
@@ -298,10 +298,9 @@ if (portalsetUpDetail) {
     req.body.departmentId = jobPost.departmentId;
     req.body.subDepartmentId = jobPost.subDepartmentId;
     req.body.position = finddesingnation.name;
-    req.body.branchId = jobPost.branchId[0];
-    req.body.JobType= jobPost.JobType || ""
+    req.body.JobType = jobPost.JobType || ""
     req.body.jobFormType = "request"
-    req.body.orgainizationId= jobPost.organizationId || null;
+    req.body.orgainizationId = jobPost.organizationId || null;
 
 
     // Save the job application
@@ -319,11 +318,11 @@ if (portalsetUpDetail) {
       { new: true }
     );
 
-  if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
-  await jobPostModel.findByIdAndUpdate(jobPostId, {
-    jobPostExpired: true,
-  });
-}
+    if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
+      await jobPostModel.findByIdAndUpdate(jobPostId, {
+        jobPostExpired: true,
+      });
+    }
 
     success(res, "Job Applied Successfully", jobApplyForm);
 
@@ -333,20 +332,30 @@ if (portalsetUpDetail) {
       jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
       jobApplyMailSwitch?.hrmsMail?.jobApplyMail
     ) {
-      await sendThankuEmail(emailId, name.toUpperCase() , jobPost?.position , organizationFind?.name?.toUpperCase());
+      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase());
     }
-// job apply google sheete data save 
-  await jobApplyToGoogleSheet(jobApplyForm._id)
+    // job apply google sheete data save 
+    await jobApplyToGoogleSheet(jobApplyForm._id)
 
-    const AIRuleData = await AIRule.findOne({ AutomaticScreening: true });
-     if(AIRule){
+    // const AIRuleData = await AIRule.findOne({ AutomaticScreening: true });
+    //  if(AIRule){
+    //   await processAIScreeningForCandidate({
+    //     jobPostId: jobPostId,
+    //     resume: resume,
+    //     candidateId: jobApplyForm._id,
+    //     organizationId: jobPost.organizationId,
+    //   });
+
+    // }
+
+    const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId: jobPost.organizationId })
+    if (AIdata) {
       await processAIScreeningForCandidate({
         jobPostId: jobPostId,
         resume: resume,
         candidateId: jobApplyForm._id,
         organizationId: jobPost.organizationId,
       });
-
     }
 
   } catch (error) {
@@ -362,24 +371,22 @@ if (portalsetUpDetail) {
 export const getAllJobApplied = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
-
-
     const page = parseInt(req.query.page) || 1; // default page 1
-    const limit = parseInt(req.query.limit) || 10; // default 10 items per page
+    const limit = parseInt(req.query.limit) || 100; // default 10 items per page
     const skip = (page - 1) * limit;
 
 
-      // Extract search and filter parameters
-    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result , resumeShortlisted , departmentId} = req.query;
+    // Extract search and filter parameters
+    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result, resumeShortlisted, departmentId } = req.query;
 
-        // Build match conditions
+    // Build match conditions
     let matchConditions = {
       status: { $in: ["active"] },
       jobFormType: "request",
     };
 
 
-     // Add date range filter
+    // Add date range filter
     if (startDate || endDate) {
       matchConditions.createdAt = {};
       if (startDate) {
@@ -398,9 +405,9 @@ export const getAllJobApplied = async (req, res) => {
     }
 
 
-       // Add search conditions
+    // Add search conditions
     const searchConditions = [];
-    
+
     if (search) {
       // General search across multiple fields
       searchConditions.push({
@@ -678,6 +685,8 @@ export const getAllJobApplied = async (req, res) => {
         $project: {
           candidateUniqueId: 1,
           name: 1,
+          pincode:1,
+          immediatejoiner:1,
           mobileNumber: 1,
           emailId: 1,
           resume: 1,
@@ -686,11 +695,11 @@ export const getAllJobApplied = async (req, res) => {
           AI_Score: 1,
           AI_Confidence: 1,
           jobPostId: 1,
-          resumeShortlisted:1,
+          resumeShortlisted: 1,
           Remark: 1,
-          JobType:1,
-          currentCTC:1,
-          expectedCTC:1,
+          JobType: 1,
+          currentCTC: 1,
+          expectedCTC: 1,
           isEligible: 1,
           summary: 1,
           matchPercentage: 1,
@@ -739,9 +748,12 @@ export const getAllJobApplied = async (req, res) => {
       .filter((job) => job.createdAt)  // Ensure the job has a `createdAt` field
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));  // Sort jobs by `createdAt` in descending order
 
-    const totalCount = await jobApply.countDocuments({ status: "active", jobFormType: "request" ,  orgainizationId:organizationId});
-    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted" , orgainizationId:organizationId });
-    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted" , orgainizationId:organizationId });
+    const filteredMatchConditions = { ...matchConditions }; // Filtered total
+    const totalCount = await jobApply.countDocuments(filteredMatchConditions);
+
+    //  const totalCount = allJobs.length || 0;
+    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted", orgainizationId: organizationId });
+    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted", orgainizationId: organizationId });
 
 
     return success(res, "All job Applied Form details", {
@@ -963,31 +975,33 @@ export const getJobAppliedById = async (req, res) => {
     if (!jobApplication || jobApplication.length === 0) {
       return success(res, "Job application not found", null);
     }
-  // Find all candidate IDs to find prev/next
-const candidates = await jobApply
-  .find({ organizationId: new ObjectId(organizationId) })
-  .sort({ createdAt: -1 })
-  .select('_id')
-  .lean(); // optional but improves performance
+    // Find all candidate IDs to find prev/next
+    const candidates = await jobApply
+      .find({ orgainizationId: new ObjectId(organizationId) })
+      .sort({ createdAt: -1 })
+      .select('_id')
+      .lean(); // optional but improves performance
 
-// Ensure both sides are strings for reliable comparison
-const index = candidates.findIndex((c) => c._id.toString() === id.toString());
 
-let previousCandidateId = null;
-let nextCandidateId = null;
+    // Ensure both sides are strings for reliable comparison
+    const index = candidates.findIndex((c) => c._id.toString() == id.toString());
 
-if (index > 0) {
-  previousCandidateId = candidates[index - 1]._id;
-}
-if (index < candidates.length - 1) {
-  nextCandidateId = candidates[index + 1]._id;
-}
 
-// Ensure jobApplication[0] exists before assigning
-if (jobApplication[0]) {
-  jobApplication[0].previousCandidateId = previousCandidateId;
-  jobApplication[0].nextCandidateId = nextCandidateId;
-}
+    let previousCandidateId = null;
+    let nextCandidateId = null;
+
+    if (index > 0) {
+      previousCandidateId = candidates[index - 1]._id;
+    }
+    if (index < candidates.length - 1) {
+      nextCandidateId = candidates[index + 1]._id;
+    }
+
+    // Ensure jobApplication[0] exists before assigning
+    if (jobApplication[0]) {
+      jobApplication[0].previousCandidateId = previousCandidateId;
+      jobApplication[0].nextCandidateId = nextCandidateId;
+    }
 
 
     return success(res, "Job application details fetched successfully", jobApplication[0]);
@@ -1612,28 +1626,61 @@ export const getDashboardSummary = async (req, res) => {
 
     const orgainizationId = req.employee.organizationId;
 
-    const { year = new Date().getFullYear(), period = "year" } = req.query;
+    const { year = new Date().getFullYear(), 
+      period = "year",
+      customStartDate,
+      customEndDate
+    } = req.query;
+
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    let startDate, endDate;
+      let startDate, endDate;
     const now = new Date();
 
-    if (period == "7days") {
+    // Handle different period types including custom dates and "all"
+    if (period == "custom" && customStartDate && customEndDate) {
+      // Custom date range
+      startDate = new Date(customStartDate);
+      endDate = new Date(customEndDate);
+
+      endDate.setHours(23, 59, 59, 999);
+    } 
+    else if (period == "all") {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+      endDate = now;
+    } 
+    else if (period == "7days") {
       startDate = new Date();
       startDate.setDate(now.getDate() - 7);
       endDate = now;
     }
+    else if (period == "1days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 1);
+      endDate = now;
+    } 
     else if (period == "30days") {
       startDate = new Date();
       startDate.setDate(now.getDate() - 30);
       endDate = now;
-    }
-    else {
+    } else {
       // default: full year
       startDate = new Date(`${year}-01-01T00:00:00.000Z`);
       endDate = new Date(`${year}-12-31T23:59:59.999Z`);
     }
+
+       // Validate custom dates if provided
+    if (period == "custom") {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(res , "Both customStartDate and customEndDate are required when using custom period")
+      }
+
+    }
+
+    console.log("startDate" , startDate)
+    console.log("endDate" , endDate)
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
@@ -1693,21 +1740,39 @@ export const getDashboardSummary = async (req, res) => {
 
 
     // Calculate average time to hire
-  const timeToHireData = await jobApply.aggregate([
-  {
-    $match: {
-      createdAt: { $gte: startDate, $lte: endDate },
-      resumeShortlisted: "shortlisted",
-      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-    }
-  },
-  {
-    $group: {
-      _id: null,
-      totalShortlisted: { $sum: 1 }
-    }
-  }
-]);
+    const timeToHireData = await jobApply.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          resumeShortlisted: "shortlisted",
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalShortlisted: { $sum: 1 }
+        }
+      }
+    ]);
+
+
+    // total Pending //
+      const totalPending = await jobApply.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          resumeShortlisted: "active",
+          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalPending: { $sum: 1 }
+        }
+      }
+    ]);
 
 
     // calcaulate the department //
@@ -1809,7 +1874,6 @@ export const getDashboardSummary = async (req, res) => {
       }
     }])
 
-    console.log("rejectedCandidates" , rejectedCandidates)
 
     // Hire candidate
     const HireData = await jobApply.aggregate([
@@ -1843,17 +1907,36 @@ export const getDashboardSummary = async (req, res) => {
 
     // 1. Count applications in the last 7 days
     const appsLast7Days = await jobApply.countDocuments({
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: new ObjectId(orgainizationId) // Filter by organization
     });
 
 
     // 2. Count rejections in the last 7 days
     const rejectedLast7Days = await jobApply.countDocuments({
-      createdAt: { $gte: sevenDaysAgo },
+      createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       resumeShortlisted: 'notshortlisted'
     });
+
+
+    
+    // 1. Count applications in the last 7 days
+    const Recommended = await jobApply.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate },
+      AI_Screeing_Result: 'Approved',
+      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+    });
+
+    //Approved
+
+    // 2. Count rejections in the last 7 days
+    const NoRecommended = await jobApply.countDocuments({
+      createdAt: { $gte: startDate, $lte: endDate },
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      AI_Screeing_Result: 'Rejected'
+    });
+
 
 
 
@@ -2078,9 +2161,9 @@ export const getDashboardSummary = async (req, res) => {
       {
         $sort: { count: 1 }
       },
-       {
-    $limit: 5
-  },
+      {
+        $limit: 5
+      },
       {
         $project: {
           position: "$jobPost.position",
@@ -2094,7 +2177,7 @@ export const getDashboardSummary = async (req, res) => {
 
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate , orgainizationId);
+    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate, orgainizationId);
 
 
     // Get current month vs previous month stats
@@ -2162,10 +2245,13 @@ export const getDashboardSummary = async (req, res) => {
     return success(res, "Dashboard summary retrieved successfully", {
       overview: {
         totalApplications,
-        totalShortlisted :timeToHireData[0]?.totalShortlisted || 0,
+        totalShortlisted: timeToHireData[0]?.totalShortlisted || 0,
+        totalPending:totalPending[0]?.totalPending || 0 ,
         totalRejected: rejectedCandidates[0]?.totalRejected || 0,
         applicationsLast7Days: appsLast7Days || 0,
         rejectedLast7Days: rejectedLast7Days || 0,
+        Recommended:Recommended || 0,
+        NoRecommended:NoRecommended || 0,
         avgResponseTime: avgResponseTime || 0,
         scheduledInterviews: scheduledInterviews || 0,
         departmentCounts: departmentCount,
@@ -2225,39 +2311,79 @@ export const getDashboardSummary = async (req, res) => {
  */
 export const getDashboardMetrics = async (req, res) => {
   try {
-    const { year = new Date().getFullYear() } = req.query;
-    const orgainizationId = req.employee.organizationId;
+    const { year = new Date().getFullYear() , period = "year" , customStartDate,
+      customEndDate } = req.query;
 
-    // Create date range for the year
-    const startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-    const endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    const orgainizationId = req.employee.organizationId;
+        const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  let startDate, endDate;
+    const now = new Date();
+
+    if (period == "7days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 7);
+      endDate = now;
+    }
+
+      else if (period == "all") {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+      endDate = now;
+    } 
+
+    else if (period == "30days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 30);
+      endDate = now;
+    }
+      else if (period == "1days") {
+      startDate = new Date();
+      startDate.setDate(now.getDate() - 30);
+      endDate = now;
+    }
+
+    else if (period == "custom" && customStartDate && customEndDate) {
+      // Custom date range
+      startDate = new Date(customStartDate);
+      endDate = new Date(customEndDate);
+
+      endDate.setHours(23, 59, 59, 999);
+    }
+    else {
+      // default: full year
+      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+
+    }
+
 
     // Get applications by month
-    const applicationsByMonth = await getApplicationsByMonth(startDate, endDate , orgainizationId);
+    const applicationsByMonth = await getApplicationsByMonth(startDate, endDate, orgainizationId);
 
     // Get hiring success rate by month
-    const ShortlistedlistRate = await getHiringSuccessRate(startDate, endDate , orgainizationId);
+    const ShortlistedlistRate = await getHiringSuccessRate(startDate, endDate, orgainizationId);
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate , orgainizationId);
+    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate, orgainizationId);
 
     // Get applications by status
-    const applicationsByStatus = await getApplicationsByStatus(startDate, endDate , orgainizationId);
+    const applicationsByStatus = await getApplicationsByStatus(startDate, endDate, orgainizationId);
 
     // Get AI screening metrics
-    const aiScreeningMetrics = await getAIScreeningMetrics(startDate, endDate , orgainizationId);
+    const aiScreeningMetrics = await getAIScreeningMetrics(startDate, endDate, orgainizationId);
 
     // Get positions with most applications
-    const topPositions = await getTopPositions(startDate, endDate , orgainizationId);
+    const topPositions = await getTopPositions(startDate, endDate, orgainizationId);
 
     // Get average time to hire
-    const timeToHire = await getTimeToHire(startDate, endDate , orgainizationId);
+    const timeToHire = await getTimeToHire(startDate, endDate, orgainizationId);
 
     // Get source breakdown
-    const applicationSources = await getApplicationSources(startDate, endDate , orgainizationId);
+    const applicationSources = await getApplicationSources(startDate, endDate, orgainizationId);
 
     // Get application workflow status
-    const workflowStats = await getWorkflowStats(startDate, endDate , orgainizationId);
+    const workflowStats = await getWorkflowStats(startDate, endDate, orgainizationId);
 
     return success(res, "Dashboard metrics retrieved successfully", {
       applicationsByMonth,
@@ -2279,7 +2405,7 @@ export const getDashboardMetrics = async (req, res) => {
 /**
  * Helper function to get applications count by month
  */
-const getApplicationsByMonth = async (startDate, endDate , orgainizationId) => {
+const getApplicationsByMonth = async (startDate, endDate, orgainizationId) => {
   const monthlyApplications = await jobApply.aggregate([
     {
       $match: {
@@ -2314,7 +2440,7 @@ const getApplicationsByMonth = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get hiring success rate by month
  */
-const getHiringSuccessRate = async (startDate, endDate , orgainizationId) => {
+const getHiringSuccessRate = async (startDate, endDate, orgainizationId) => {
   const monthlyStats = await jobApply.aggregate([
     {
       $match: {
@@ -2370,7 +2496,7 @@ const getHiringSuccessRate = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get applications by department
  */
-const getApplicationsByDepartment = async (startDate, endDate , orgainizationId ) => {
+const getApplicationsByDepartment = async (startDate, endDate, orgainizationId) => {
   return await jobApply.aggregate([
     {
       $match: {
@@ -2420,7 +2546,7 @@ const getApplicationsByDepartment = async (startDate, endDate , orgainizationId 
 /**
  * Helper function to get applications by status
  */
-const getApplicationsByStatus = async (startDate, endDate , orgainizationId) => {
+const getApplicationsByStatus = async (startDate, endDate, orgainizationId) => {
   const statusCounts = await jobApply.aggregate([
     {
       $match: {
@@ -2446,7 +2572,7 @@ const getApplicationsByStatus = async (startDate, endDate , orgainizationId) => 
 /**
  * Helper function to get AI screening metrics
  */
-const getAIScreeningMetrics = async (startDate, endDate , orgainizationId) => {
+const getAIScreeningMetrics = async (startDate, endDate, orgainizationId) => {
   // Get monthly AI screening results
   const monthlyAIResults = await jobApply.aggregate([
     {
@@ -2507,7 +2633,7 @@ const getAIScreeningMetrics = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get top positions by application count
  */
-const getTopPositions = async (startDate, endDate , orgainizationId) => {
+const getTopPositions = async (startDate, endDate, orgainizationId) => {
   return await jobApply.aggregate([
     {
       $match: {
@@ -2540,7 +2666,7 @@ const getTopPositions = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get average time to hire by month
  */
-const getTimeToHire = async (startDate, endDate , orgainizationId) => {
+const getTimeToHire = async (startDate, endDate, orgainizationId) => {
   const hiredCandidates = await jobApply.aggregate([
     {
       $match: {
@@ -2590,7 +2716,7 @@ const getTimeToHire = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get application sources
  */
-const getApplicationSources = async (startDate, endDate , orgainizationId) => {
+const getApplicationSources = async (startDate, endDate, orgainizationId) => {
   const sources = await jobApply.aggregate([
     {
       $match: {
@@ -2623,7 +2749,7 @@ const getApplicationSources = async (startDate, endDate , orgainizationId) => {
 /**
  * Helper function to get workflow stats
  */
-const getWorkflowStats = async (startDate, endDate , orgainizationId) => {
+const getWorkflowStats = async (startDate, endDate, orgainizationId) => {
   // Get monthly workflow stats
   const workflowData = await jobApply.aggregate([
     {
@@ -2729,7 +2855,7 @@ const mapStatusToFriendlyName = (status) => {
 //     const {position , name , mobileNumber , emailId , departmentId , search} = req.query;
 //    // Initialize filter object properly
 //     let filter = {};
-    
+
 //     if (position) {
 //       filter.position = { $regex: position, $options: 'i' };
 //     }
@@ -2745,11 +2871,11 @@ const mapStatusToFriendlyName = (status) => {
 //       if (name) {
 //         filter.name = { $regex: name, $options: 'i' };
 //       }
-      
+
 //       if (mobileNumber) {
 //         filter.mobileNumber = { $regex: mobileNumber, $options: 'i' };
 //       }
-      
+
 //       if (emailId) {
 //         filter.emailId = { $regex: emailId, $options: 'i' };
 //       }
@@ -2853,15 +2979,15 @@ export const AnalizedCandidate = async (req, res) => {
     //   // Check for prioritized companies match
     //   for (const org of lastOrganizations) {
     //     if (!org) continue;
-        
+
     //     const orgLower = org.toLowerCase().trim();
-        
+
     //     // Check prioritized companies with fuzzy matching
     //     for (const prioritized of prioritizedCompanies) {
     //       if (!prioritized) continue;
-          
+
     //       const prioritizedLower = prioritized.toLowerCase().trim();
-          
+
     //       // Fuzzy matching - check if either contains the other or if they share significant common words
     //       if (orgLower.includes(prioritizedLower) || 
     //           prioritizedLower.includes(orgLower) ||
@@ -2874,15 +3000,15 @@ export const AnalizedCandidate = async (req, res) => {
     //   // Check for deprioritized companies match
     //   for (const org of lastOrganizations) {
     //     if (!org) continue;
-        
+
     //     const orgLower = org.toLowerCase().trim();
-        
+
     //     // Check deprioritized companies with fuzzy matching
     //     for (const deprioritized of deprioritizedCompanies) {
     //       if (!deprioritized) continue;
-          
+
     //       const deprioritizedLower = deprioritized.toLowerCase().trim();
-          
+
     //       // Fuzzy matching - check if either contains the other or if they share significant common words
     //       if (orgLower.includes(deprioritizedLower) || 
     //           deprioritizedLower.includes(orgLower) ||
@@ -2897,58 +3023,58 @@ export const AnalizedCandidate = async (req, res) => {
 
 
     // Updated function to get match status and company name
-const getTargetCompanyStatus = (lastOrganizations) => {
-  if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
-    return { status: "", matchCompanyName: "" };
-  }
-
-  const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
-  const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
-
-  for (const org of lastOrganizations) {
-    if (!org) continue;
-    const orgLower = org.toLowerCase().trim();
-
-    for (const prioritized of prioritizedCompanies) {
-      if (!prioritized) continue;
-      const prioritizedLower = prioritized.toLowerCase().trim();
-
-      if (
-        orgLower.includes(prioritizedLower) ||
-        prioritizedLower.includes(orgLower) ||
-        fuzzyMatch(orgLower, prioritizedLower)
-      ) {
-        return { status: "prioritized", matchCompanyName: prioritized };
+    const getTargetCompanyStatus = (lastOrganizations) => {
+      if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
+        return { status: "", matchCompanyName: "" };
       }
-    }
-  }
 
-  for (const org of lastOrganizations) {
-    if (!org) continue;
-    const orgLower = org.toLowerCase().trim();
+      const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
+      const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
 
-    for (const deprioritized of deprioritizedCompanies) {
-      if (!deprioritized) continue;
-      const deprioritizedLower = deprioritized.toLowerCase().trim();
+      for (const org of lastOrganizations) {
+        if (!org) continue;
+        const orgLower = org.toLowerCase().trim();
 
-      if (
-        orgLower.includes(deprioritizedLower) ||
-        deprioritizedLower.includes(orgLower) ||
-        fuzzyMatch(orgLower, deprioritizedLower)
-      ) {
-        return { status: "deprioritized", matchCompanyName: deprioritized };
+        for (const prioritized of prioritizedCompanies) {
+          if (!prioritized) continue;
+          const prioritizedLower = prioritized.toLowerCase().trim();
+
+          if (
+            orgLower.includes(prioritizedLower) ||
+            prioritizedLower.includes(orgLower) ||
+            fuzzyMatch(orgLower, prioritizedLower)
+          ) {
+            return { status: "prioritized", matchCompanyName: prioritized };
+          }
+        }
       }
-    }
-  }
 
-  return { status: "", matchCompanyName: "" };
-};
+      for (const org of lastOrganizations) {
+        if (!org) continue;
+        const orgLower = org.toLowerCase().trim();
+
+        for (const deprioritized of deprioritizedCompanies) {
+          if (!deprioritized) continue;
+          const deprioritizedLower = deprioritized.toLowerCase().trim();
+
+          if (
+            orgLower.includes(deprioritizedLower) ||
+            deprioritizedLower.includes(orgLower) ||
+            fuzzyMatch(orgLower, deprioritizedLower)
+          ) {
+            return { status: "deprioritized", matchCompanyName: deprioritized };
+          }
+        }
+      }
+
+      return { status: "", matchCompanyName: "" };
+    };
 
     // Helper function for fuzzy matching based on common words
     const fuzzyMatch = (str1, str2) => {
       const words1 = str1.split(/\s+/).filter(word => word.length > 2); // Only consider words longer than 2 chars
       const words2 = str2.split(/\s+/).filter(word => word.length > 2);
-      
+
       let commonWords = 0;
       for (const word1 of words1) {
         for (const word2 of words2) {
@@ -2958,7 +3084,7 @@ const getTargetCompanyStatus = (lastOrganizations) => {
           }
         }
       }
-      
+
       // Consider it a match if at least 50% of words match
       const minWords = Math.min(words1.length, words2.length);
       return minWords > 0 && (commonWords / minWords) >= 0.5;
@@ -3062,8 +3188,8 @@ const getTargetCompanyStatus = (lastOrganizations) => {
     const avgAIScore =
       totalCandidates > 0
         ? Math.round(
-            allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) / totalCandidates
-          )
+          allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) / totalCandidates
+        )
         : 0;
 
     return success(res, {
@@ -3085,7 +3211,7 @@ const getTargetCompanyStatus = (lastOrganizations) => {
 export const DeepAnalize = async (req, res) => {
   try {
     const Id = req.params.id;
-    const orgainizationId=req.employee.organizationId;
+    const orgainizationId = req.employee.organizationId;
     if (!Id) {
       return badRequest(res, "Candidate Id not provided");
     }
@@ -3131,28 +3257,28 @@ export const DeepAnalize = async (req, res) => {
     }
 
 
-const candidates = await ScreeningResultModel
-  .find({organizationId:orgainizationId})
-  .sort({ createdAt: -1 }) // latest created first
-  .select("candidateId")
-  .lean();
+    const candidates = await ScreeningResultModel
+      .find({ organizationId: orgainizationId })
+      .sort({ createdAt: -1 }) // latest created first
+      .select("candidateId")
+      .lean();
 
-const index = candidates.findIndex(c => c.candidateId.toString() == Id);
+    const index = candidates.findIndex(c => c.candidateId.toString() == Id);
 
 
-let previousCandidateId = null;
-let nextCandidateId = null;
+    let previousCandidateId = null;
+    let nextCandidateId = null;
 
-if (index > 0) {
-  previousCandidateId = candidates[index - 1].candidateId;
-}
-if (index < candidates.length - 1) {
-  nextCandidateId = candidates[index + 1].candidateId;
-}
+    if (index > 0) {
+      previousCandidateId = candidates[index - 1].candidateId;
+    }
+    if (index < candidates.length - 1) {
+      nextCandidateId = candidates[index + 1].candidateId;
+    }
 
-// Assign to response object
-finddata.previousCandidateId = previousCandidateId;
-finddata.nextCandidateId = nextCandidateId;
+    // Assign to response object
+    finddata.previousCandidateId = previousCandidateId;
+    finddata.nextCandidateId = nextCandidateId;
 
 
 
@@ -3320,14 +3446,14 @@ export const getDashboardOverview = async (req, res) => {
       ])
     ]);
 
-   console.log('Dashboard Overview Data:', {
+    console.log('Dashboard Overview Data:', {
       totalApplications,
       approvedApplications,
       rejectedApplications,
       avgProcessingSpeed,
       avgConfidence,
       departmentStats
-   })
+    })
 
     const totalApps = totalApplications || 0;
     const approved = approvedApplications || 0;
@@ -3550,25 +3676,41 @@ export const getDashboardOverview = async (req, res) => {
 export const getScreeningAnalytics = async (req, res) => {
   try {
 
-    const { department, period = '30d' } = req.query;
+    const { department, period = '30d',
+      customStartDate,
+      customEndDate} = req.query;
+const now = new Date();
+let startDate, endDate = now;
 
-    // Calculate date range
-    const endDate = new Date();
-    const startDate = new Date();
+// Handle different period types
+if (period == 'custom') {
+  if (!customStartDate || !customEndDate) {
+    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
+  }
+  startDate = new Date(customStartDate);
+  endDate = new Date(customEndDate);
+  endDate.setHours(23, 59, 59, 999);
 
-    switch (period) {
-      case '7d':
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case '30d':
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case '90d':
-        startDate.setDate(startDate.getDate() - 90);
-        break;
-      default:
-        startDate.setDate(startDate.getDate() - 30);
-    }
+} else if (period == 'all') {
+  startDate = new Date("2000-01-01T00:00:00.000Z");
+} else {
+  startDate = new Date();
+  switch (period) {
+    case '1d':
+      startDate.setDate(startDate.getDate() - 1);
+      break;
+    case '7d':
+      startDate.setDate(startDate.getDate() - 7);
+      break;
+    case '90d':
+      startDate.setDate(startDate.getDate() - 90);
+      break;
+    case '30d':
+    default:
+      startDate.setDate(startDate.getDate() - 30);
+  }
+}
+
 
     const filter = {
       createdAt: { $gte: startDate, $lte: endDate },
@@ -3576,11 +3718,12 @@ export const getScreeningAnalytics = async (req, res) => {
     };
     if (department) filter.department = department;
 
+    const finddata = await ScreeningResultModel.findOne(filter)
+
     // Get analytics data
     const [
       rejectionReasons,
       skillsAnalysis,
-      confidenceDistribution,
       trendsData,
       positionMetrics,
       hotPositions,
@@ -3600,6 +3743,7 @@ export const getScreeningAnalytics = async (req, res) => {
         { $limit: 5 }
       ]),
 
+
       // Skills assessment radar
       ScreeningResultModel.aggregate([
         { $match: filter },
@@ -3608,11 +3752,13 @@ export const getScreeningAnalytics = async (req, res) => {
             _id: null,
             technicalSkills: { $avg: '$breakdown.skillsMatch' },
             experienceSkills: { $avg: '$breakdown.experienceMatch' },
-            communication: { $avg: '$breakdown.Communication_Skills' },
-            leadership: { $avg: '$breakdown.Leadership_Initiative' },
-            problemSolving: { $avg: '$breakdown.Project_Exposure' },
-            adaptability: { $avg: '$breakdown.Learning_Ability' },
-            teamwork: { $avg: '$breakdown.Cultural_Fit' }
+            educationMatch: { $avg: '$breakdown.educationMatch' },
+            communicationSkills: { $avg: '$breakdown.Communication_Skills' },
+            leadershipSkills: { $avg: '$breakdown.Leadership_Initiative' },
+            projectExposure: { $avg: '$breakdown.Project_Exposure' },
+            learningAbility: { $avg: '$breakdown.Learning_Ability' },
+            culturalFit: { $avg: '$breakdown.Cultural_Fit' },
+            certification:{$avg:'$breakdown.CertificateMatch'}
           }
         }
       ]),
@@ -3764,27 +3910,29 @@ export const getScreeningAnalytics = async (req, res) => {
     const skillsRadar = {
       technicalSkills: Math.round(skillsData.technicalSkills || 0),
       experienceSkills: Math.round(skillsData.experienceSkills || 0),
-      communication: Math.round(skillsData.communication || 0),
-      leadership: Math.round(skillsData.leadership || 0),
-      problemSolving: Math.round(skillsData.problemSolving || 0),
-      adaptability: Math.round(skillsData.adaptability || 0),
-      teamwork: Math.round(skillsData.teamwork || 0)
+      educationMatch:Math.round(skillsData.educationMatch || 0),
+      projectExposure:Math.round(skillsData.projectExposure || 0),
+      communication: Math.round(skillsData.communicationSkills || 0),
+      leadership: Math.round(skillsData.leadershipSkills || 0),
+      adaptability: Math.round(skillsData.learningAbility || 0),
+      culturalFit: Math.round(skillsData.culturalFit || 0),
+      certification:Math.round(skillsData.certification || 0)
     };
 
     // Confidence distribution
-    const confidenceData = confidenceDistribution.length > 0 ? confidenceDistribution : [
-      { _id: 0, count: 0, avgScore: 0 },
-      { _id: 0, count: 0, avgScore: 0 },
-      { _id: 0, count: 0, avgScore: 0 }
-    ];
+    // const confidenceData = confidenceDistribution.length > 0 ? confidenceDistribution : [
+    //   { _id: 0, count: 0, avgScore: 0 },
+    //   { _id: 0, count: 0, avgScore: 0 },
+    //   { _id: 0, count: 0, avgScore: 0 }
+    // ];
 
-    const totalAppsForConfidence = confidenceData.reduce((sum, conf) => sum + conf.count, 0);
-    const processedConfidenceData = confidenceData.map(conf => ({
-      range: conf._id === 80 ? '80-100%' : conf._id == 60 ? '60-79%' : '0-59%',
-      count: conf.count,
-      percentage: totalAppsForConfidence > 0 ? Math.round((conf.count / totalAppsForConfidence) * 100) : 0,
-      avgScore: Math.round(conf.avgScore || 0)
-    }));
+    // const totalAppsForConfidence = confidenceData.reduce((sum, conf) => sum + conf.count, 0);
+    // const processedConfidenceData = confidenceData.map(conf => ({
+    //   range: conf._id === 80 ? '80-100%' : conf._id == 60 ? '60-79%' : '0-59%',
+    //   count: conf.count,
+    //   percentage: totalAppsForConfidence > 0 ? Math.round((conf.count / totalAppsForConfidence) * 100) : 0,
+    //   avgScore: Math.round(conf.avgScore || 0)
+    // }));
 
     // Process position metrics for dashboard cards
     const processedPositionMetrics = positionMetrics.map(pos => ({
@@ -3827,7 +3975,7 @@ export const getScreeningAnalytics = async (req, res) => {
       period,
       rejectionReasons: processedRejectionReasons.length > 0 ? processedRejectionReasons : defaultRejectionReasons,
       skillsRadar,
-      confidenceDistribution: processedConfidenceData,
+      // confidenceDistribution: processedConfidenceData,
 
       trends: trendsData.map(trend => ({
         week: trend._id,
@@ -3847,7 +3995,7 @@ export const getScreeningAnalytics = async (req, res) => {
       },
 
       summary: {
-        totalAnalyzed: totalAppsForConfidence,
+        // totalAnalyzed: totalAppsForConfidence,
         totalApplications,
         totalApproved,
         overallPassRate,
@@ -3856,7 +4004,7 @@ export const getScreeningAnalytics = async (req, res) => {
         hotPositionsCount: processedHotPositions.length,
         coldPositionsCount: processedColdPositions.length,
         topPerformingPosition: processedPositionMetrics[0]?.position || 'N/A',
-        avgPassRate: processedPositionMetrics.length > 0 
+        avgPassRate: processedPositionMetrics.length > 0
           ? Math.round(processedPositionMetrics.reduce((sum, pos) => sum + pos.passRate, 0) / processedPositionMetrics.length)
           : 0
       }
@@ -3887,16 +4035,16 @@ export const getJobApplyFields = async (req, res) => {
 
 
 export const calculatexcelcount = async (req, res) => {
-  try{
+  try {
 
     const orgainizationId = req.employee.organizationId;
     const count = req.body.count;
-    if(!orgainizationId) {
+    if (!orgainizationId) {
       return badRequest(res, "Organization ID not provided");
     }
 
-    const activePlan=await organizationPlanModel.findOne({ organizationId: orgainizationId, isActive: true }).lean();
-    if(!activePlan) {
+    const activePlan = await organizationPlanModel.findOne({ organizationId: orgainizationId, isActive: true }).lean();
+    if (!activePlan) {
       return badRequest(res, "No active plan found for this organization");
     }
 
@@ -3904,19 +4052,19 @@ export const calculatexcelcount = async (req, res) => {
     const expiryDate = new Date(createdAt);
     expiryDate.setDate(expiryDate.getDate() + (activePlan.Numberofdownloads || 0));
 
-    if(new Date() > expiryDate) {
+    if (new Date() > expiryDate) {
       return badRequest(res, "Your plan has expired. Please renew your plan to continue using the service.");
     }
 
 
-    if(count> activePlan.Numberofdownloads) {
+    if (count > activePlan.Numberofdownloads) {
       return badRequest(res, `You can only download ${activePlan.Numberofdownloads} times. Please upgrade your plan to download more.`);
     }
 
 
     // decrese Numberofdownloads from active plan
 
-    if(activePlan.Numberofdownloads > 0) {
+    if (activePlan.Numberofdownloads > 0) {
       const Updateservice = await organizationPlanModel.findOneAndUpdate(
         { organizationId: orgainizationId, isActive: true },
         { $inc: { Numberofdownloads: -count } },
@@ -3927,7 +4075,7 @@ export const calculatexcelcount = async (req, res) => {
 
     return success(res, "Excel download successfully", { remainingDownloads: activePlan.Numberofdownloads - count });
   }
-  catch(error){
+  catch (error) {
     console.error("Error in calculatexcelcount:", error);
     return unknownError(res, error);
   }
@@ -4111,3 +4259,27 @@ export const assignCandidateUniqueIds = async (req, res) => {
 
 
 
+
+export const convertBranchIdToArray = async (req, res) => {
+  try {
+    const updated = await jobApply.updateMany(
+      { branchId: { $type: 'objectId' } }, // Only those where branchId is a single ID
+      [
+        {
+          $set: {
+            branchId: ["$branchId"] // Wrap the current value into an array
+          }
+        }
+      ]
+    );
+
+    return res.status(200).json({
+      message: 'branchId converted to array successfully',
+      matchedCount: updated.matchedCount,
+      modifiedCount: updated.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error updating branchId:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

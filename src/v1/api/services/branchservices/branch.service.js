@@ -12,6 +12,7 @@ import subDropDownModel from "../../models/masterDropDownModel/masterDropDownVal
 const { ObjectId } = mongoose;
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken"; // Assuming you're using JWT for login tokens
+import { badRequest } from "../../formatters/globalResponse.js";
 
 //---------------------------------------------------
 export const convertToISOFormat = (timeStr, dateStr) => {
@@ -131,6 +132,10 @@ export const getAllBranch = async (req, res) => {
     const filterParam = req.query.filter ? JSON.parse(req.query.filter) : {};
     const query = filterParam.branches || [];
 const organizationId = req.query.organizationId
+
+if(!organizationId){
+  return badRequest(res , "organization Id Required")
+}
     // console.log('qurt----', query);
   // const baseFilter = {
   //     isActive: true,
@@ -565,3 +570,36 @@ export async function allBranchHrms(requestsObject) {
     return returnFormatter(false, error.message);
   }
 }
+
+export async function getBranchByJobPost(req) {
+  try {
+    const { organizationId, jobPostId } = req.query;
+
+    if (!organizationId || !jobPostId) {
+      return returnFormatter(false, "organizationId and jobPostId are required");
+    }
+
+    const jobPost = await jobPostModel.findOne({
+      _id: new mongoose.Types.ObjectId(jobPostId),
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+    });
+
+    if (!jobPost) {
+      return returnFormatter(false, "Job Post not found");
+    }
+
+    const branchIds = jobPost.branchId || [];
+
+    // Now fetch work locations where branchId matches any of these
+    const workLocations = await workLocationModel.find({
+      branchId: { $in: branchIds },
+      organizationId: new mongoose.Types.ObjectId(organizationId),
+    }).select("name branchId");
+
+    return returnFormatter(true, "Branch names fetched from workLocation model", workLocations);
+  } catch (error) {
+    console.error("Error in getBranchByJobPost:", error);
+    return returnFormatter(false, error.message);
+  }
+}
+

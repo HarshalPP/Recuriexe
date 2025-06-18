@@ -276,7 +276,7 @@ export async function updateRole(req, res) {
       return badRequest(res ,"Role not found" );
     }
 
-      if (updateFields.roleName.trim().toLowerCase() === "productowner") {
+      if (updateFields.roleName?.trim().toLowerCase() === "productowner") {
       return badRequest(res, "You are not allowed to create the 'productowner' role.");
     }
 
@@ -285,7 +285,7 @@ export async function updateRole(req, res) {
     } 
     // Clean and format the roleName if present
     if (typeof updateFields.roleName === "string") {
-      updateFields.roleName = updateFields.roleName.trim();
+      updateFields.roleName = updateFields?.roleName?.trim();
       const duplicateRole = await roleModel.findOne({
         _id: { $ne: roleId },
         roleName: updateFields.roleName,

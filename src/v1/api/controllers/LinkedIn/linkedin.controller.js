@@ -277,6 +277,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
 // });
 
 
+
 export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => {
   const { postIds, orgs, scheduleTimes } = req.body; // "orgs" is now an array of { orgId, scheduleTimes }
   const imageFiles = req.files || [];
@@ -725,6 +726,7 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
 
 
 //cancel schedule Post
+
 export const cancelScheduledPost = asyncHandler(async (req, res) => {
   const { scheduledPostId } = req.params;
 

@@ -9,8 +9,7 @@ const employmentTypeModelSchema = new Schema(
       required: [true, "Title is required"],
     },
     punchOutsideBranch: {
-      type: String,
-      enum: ["allowed", "notAllowed"]
+      type: String
     },
     status: {
       type: String,
