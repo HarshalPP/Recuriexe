@@ -2,14 +2,15 @@ import mongoose from 'mongoose';
 import { type } from 'os';
 
 const LinkedIninkedInorganizationSchema = new mongoose.Schema({
-  name: String,
+  linkedinName: { type: String, default: null },
   linkedinClientId: String,
   linkedinClientSecret: String,
   linkedinRedirectUri: String,
+  linkedinEmail: { type: String, default: null },
+  linkedinProfilePic: { type: String, default: null },
   accessToken:  { type: String, default: null },
   memberId:  { type: String, default: null },
   LinkedInorganizationId: String, // Add this for company page posting
-  description : String,
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }, 
 });
 

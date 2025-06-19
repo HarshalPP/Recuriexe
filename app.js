@@ -4,14 +4,29 @@ import compression from 'compression';
 import morgan from 'morgan';
 import path from 'path';
 
+
+import "./src/v1/api/config/gmailpassport.js"
+import  passport  from 'passport';
+import session from 'express-session';
+
+
+
+
 import { notFoundMiddleware } from "./src/v1/api/middleware/notfoundmiddleware.js"
 import { logger } from './src/v1/api/middleware/logger.js';
 import Routerlocation from './src/v1/api/index.js';
 import linkedInRoutes from "./src/v1/api/routes/OAuthRoutes/linkedIn.routes.js"
-import passport from "./src/v1/api/controllers/OAuthController/googleController.js"
-import google from "./src/v1/api/routes/OAuthRoutes/google.routes.js"
+// import passport from "./src/v1/api/controllers/OAuthController/googleController.js"
+// import google from "./src/v1/api/routes/OAuthRoutes/google.routes.js"
 import addCategories from "./src/v1/api/script/expense/category.script.js"
 import addExpenses from "./src/v1/api/script/expense/expenseType.script.js"
+// import {expirePlansScheduler} from "./src/v1/api/controllers/PlanController/planController.js"
+
+//Gmail routes
+import authRoutes from "./src/v1/api/routes/GmailRoute/auth.routes.js"
+
+
+
 
 
 import { fileURLToPath } from 'url';
@@ -42,7 +57,7 @@ app.use(logger);
 
 app.use(urlencoded({ extended: true, limit: '50mb' }));
 app.use(json({ limit: '50mb' }));
-app.use(passport.initialize());
+// app.use(passport.initialize());
 
 
 app.use('/static', expressStatic(path.join(__dirname, 'uploads')));
@@ -60,10 +75,42 @@ app.get('/', (req, res) => {
 // Serve static files
 
 
+// expirePlansScheduler(); // Start the scheduler for plan expiration
+
 // LiknedIn Routes
 
 app.use("/api/auth" , linkedInRoutes)
-app.use("/api/googleAuth" , google)
+// app.use("/api/googleAuth" , google)
+
+
+
+// app.use("/api/google" , google)
+
+// >>>>>>>>>>
+
+
+// Gmail Sending
+// Middleware
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+// Session (required for passport to work with Google OAuth)
+app.use(session({
+  secret: 'some-secret',
+  resave: false,
+  saveUninitialized: false,
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+
+app.use("/api",authRoutes)
+
+
+// >>>>>>>>>
 
 // API Routes
 app.use('/v1/api', Routerlocation);

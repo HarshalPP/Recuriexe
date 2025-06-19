@@ -611,7 +611,6 @@ export const screenCandidateAIProfile = async (req, res) => {
     const expiryDate = new Date(createdAt);
     expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
 
-    console.log("expiryDate", expiryDate);
 
     if (new Date() > expiryDate) {
       return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
@@ -659,7 +658,7 @@ if (!designation) return badRequest(res, "Designation not found");
 if (!department) return badRequest(res, "Department not found");
 
 
-const validationPrompt  = `
+    const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
@@ -671,11 +670,16 @@ RESUME CONTENT:
 ${resume}
 
 VALIDATION RULES:
-1. Check if the name in the resume matches or is reasonably similar to the candidate's name.
+1. Check if the name in the resume matches or is reasonably similar to the candidate's name
+
+
+
 
 Respond ONLY with a JSON object in this exact format:
 {
-  "nameMatch": true
+
+  "nameMatch": true/false,
+
 }
 `;
 
@@ -786,15 +790,17 @@ const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
 // Fetch from the first document (screenaiDocs[0])'s screeningCriteria
 let screeningRules = [];
 
-if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
-  screeningRules = [{
-    name: screenaiDocs[0].name,
-    description: screenaiDocs[0].description,
-    priority: "Medium", // or whatever field you want
-    isActive: screenaiDocs[0].isActive,
-    screeningCriteria: screenaiDocs[0].screeningCriteria
-  }];
-} else {
+if (job && Array.isArray(job.screeningCriteria)) {
+  screeningRules = job.screeningCriteria.map(item => ({
+    name: item.name,
+    description: item.description,
+    weight: item.weight,
+    confidence: item.confidence,
+    isActive: item.isActive
+  }));
+}
+
+else {
 
   console.warn("No valid AI screening rules found, using default rule");
   screeningRules = [{
@@ -966,7 +972,7 @@ ${criteriaArrayString}
     }
     // up to 4 more
   ],
-  "recommendation": "Suggest gaining experience in XYZ",
+  "recommendation": "If Approved: Explain why you recommend this candidate based on the screening criteria scores - mention specific criteria where they scored well and how they meet the job requirements. 
   "improvementSuggestions": [
     "Gain experience with cloud platforms",
     "Improve leadership skills"
@@ -1009,6 +1015,9 @@ ${resume}
     if (!aiResult || aiResult.error) {
       return badRequest(res, "AI screening failed");
     }
+
+    
+
 
        // ✅ Add weighted score calculator
     const calculateWeightedScore = (criteria = []) => {
@@ -1057,6 +1066,10 @@ ${resume}
     } = aiResult;
 
 
+        // Override decision based on verifiedOverallScore
+const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
+
+
         // Upsert AI screening data
     const filter = { candidateId };
       const updateData = {
@@ -1069,7 +1082,7 @@ ${resume}
       Accuracy,
       qualificationThreshold,
       overallScore:verifiedOverallScore,
-      decision,
+      decision:finalDecision,
       breakdown: {
         skillsMatch,
         experienceMatch,
@@ -1154,12 +1167,8 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
     }
 
     const createdAt = new Date(activePlan?.createdAt);
-    console.log("createdAt", createdAt);
-
     const expiryDate = new Date(createdAt);
     expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
-
-    console.log("expiryDate", expiryDate);
 
     if (new Date() > expiryDate) {
       return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
@@ -1184,10 +1193,10 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
       jobApply.findById(candidateId).lean(),
     ]);
 
+
     if (!findJd  || !designation || !department) {
       throw new Error("Missing related job details (JD/Qualification/Designation/Department)");
     }
-    // First validate if resume matches candidate's basic information
     const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
@@ -1271,7 +1280,7 @@ Respond ONLY with a JSON object in this exact format:
             impact: "High"
           }
         ],
-        recommendation: "Please upload the correct resume that matches your application details",
+        recommendation: "Provide detailed recommendation here based on approval/rejection with specific reasons",
         improvementSuggestions: [
           "Upload your own resume with correct personal information",
           "Ensure name, email, and mobile number match your application"
@@ -1317,17 +1326,32 @@ const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
 
 // 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
 // Fetch from the first document (screenaiDocs[0])'s screeningCriteria
+
+// if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
+//   screeningRules = [{
+//     name: screenaiDocs[0].name,
+//     description: screenaiDocs[0].description,
+//     priority: "Medium", // or whatever field you want
+//     isActive: screenaiDocs[0].isActive,
+//     screeningCriteria: screenaiDocs[0].screeningCriteria
+//   }];
+// } 
+
 let screeningRules = [];
 
-if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
-  screeningRules = [{
-    name: screenaiDocs[0].name,
-    description: screenaiDocs[0].description,
-    priority: "Medium", // or whatever field you want
-    isActive: screenaiDocs[0].isActive,
-    screeningCriteria: screenaiDocs[0].screeningCriteria
-  }];
-} else {
+if (job && Array.isArray(job.screeningCriteria)) {
+  screeningRules = job.screeningCriteria.map(item => ({
+    name: item.name,
+    description: item.description,
+    weight: item.weight,
+    confidence: item.confidence,
+    isActive: item.isActive
+  }));
+}
+
+
+
+else {
 
   console.warn("No valid AI screening rules found, using default rule");
   screeningRules = [{
@@ -1337,13 +1361,41 @@ if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
     isActive: true,
     screeningCriteria: [
       {
-        name: "Skills",
+        name: "Technical Skills",
         description: "Match with required skills from JD",
         weight: 30,
         confidence: 60,
         experience: null,
         isActive: true
       },
+
+         {
+        name: "Communication Skills",
+        description: "Evaluation of verbal, written, and interpersonal communication abilities.",
+        weight: 30,
+        confidence: 60,
+        experience: null,
+        isActive: true
+      },
+
+             {
+        name: "Leadership",
+        description: "Assessment of leadership qualities and team management capabilities.",
+        weight: 30,
+        confidence: 60,
+        experience: null,
+        isActive: true
+      },
+
+            {
+        name: "Project Management",
+        description: "Ability to manage project scope, timelines, and deliverables efficiently.",
+        weight: 30,
+        confidence: 60,
+        experience: null,
+        isActive: true
+      },
+      
       {
         name: "Experience",
         description: "Compare years of experience",
@@ -1375,28 +1427,49 @@ if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
         confidence: 40,
         experience: null,
         isActive: true
+      },
+
+         {
+        name: "Learning Ability",
+        description: "Capacity to learn quickly, adapt, and embrace new technologies or practices.",
+        weight: 10,
+        confidence: 40,
+        experience: null,
+        isActive: true
       }
     ]
   }];
 }
 
+const filteredCriteria = screeningRules
+  .filter(c => c?.name && c?.weight > 0)
+  .map(c => ({
+    name: c.name.trim(),
+    description: c.description || '',
+    weight: c.weight,
+    confidence: c.confidence || 0,
+  }));
+
+
 
 // 4. Flatten + filter valid screening criteria for AI prompt
-const filteredCriteria = screeningRules.flatMap(rule =>
-  (rule.screeningCriteria || [])
-    .filter(c => c?.name && c?.weight > 0)
-    .map(c => ({
-      name: c.name.trim(),
-      description: c.description || '',
-      weight: c.weight,
-      confidence: c.confidence || 0,
-    }))
-);
+// const filteredCriteria = screeningRules.flatMap(rule =>
+//   (rule.screeningCriteria || [])
+//     .filter(c => c?.name && c?.weight > 0)
+//     .map(c => ({
+//       name: c.name.trim(),
+//       description: c.description || '',
+//       weight: c.weight,
+//       confidence: c.confidence || 0,
+//     }))
+// );
 
 // 2. Format criteria array as string (score=0, reason="")
 const criteriaArrayString = filteredCriteria.map(c =>
   `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
 ).join(',\n');
+
+console.log("criteriaArrayString" , criteriaArrayString)
 
 // console.log("Criteria Array String:", criteriaArrayString);
 
@@ -1469,7 +1542,8 @@ Use the following format in JSON:
   "AI_Processing_Speed": 0, // in seconds
   "Accuracy": 0,
   "decision": "Approved" | "Rejected",
-  "qualificationThreshold": ${qualificationThresholdScore || 50}
+  "qualificationThreshold": ${qualificationThresholdScore || 50},
+   "ATS_Score": 0, // Final weighted score out of 100
   
 "criteria": [
 ${criteriaArrayString}
@@ -1494,7 +1568,8 @@ ${criteriaArrayString}
     }
     // up to 4 more
   ],
-  "recommendation": "Suggest gaining experience in XYZ",
+ "recommendation": "If Approved: Explain why you recommend this candidate based on the screening criteria scores - mention specific criteria where they scored well and how they meet the job requirements. 
+ If Rejected: Explain why you reject this candidate based on the screening criteria scores - mention specific criteria where they scored poorly and which requirements they failed to meet.",
   "improvementSuggestions": [
     "Gain experience with cloud platforms",
     "Improve leadership skills"
@@ -1572,11 +1647,13 @@ ${resume}
       qualificationThreshold,
       confidenceThreshold,
       improvementSuggestions,
-      riskFactors
-
-
+      riskFactors,
+      ATS_Score
 
     } = aiResult;
+
+    // Override decision based on verifiedOverallScore
+const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
 
 
         // Upsert AI screening data
@@ -1592,7 +1669,7 @@ ${resume}
       qualificationThreshold,
       confidenceThreshold,
       overallScore:verifiedOverallScore,
-      decision,
+    decision: finalDecision, // Use final decision based on verified score
       breakdown: {
         skillsMatch,
         experienceMatch,
@@ -1609,6 +1686,7 @@ ${resume}
       rejectReason,
       recommendation,
       improvementSuggestions,
+      ATS_Score,
       riskFactors,
       organizationId: organizationId // Include organizationId for context
     };
@@ -1634,6 +1712,7 @@ ${resume}
       updateData,
       { new: true, upsert: true }
     );
+
 
 
         if(activePlan.NumberofAnalizers > 0){

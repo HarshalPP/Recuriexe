@@ -16,7 +16,7 @@ import mongoose from "mongoose"
 const ObjectId = mongoose.Types.ObjectId;
 import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import PlanModel from "../../models/PlanModel/Plan.model.js"
-import {generateJobPostExcelAndUpload} from "../../Utils/excelUploader.js"
+import { generateJobPostExcelAndUpload } from "../../Utils/excelUploader.js"
 
 // Helper function to convert package string to budget amount
 const convertPackageToBudget = (packageString) => {
@@ -166,27 +166,27 @@ export const jobPostAddDirect = async (req, res) => {
     req.body.organizationId = req.employee.organizationId;
     req.body.createdByHrId = req.employee.id;
 
-    const {noOfPosition } = req.body
-const employeeDetails = await employeModel
-  .findById(req.employee.id)
-  .populate({
-    path: 'roleId',
-    model: 'role',
-  });
+    const { noOfPosition } = req.body
+    const employeeDetails = await employeModel
+      .findById(req.employee.id)
+      .populate({
+        path: 'roleId',
+        model: 'role',
+      });
 
- const roleDetails = await roleModel.findById(employeeDetails.roleId[0]._id).select('roleName jobPostApprove');
+    const roleDetails = await roleModel.findById(employeeDetails.roleId[0]._id).select('roleName jobPostApprove');
 
-let jobPostStatus = "pending";
-// Define the allowed roles (in lowercase)
-const autoApproveRoles = ['admin', 'productowner', 'superadmin'];
-if (roleDetails) {
-  const roleName = roleDetails.roleName?.toLowerCase();
-  if (autoApproveRoles.includes(roleName)) {
-    // jobPostStatus = "active";
-  } else if (roleDetails.jobPostDashboard.jobPostApprove) {
-    jobPostStatus = "active";
-  }
-}
+    let jobPostStatus = "pending";
+    // Define the allowed roles (in lowercase)
+    const autoApproveRoles = ['admin', 'productowner', 'superadmin'];
+    if (roleDetails) {
+      const roleName = roleDetails.roleName?.toLowerCase();
+      if (autoApproveRoles.includes(roleName)) {
+        // jobPostStatus = "active";
+      } else if (roleDetails.jobPostDashboard.jobPostApprove) {
+        jobPostStatus = "active";
+      }
+    }
     // Optional: validate required fields
     const requiredFields = ['designationId', 'departmentId', 'subDepartmentId'];
     for (const field of requiredFields) {
@@ -195,9 +195,9 @@ if (roleDetails) {
       }
     }
 
-   const NewOrg=req.employee.organizationId;
+    const NewOrg = req.employee.organizationId;
     // ✅ Check active plan for organization
-    const activePlan = await organizationPlanModel.findOne({ organizationId:NewOrg, isActive: true });
+    const activePlan = await organizationPlanModel.findOne({ organizationId: NewOrg, isActive: true });
     if (!activePlan) {
       return badRequest(res, "No active plan found for this organization. Please contact support.");
     }
@@ -205,11 +205,11 @@ if (roleDetails) {
     const expiryDate = new Date(createdAt);
     expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
 
-      if (new Date() > expiryDate) {
+    if (new Date() > expiryDate) {
       return badRequest(res, "Plan has expired. Please renew or upgrade your plan.");
     }
-    
-  // ✅ Check job post usage
+
+    // ✅ Check job post usage
     const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg });
     if (currentJobPostCount >= activePlan.NumberOfJobPosts) {
       return badRequest(
@@ -238,9 +238,9 @@ if (roleDetails) {
 
     const userBudget = Number(req.body.budget);
 
-if (isNaN(userBudget) || userBudget <= 0) {
-  return badRequest(res, "Invalid budget amount");
-}
+    if (isNaN(userBudget) || userBudget <= 0) {
+      return badRequest(res, "Invalid budget amount");
+    }
 
 
     // Update usedBudget
@@ -253,19 +253,19 @@ if (isNaN(userBudget) || userBudget <= 0) {
     }
 
     // console.log('noOfPosition + findBudget.jobPostForNumberOfEmployees', findBudget.jobPostForNumberOfEmployees)
-    if((findBudget.jobPostForNumberOfEmployees) > findBudget.numberOfEmployees){
-      return badRequest(res , `Total job posts cannot exceed allocated employees`)
+    if ((findBudget.jobPostForNumberOfEmployees) > findBudget.numberOfEmployees) {
+      return badRequest(res, `Total job posts cannot exceed allocated employees`)
       // return badRequest(res , "No of Position cannot be greater than allocated Employees budget")
     }
-// save budget data 
+    // save budget data 
     await findBudget.save();
     req.body.budgetId = findBudget._id || null;
     const jobPost = new jobPostModel(req.body);
     await jobPost.save();
 
-       // ✅ Decrease NumberOfJobPosts from active plan
+    // ✅ Decrease NumberOfJobPosts from active plan
     if (activePlan.NumberOfJobPosts > 0) {
-        const Updateservice = await organizationPlanModel.findOneAndUpdate(
+      const Updateservice = await organizationPlanModel.findOneAndUpdate(
         { organizationId: NewOrg },
         { $inc: { NumberOfJobPosts: -1 } }, // Decrement the count
         { new: true }
@@ -388,7 +388,7 @@ export const jobPostapproveAndReject = async (req, res) => {
     }
 
     const roleDetails = employeeDetails.roleId[0];
-    console.log('roleDetails',roleDetails)
+    console.log('roleDetails', roleDetails)
     const allowedRoles = ['admin', 'productowner', 'superadmin'];
     const roleName = roleDetails.roleName?.toLowerCase();
     const isAllowed = roleDetails.jobPostDashboard.jobPostApprove === true;
@@ -404,16 +404,16 @@ export const jobPostapproveAndReject = async (req, res) => {
       const jobPost = await jobPostModel.findById(jobPostId);
 
       if (!jobPost) {
-        return badRequest(res, "Job post not found." );
-        
+        return badRequest(res, "Job post not found.");
+
       }
 
       if (jobPost.status === "active" && status === "approve") {
-return badRequest(res, "Job post already approved.");
+        return badRequest(res, "Job post already approved.");
       }
 
       if (jobPost.status === "reject" && status === "reject") {
-        return badRequest(res, "Job post already rejected." );
+        return badRequest(res, "Job post already rejected.");
       }
 
       const updateData = {
@@ -766,7 +766,7 @@ return badRequest(res, "Job post already approved.");
 //   }
 // };
 
- 
+
 export const getAllJobPost = async (req, res) => {
   try {
 
@@ -778,20 +778,20 @@ export const getAllJobPost = async (req, res) => {
       experienceFrom,
       experienceTo,
       status,
-      jobPostExpired,
+      // jobPostExpired,
       JobType,
-       page = 1,
+      page = 1,
       limit = 50,
       organizationId
     } = req.query;
 
     const matchStage = {};
 
-    if (!jobPostExpired || jobPostExpired === "false") {
-      matchStage.jobPostExpired = false
-    } else if (jobPostExpired === "true") {
-      matchStage.jobPostExpired = true
-    }
+    // if (!jobPostExpired || jobPostExpired === "false") {
+    //   matchStage.jobPostExpired = false
+    // } else if (jobPostExpired === "true") {
+    //   matchStage.jobPostExpired = true
+    // }
     // Job Title - partial match, tolerant of spacing
     if (jobTitle) {
       matchStage.position = { $regex: jobTitle, $options: "i" };
@@ -799,11 +799,11 @@ export const getAllJobPost = async (req, res) => {
 
     if (status) {
       matchStage.status = status
-    }else{
+    } else {
       matchStage.status = 'active';
     }
 
-    if(JobType){
+    if (JobType) {
       matchStage.JobType = { $regex: JobType, $options: "i" };
     }
 
@@ -811,7 +811,7 @@ export const getAllJobPost = async (req, res) => {
       matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
     }
 
-      matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
+    matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
 
     let branchObjectIds = [];
     if (branchIds) {
@@ -836,7 +836,7 @@ export const getAllJobPost = async (req, res) => {
     }
 
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     const pageLimit = parseInt(limit);
 
 
@@ -1018,13 +1018,13 @@ export const getAllJobPost = async (req, res) => {
       {
         $project: {
           _id: 1,
-          jobPostId:1,
+          jobPostId: 1,
           JobType: 1,
           position: 1,
           // eligibility: 1,
           experience: 1,
           numberOfApplicant: 1,
-          expiredDate:1,
+          expiredDate: 1,
           totalApplicants: 1,
           noOfPosition: 1,
           Worklocation: 1,
@@ -1062,10 +1062,11 @@ export const getAllJobPost = async (req, res) => {
           MinAI_Score: 1,
           AI_Screening: 1,
           createdAt: 1,
+          updatedAt: 1,
         },
       },
 
-        {
+      {
         $facet: {
           data: [{ $skip: skip }, { $limit: pageLimit }],
           totalCount: [{ $count: "count" }]
@@ -1076,7 +1077,7 @@ export const getAllJobPost = async (req, res) => {
     const data = jobPostList[0]?.data || [];
     const totalCount = jobPostList[0]?.totalCount[0]?.count || 0;
 
-     success(res, "All job post List", {
+    success(res, "All job Post List", {
       data,
       totalCount,
       currentPage: parseInt(page),
@@ -1105,26 +1106,60 @@ export const getAllJobPostBypermission = async (req, res) => {
       jobPostExpired,
       JobType,
       showAllDashbBoardData,
-       page = 1,
-      limit = 50
+      page = 1,
+      limit = 50,
+      period = 'all', startDate: queryStartDate, endDate: queryEndDate,
     } = req.query;
 
     const matchStage = {};
 
+    if (status && status !== "all") {
+      matchStage.status = status
+    }
     const createdByHrId = req.employee.id
     const organizationId = req.employee.organizationId
-    if (!jobPostExpired || jobPostExpired === "false") {
-      matchStage.jobPostExpired = false
-    } else if (jobPostExpired === "true") {
-      matchStage.jobPostExpired = true
-    }
+    // if (!jobPostExpired || jobPostExpired === "false") {
+    //   matchStage.jobPostExpired = false
+    // } else if (jobPostExpired === "true") {
+    //   matchStage.jobPostExpired = true
+    // }
     // Job Title - partial match, tolerant of spacing
     if (jobTitle) {
       matchStage.position = { $regex: jobTitle, $options: "i" };
     }
+    let startDate, endDate;
+    const periodInDays = parseInt(period); // ✅ Only one declaration here
 
+    if (period !== 'all') {
+      if (isNaN(periodInDays) || periodInDays <= 0) {
+        return badRequest(res, "Invalid period value.");
+      }
 
-    if(JobType){
+      endDate = new Date();
+      endDate.setHours(23, 59, 59, 999);
+
+      startDate = new Date();
+      startDate.setDate(endDate.getDate() - periodInDays);
+      startDate.setHours(0, 0, 0, 0);
+
+      matchStage.createdAt = { $gte: startDate, $lte: endDate };
+
+    } else if (queryStartDate && queryEndDate) {
+      if (queryStartDate !== 'all' && queryEndDate !== 'all') {
+        // ✅ Convert and validate custom dates
+        startDate = new Date(`${queryStartDate}T00:00:00.000Z`);
+        endDate = new Date(`${queryEndDate}T23:59:59.999Z`);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return badRequest(res, "Invalid date format.");
+        }
+
+        matchStage.createdAt = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+    // console.log('matchStage',matchStage)
+    if (JobType) {
       matchStage.JobType = { $regex: JobType, $options: "i" };
     }
 
@@ -1132,20 +1167,20 @@ export const getAllJobPostBypermission = async (req, res) => {
       matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
     }
 
-        if (organizationId) {
+    if (organizationId) {
       matchStage.organizationId = new mongoose.Types.ObjectId(organizationId);
     }
 
-    
+
     if (departmentId) {
       matchStage.departmentId = new mongoose.Types.ObjectId(departmentId);
     }
 
     if (showAllDashbBoardData !== "all") {
-  matchStage.createdByHrId = new ObjectId(createdByHrId);
-}
+      matchStage.createdByHrId = new ObjectId(createdByHrId);
+    }
 
-// console.log('matchStage',matchStage)
+    // console.log('matchStage',matchStage)
     let branchObjectIds = [];
     if (branchIds) {
       branchObjectIds = branchIds
@@ -1169,7 +1204,7 @@ export const getAllJobPostBypermission = async (req, res) => {
     }
 
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     const pageLimit = parseInt(limit);
 
 
@@ -1351,13 +1386,13 @@ export const getAllJobPostBypermission = async (req, res) => {
       {
         $project: {
           _id: 1,
-          jobPostId:1,
+          jobPostId: 1,
           JobType: 1,
           position: 1,
           // eligibility: 1,
           experience: 1,
           numberOfApplicant: 1,
-          expiredDate:1,
+          expiredDate: 1,
           totalApplicants: 1,
           noOfPosition: 1,
           Worklocation: 1,
@@ -1394,12 +1429,12 @@ export const getAllJobPostBypermission = async (req, res) => {
           MaxAI_Score: 1,
           MinAI_Score: 1,
           AI_Screening: 1,
-          screeningCriteria:1,
+          screeningCriteria: 1,
           createdAt: 1,
         },
       },
 
-        {
+      {
         $facet: {
           data: [{ $skip: skip }, { $limit: pageLimit }],
           totalCount: [{ $count: "count" }]
@@ -1410,7 +1445,7 @@ export const getAllJobPostBypermission = async (req, res) => {
     const data = jobPostList[0]?.data || [];
     const totalCount = jobPostList[0]?.totalCount[0]?.count || 0;
 
-     success(res, "All job post List", {
+    success(res, "All job post List", {
       data,
       totalCount,
       currentPage: parseInt(page),
@@ -1598,73 +1633,171 @@ export const getAllJobPostwithoutToken = async (req, res) => {
 
 export const getPostManDashBoard = async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), period = 7 , showAllDashbBoardData } = req.query;
+    const { year = new Date().getFullYear(), period = 'all', showAllDashbBoardData, startDate: queryStartDate, endDate: queryEndDate } = req.query;
 
     const organizationId = req.employee.organizationId
     const createdByHrId = req.employee.id
-    if(!organizationId){
-      return badRequest(res , "invalid token organizationId not found")
+    if (!organizationId) {
+      return badRequest(res, "invalid token organizationId not found")
     }
 
-    
-const commonMatchFilter = {
-  organizationId: new ObjectId(organizationId),
-};
+
+    const commonMatchFilter = {
+      organizationId: new ObjectId(organizationId),
+    };
 
 
-if (showAllDashbBoardData !== "all") {
-  commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
-}
-
-// console.log('commonMatchFilter',commonMatchFilter)
-    const periodInDays = parseInt(period);
-    if (isNaN(periodInDays) || periodInDays <= 0) {
-      return badRequest(res, "Invalid period value. Must be a positive number.");
+    if (showAllDashbBoardData !== "all") {
+      commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
     }
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - periodInDays);
+    // console.log('commonMatchFilter',commonMatchFilter)
+    // const dateMatchFilter = {};
+    // let startDate;
+    // let endDate = new Date()
+    // const periodInDays = parseInt(period);
 
-    // Previous period for comparison
-    const previousEndDate = new Date(startDate);
-    previousEndDate.setDate(previousEndDate.getDate() - 1);
-    const previousStartDate = new Date(previousEndDate);
-    previousStartDate.setDate(previousStartDate.getDate() - periodInDays);
+    // // Custom date range logic (if period === "all" and start/end dates provided)
+    // if (period === 'all') {
+    //   if (queryStartDate && queryEndDate && queryStartDate !== 'all' && queryEndDate !== 'all') {
+    //     startDate = new Date(`${queryStartDate}T00:00:00.000Z`);
+    //     endDate = new Date(`${queryEndDate}T23:59:59.999Z`);
 
+    //     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    //       return badRequest(res, "Invalid date format.");
+    //     }
+
+    //     dateMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+    //   }
+
+    // } else {
+    //   // Period-based date calculation
+    //   if (isNaN(periodInDays) || periodInDays <= 0) {
+    //     return badRequest(res, "Invalid period value.");
+    //   }
+
+    //   endDate = new Date();
+    //   endDate.setHours(23, 59, 59, 999);
+
+    //   startDate = new Date(endDate);
+    //   startDate.setDate(endDate.getDate() - periodInDays);
+    //   startDate.setHours(0, 0, 0, 0);
+
+    //   dateMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+    // }
+
+    // // ✅ Calculate previous range only if both dates are defined
+    // let previousStartDate = null;
+    // let previousEndDate = null;
+
+    // if (startDate && endDate && !isNaN(periodInDays)) {
+    //   previousEndDate = new Date(startDate);
+    //   previousEndDate.setDate(previousEndDate.getDate() - 1);
+
+    //   previousStartDate = new Date(previousEndDate);
+    //   previousStartDate.setDate(previousStartDate.getDate() - periodInDays);
+    // }
+
+
+    const dateMatchFilter = {};
+    let startDate, endDate;
+    let previousStartDate = null;
+    let previousEndDate = null;
+
+    if (period === 'all') {
+      if (queryStartDate && queryEndDate && queryStartDate !== 'all' && queryEndDate !== 'all') {
+        startDate = new Date(`${queryStartDate}T00:00:00.000Z`);
+        endDate = new Date(`${queryEndDate}T23:59:59.999Z`);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return badRequest(res, "Invalid date format.");
+        }
+
+        dateMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+
+        // 🟡 Calculate previous period for custom date range
+        const diffInMs = endDate - startDate;
+        previousEndDate = new Date(startDate);
+        previousEndDate.setDate(previousEndDate.getDate() - 1);
+        previousEndDate.setHours(23, 59, 59, 999);
+
+        previousStartDate = new Date(previousEndDate - diffInMs);
+        previousStartDate.setHours(0, 0, 0, 0);
+      }
+
+    } else {
+      // Period-based date calculation
+      const periodInDays = parseInt(period);
+      if (isNaN(periodInDays) || periodInDays <= 0) {
+        return badRequest(res, "Invalid period value.");
+      }
+
+      endDate = new Date();
+      endDate.setHours(23, 59, 59, 999);
+
+      startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - periodInDays);
+      startDate.setHours(0, 0, 0, 0);
+
+      dateMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+
+      // Previous period
+      previousEndDate = new Date(startDate);
+      previousEndDate.setDate(previousEndDate.getDate() - 1);
+      previousEndDate.setHours(23, 59, 59, 999);
+
+      previousStartDate = new Date(previousEndDate);
+      previousStartDate.setDate(previousStartDate.getDate() - periodInDays);
+      previousStartDate.setHours(0, 0, 0, 0);
+    }
+
+    // console.log('dateMatchFilter', dateMatchFilter)
     const totalJobs = await jobPostModel.countDocuments({
-       ...commonMatchFilter,
-      // organizationId : new ObjectId(organizationId),
+      ...commonMatchFilter,
+      ...dateMatchFilter,
+      // createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const totalJobsPending = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+      status: ['pending', 'reject'],
+      ...dateMatchFilter,
+      // jobPostExpired: false,
+      // createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const totalJobsReject = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+      status: 'reject',
+      // jobPostExpired: false,
+      // createdAt: { $gte: startDate, $lte: endDate }
+      ...dateMatchFilter,
+    });
+
+    const totalInActiveJobs = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+      ...dateMatchFilter,
+      status: 'inactive',
       // jobPostExpired: false
     });
 
-        const totalJobsPending = await jobPostModel.countDocuments({
-       ...commonMatchFilter,
-        status :'pending',
-    });
-
-            const totalJobsReject = await jobPostModel.countDocuments({
-       ...commonMatchFilter,
-        status :'reject',
-    });
-// dont remove this line after total count check active jobs    
-  commonMatchFilter.status = 'active'
-    // 1. Total Active Jobs (Live Positions)
+    commonMatchFilter.status = 'active'
     const totalActiveJobs = await jobPostModel.countDocuments({
-       ...commonMatchFilter,
-      // organizationId : new ObjectId(organizationId),
-      jobPostExpired: false
+      ...commonMatchFilter,
+      ...dateMatchFilter,
+      // jobPostExpired: false
     });
 
-    
+
 
     // 2. Total Open Positions (Vacancies - sum of all noOfPosition)
     const totalOpenPositionsResult = await jobPostModel.aggregate([
       {
         $match: {
-          // organizationId : new ObjectId(organizationId),
-           ...commonMatchFilter,
-          jobPostExpired: false
+          // createdAt: { $gte: startDate, $lte: endDate },
+          ...dateMatchFilter,
+          ...commonMatchFilter,
+          // jobPostExpired: false
         }
       },
       {
@@ -1677,27 +1810,23 @@ if (showAllDashbBoardData !== "all") {
 
     const totalOpenPositions = totalOpenPositionsResult[0]?.totalVacancies || 0;
 
-    // 3. New Jobs in Current Period (7 Days)
     const newJobsCurrentPeriod = await jobPostModel.countDocuments({
-      jobPostExpired: false,
-       ...commonMatchFilter,
-      // organizationId : new ObjectId(organizationId),
-      createdAt: { $gte: startDate, $lte: endDate }
+      // jobPostExpired: false,
+      ...commonMatchFilter,
+      // createdAt: { $gte: startDate, $lte: endDate }
+      ...dateMatchFilter,
     });
 
-    // 4. New Jobs in Previous Period for percentage calculation
     const newJobsPreviousPeriod = await jobPostModel.countDocuments({
-       ...commonMatchFilter,
-      // organizationId : new ObjectId(organizationId),
-      jobPostExpired: false,
+      ...commonMatchFilter,
+      // jobPostExpired: false,
       createdAt: { $gte: previousStartDate, $lte: previousEndDate }
     });
 
     // 5. Expired Jobs in Current Period (Closed)
     const expiredJobsCurrentPeriod = await jobPostModel.countDocuments({
-      jobPostExpired: true,
-       ...commonMatchFilter,
-      // organizationId : new ObjectId(organizationId),
+      // jobPostExpired: true,
+      ...commonMatchFilter,
       expiredDate: { $gte: startDate, $lte: endDate }
     });
 
@@ -1705,9 +1834,8 @@ if (showAllDashbBoardData !== "all") {
     const avgTimeOpenResult = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
-          // organizationId : new ObjectId(organizationId),
-          // jobPostExpired: false
+          ...commonMatchFilter,
+          // jobPostExpired: true
         }
       },
       {
@@ -1734,10 +1862,8 @@ if (showAllDashbBoardData !== "all") {
     nearingExpiryDate.setDate(nearingExpiryDate.getDate() + 7);
 
     const nearingExpiringJobs = await jobPostModel.countDocuments({
-      // status: "active",
-      // organizationId : new ObjectId(organizationId),
-       ...commonMatchFilter,
-      jobPostExpired: false,
+      ...commonMatchFilter,
+      // jobPostExpired: false,
       expiredDate: {
         $gte: endDate,
         $lte: nearingExpiryDate
@@ -1751,10 +1877,8 @@ if (showAllDashbBoardData !== "all") {
     const activeDepartmentsResult = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
-          // status: "active",
-          // organizationId : new ObjectId(organizationId),
-          jobPostExpired: false
+          ...commonMatchFilter,
+          // jobPostExpired: false
         }
       },
       {
@@ -1772,9 +1896,8 @@ if (showAllDashbBoardData !== "all") {
     const departmentBreakdown = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
+          ...commonMatchFilter,
           // status: "active",
-          // organizationId : new ObjectId(organizationId),
           // jobPostExpired: false
         }
       },
@@ -1809,10 +1932,9 @@ if (showAllDashbBoardData !== "all") {
     const hotVacancies = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
+          ...commonMatchFilter,
           // status: "active",
-          // organizationId : new ObjectId(organizationId),
-          jobPostExpired: false
+          // jobPostExpired: false
         }
       },
       {
@@ -1864,10 +1986,10 @@ if (showAllDashbBoardData !== "all") {
     const coldVacancies = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
+          ...commonMatchFilter,
+          ...dateMatchFilter,
           // status: "active",
-          // organizationId : new ObjectId(organizationId),
-          jobPostExpired: false
+          // jobPostExpired: false
         }
       },
       {
@@ -1929,10 +2051,10 @@ if (showAllDashbBoardData !== "all") {
     const employmentTypeDistribution = await jobPostModel.aggregate([
       {
         $match: {
-           ...commonMatchFilter,
+          ...commonMatchFilter,
+          status: "active",
           // status: "active",
-          // organizationId : new ObjectId(organizationId),
-          jobPostExpired: false
+          // jobPostExpired: false
         }
       },
       {
@@ -1961,13 +2083,13 @@ if (showAllDashbBoardData !== "all") {
 
     // Response Structure matching your dashboard
     const dashboardData = {
-      totalActiveJobs: {
-        count: totalActiveJobs,
-        label: "Active Job Post"
-      },
       totalJobs: {
         count: totalJobs,
         label: "total Job Post"
+      },
+      totalActiveJobs: {
+        count: totalActiveJobs,
+        label: "Active Job Post"
       },
       totalJobsReject: {
         count: totalJobsReject,
@@ -1977,19 +2099,23 @@ if (showAllDashbBoardData !== "all") {
         count: totalJobsPending,
         label: "Job Post Pending"
       },
+      totalInActiveJobs: {
+        count: totalInActiveJobs,
+        label: "Job Posts Inactive"
+      },
       totalOpenPositions: {
         count: totalOpenPositions,
         label: "Positions"
       },
       newJobs: {
         count: newJobsCurrentPeriod,
-        label: `New (${periodInDays} Days)`,
+        label: `New (Days)`,
         percentage: newJobsPercentage,
         trend: newJobsPercentage >= 0 ? "up" : "down"
       },
       expiredJobs: {
         count: expiredJobsCurrentPeriod,
-        label: `Expired (${periodInDays} Days)`,
+        label: `Expired (Days)`,
         status: "Closed"
       },
       avgTimeOpen: {
@@ -2061,7 +2187,7 @@ if (showAllDashbBoardData !== "all") {
       data: dashboardData,
       generatedAt: new Date().toISOString(),
       year: parseInt(year),
-      periodDays: periodInDays
+      // periodDays: periodInDays?periodInDays:''
     }
     );
 
@@ -2076,37 +2202,81 @@ if (showAllDashbBoardData !== "all") {
 
 export const getDashboardAnalytics = async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), period = 7 ,showAllDashbBoardData } = req.query;
+    const { status, year = new Date().getFullYear(), period = 'all', showAllDashbBoardData, startDate: queryStartDate, endDate: queryEndDate } = req.query;
     const createdByHrId = req.employee.id
 
     const organizationId = req.employee.organizationId
-    if(!organizationId){
-      return badRequest(res , "invalid token organizationId not found")
+    if (!organizationId) {
+      return badRequest(res, "invalid token organizationId not found")
     }
 
     const commonMatchFilter = {
-  organizationId: new ObjectId(organizationId),
-        status: "active",
-};
+      organizationId: new ObjectId(organizationId),
+      // status: "active",
+    };
 
-if (showAllDashbBoardData !== "all") {
-  commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
-}
-
-    const periodInDays = parseInt(period);
-    if (isNaN(periodInDays) || periodInDays <= 0) {
-      return badRequest(res, "Invalid period value. Must be a positive number.");
+    const jobApplyMatchFilter = {
+      organizationId: new ObjectId(organizationId),
     }
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - periodInDays);
+    if (showAllDashbBoardData !== "all") {
+      commonMatchFilter.createdByHrId = new ObjectId(createdByHrId);
+    }
 
-    // Previous period for comparison
-    const previousEndDate = new Date(startDate);
-    previousEndDate.setDate(previousEndDate.getDate() - 1);
-    const previousStartDate = new Date(previousEndDate);
-    previousStartDate.setDate(previousStartDate.getDate() - periodInDays);
+    let startDate, endDate;
+    const periodInDays = parseInt(period); // ✅ Only one declaration here
+
+    if (period !== 'all') {
+      if (isNaN(periodInDays) || periodInDays <= 0) {
+        return badRequest(res, "Invalid period value.");
+      }
+
+      endDate = new Date();
+      endDate.setHours(23, 59, 59, 999);
+
+      startDate = new Date();
+      startDate.setDate(endDate.getDate() - periodInDays);
+      startDate.setHours(0, 0, 0, 0);
+
+      commonMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+      jobApplyMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+
+    } else if (queryStartDate && queryEndDate) {
+      if (queryStartDate !== 'all' && queryEndDate !== 'all') {
+        // ✅ Convert and validate custom dates
+        startDate = new Date(`${queryStartDate}T00:00:00.000Z`);
+        endDate = new Date(`${queryEndDate}T23:59:59.999Z`);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return badRequest(res, "Invalid date format.");
+        }
+
+        commonMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+        jobApplyMatchFilter.createdAt = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+
+    
+    const totalJobs = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+    });
+    const totalInActiveJobs = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+      status: 'inactive',
+    });
+
+    const totalActiveJobs = await jobPostModel.countDocuments({
+      ...commonMatchFilter,
+      status: 'active',
+    });
+
+    if (status && status !== "all") {
+      commonMatchFilter.status = status
+    } else {
+      commonMatchFilter.status = "active"
+    }
+    // console.log('commonMatchFilter',commonMatchFilter)
 
     // Run all analytics queries in parallel for better performance
     const [
@@ -2122,9 +2292,6 @@ if (showAllDashbBoardData !== "all") {
         {
           $match: {
             ...commonMatchFilter,
-            // status: "active",
-            // organizationId : new ObjectId(organizationId),
-
             // jobPostExpired: false
           }
         },
@@ -2141,10 +2308,8 @@ if (showAllDashbBoardData !== "all") {
       jobPostModel.aggregate([
         {
           $match: {
-                        ...commonMatchFilter,
-            // status: "active",
-            // organizationId : new ObjectId(organizationId),
-            jobPostExpired: false
+            ...commonMatchFilter,
+            // jobPostExpired: false
           }
         },
         {
@@ -2161,14 +2326,8 @@ if (showAllDashbBoardData !== "all") {
       jobPostModel.aggregate([
         {
           $match: {
-                        ...commonMatchFilter,
-            // status: "active",
-            // organizationId : new ObjectId(organizationId),
-            jobPostExpired: false,
-            createdAt: {
-              $gte: new Date(year, 0, 1),
-              $lte: new Date(year, 11, 31)
-            }
+            ...commonMatchFilter,
+            // jobPostExpired: false,
           }
         },
         {
@@ -2223,11 +2382,8 @@ if (showAllDashbBoardData !== "all") {
       jobPostModel.aggregate([
         {
           $match: {
-                        ...commonMatchFilter,
-            // status: "active",
-            // organizationId : new ObjectId(organizationId),
-            jobPostExpired: false,
-            createdAt: { $gte: startDate, $lte: endDate }
+            ...commonMatchFilter,
+            // jobPostExpired: false,
           }
         },
         {
@@ -2274,11 +2430,8 @@ if (showAllDashbBoardData !== "all") {
       jobPostModel.aggregate([
         {
           $match: {
-                        ...commonMatchFilter,
-            // status: "active",
-            jobPostExpired: false,
-            // organizationId : new ObjectId(organizationId),
-            createdAt: { $gte: startDate, $lte: endDate }
+            ...commonMatchFilter,
+            // jobPostExpired: false,
           }
         },
         {
@@ -2338,81 +2491,60 @@ if (showAllDashbBoardData !== "all") {
       ]),
     ]);
 
-
-
-    // const [jobApplys, shortlistedApplyStats] = await Promise.all([
-    //   jobApply.find({
-    //     // organizationId : new ObjectId(organizationId),
-    //     createdAt: { $gte: startDate, $lte: endDate }
-    //   }).select("_id"),
-
-    //   jobApply.aggregate([
-    //     {
-    //       $match: {
-    //         createdAt: { $gte: startDate, $lte: endDate },
-    //         // organizationId : new ObjectId(organizationId),
-    //         resumeShortlisted: "shortlisted"
-    //       }
-    //     },
-    //   ])
-    // ]);
-
     const [jobApplys, shortlistedApplyStats] = await Promise.all([
-  // All job applies matching the createdByHrId in jobPost
-  jobApply.aggregate([
-    {
-      $match: {
-        // organizationId: new ObjectId(organizationId),
-        createdAt: { $gte: startDate, $lte: endDate }
-      }
-    },
-    {
-      $lookup: {
-        from: "jobposts", // collection name (ensure it's correct)
-        localField: "jobPostId",
-        foreignField: "_id",
-        as: "jobPost"
-      }
-    },
-    { $unwind: "$jobPost" },
-    {
-      $match: showAllDashbBoardData === "all"
-        ? {}
-        : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
-    },
-    {
-      $project: {
-        _id: 1
-      }
-    }
-  ]),
+      jobApply.aggregate([
+        {
+          $match: {
+            ...jobApplyMatchFilter,
+          }
+        },
+        {
+          $lookup: {
+            from: "jobposts", // collection name (ensure it's correct)
+            localField: "jobPostId",
+            foreignField: "_id",
+            as: "jobPost"
+          }
+        },
+        { $unwind: "$jobPost" },
+        {
+          $match: showAllDashbBoardData === "all"
+            ? {}
+            : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
+        },
+        {
+          $project: {
+            _id: 1
+          }
+        }
+      ]),
 
-  // Only shortlisted applications created by specific employee
-  jobApply.aggregate([
-    {
-      $match: {
-        createdAt: { $gte: startDate, $lte: endDate },
-        // organizationId: new ObjectId(organizationId),
-        resumeShortlisted: "shortlisted"
-      }
-    },
-    {
-      $lookup: {
-        from: "jobposts",
-        localField: "jobPostId",
-        foreignField: "_id",
-        as: "jobPost"
-      }
-    },
-    { $unwind: "$jobPost" },
-    {
-      $match: showAllDashbBoardData === "all"
-        ? {}
-        : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
-    }
-  ])
-]);
+      // Only shortlisted applications created by specific employee
+      jobApply.aggregate([
+        {
+          $match: {
+            ...jobApplyMatchFilter,
+            resumeShortlisted: "shortlisted"
+          }
+        },
+        {
+          $lookup: {
+            from: "jobposts",
+            localField: "jobPostId",
+            foreignField: "_id",
+            as: "jobPost"
+          }
+        },
+        { $unwind: "$jobPost" },
+        {
+          $match: showAllDashbBoardData === "all"
+            ? {}
+            : { "jobPost.createdByHrId": new ObjectId(createdByHrId) }
+        }
+      ])
+    ]);
 
+    // console.log('jobApplyMatchFilter',jobApplyMatchFilter)
     // Process results
     const numberOfApplicant = totalApplicants[0]?.numberOfApplicant || 0;
     const totalApplicantsApply = totalApplicants[0]?.totalApplicants || 0;
@@ -2446,25 +2578,17 @@ if (showAllDashbBoardData !== "all") {
 
       // Chart Data for Applications by Month
       applicationsByMonth: {
-        // labels: allMonths.map(item => item.monthName),
-        // data: allMonths.map(item => item.totalApplicants),
         chartData: allMonths
       },
 
       // Chart Data for Applications by Department
       applicationsByDepartment: {
-        // labels: applicationsByDepartment.map(dept => dept.departmentName),
-        // data: applicationsByDepartment.map(dept => dept.totalApplicants),
         chartData: applicationsByDepartment,
-        // colors: ['#2196F3', '#9C27B0', '#4CAF50', '#FF9800', '#F44336', '#00BCD4']
       },
 
       // Chart Data for Top Positions
       topPositions: {
-        // labels: topPositions.map(pos => pos.position),
-        // data: topPositions.map(pos => pos.numberOfApplicant),
         chartData: topPositions,
-        // colors: ['#2196F3', '#9C27B0', '#4CAF50', '#FF9800', '#F44336', '#00BCD4']
       },
 
       workflowStatistics: {
@@ -2527,34 +2651,34 @@ export const exportJobPostsExcel = async (req, res) => {
       },
       { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
 
-    {
-  $lookup: {
-    from: "newdepartments",
-    let: { subDeptId: "$subDepartmentId" }, // assuming subDepartmentId is the field in the main document
-    pipeline: [
-      { $unwind: "$subDepartments" },
       {
-        $match: {
-          $expr: {
-            $eq: ["$subDepartments._id", "$$subDeptId"]
-          }
+        $lookup: {
+          from: "newdepartments",
+          let: { subDeptId: "$subDepartmentId" }, // assuming subDepartmentId is the field in the main document
+          pipeline: [
+            { $unwind: "$subDepartments" },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$subDepartments._id", "$$subDeptId"]
+                }
+              }
+            },
+            {
+              $project: {
+                name: "$subDepartments.name"
+              }
+            }
+          ],
+          as: "subDepartmentDetail"
         }
       },
       {
-        $project: {
-          name: "$subDepartments.name"
+        $unwind: {
+          path: "$subDepartmentDetail",
+          preserveNullAndEmptyArrays: true
         }
-      }
-    ],
-    as: "subDepartmentDetail"
-  }
-},
-{
-  $unwind: {
-    path: "$subDepartmentDetail",
-    preserveNullAndEmptyArrays: true
-  }
-},
+      },
 
       {
         $lookup: {
@@ -2576,7 +2700,7 @@ export const exportJobPostsExcel = async (req, res) => {
         },
       },
       { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
-       {
+      {
         $lookup: {
           from: "employmenttypes",
           localField: "employmentTypeId",
@@ -2588,7 +2712,7 @@ export const exportJobPostsExcel = async (req, res) => {
         $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true },
       },
 
-            {
+      {
         $lookup: {
           from: "employeetypes",
           localField: "employeeTypeId",
@@ -2607,10 +2731,10 @@ export const exportJobPostsExcel = async (req, res) => {
           expiredDate: 1,
           createdAt: 1,
           department: "$department.name",
-          subDepartment:"$subDepartmentDetail.name",
+          subDepartment: "$subDepartmentDetail.name",
           designation: "$designation.name",
-          employmentType:"$employmentType.title",
-          employeeType:"$employeeType.title",
+          employmentType: "$employmentType.title",
+          employeeType: "$employeeType.title",
           branch: "$branch.name",
         },
       },
@@ -2638,7 +2762,7 @@ export const exportJobPostsExcel = async (req, res) => {
 
 export const assignJobPostIdsToOldPosts = async (req, res) => {
   try {
-    const  organizationId  = req.employee.organizationId;
+    const organizationId = req.employee.organizationId;
 
     if (!organizationId) {
       return res.status(400).json({ message: "organizationId is required" });
@@ -2692,6 +2816,221 @@ export const assignJobPostIdsToOldPosts = async (req, res) => {
 };
 
 
+export const getJobPostDetail = async (req, res) => {
+  try {
+    const { jobPostId } = req.query;
+
+    if(!jobPostId){
+      return badRequest(res, "job Post Id Required");
+    }
+    if (!mongoose.Types.ObjectId.isValid(jobPostId)) {
+      return badRequest(res, "Invalid jobPostId");
+    }
+
+    const jobPostDetail = await jobPostModel.aggregate([
+      {
+        $match: { _id: new mongoose.Types.ObjectId(jobPostId) }
+      },
+      // 👇 Reuse the same aggregation pipeline here (remove $facet and pagination)
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "department",
+        },
+      },
+      { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newdepartments",
+          let: { subDeptId: "$subDepartmentId" },
+          pipeline: [
+            { $unwind: "$subDepartments" },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$subDepartments._id", "$$subDeptId"]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: "$subDepartments._id",
+                name: "$subDepartments.name"
+              }
+            }
+          ],
+          as: "subDepartment"
+        }
+      },
+      { $unwind: { path: "$subDepartment", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "designationId",
+          foreignField: "_id",
+          as: "desingnation",
+        },
+      },
+      {
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branch",
+        },
+      },
+      {
+        $lookup: {
+          from: "employmenttypes",
+          localField: "employmentTypeId",
+          foreignField: "_id",
+          as: "employmentType",
+        },
+      },
+      { $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "newworklocations",
+          localField: "Worklocation",
+          foreignField: "_id",
+          as: "Worklocation",
+        }
+      },
+      {
+        $lookup: {
+          from: "employeetypes",
+          localField: "employeeTypeId",
+          foreignField: "_id",
+          as: "employeeType",
+        },
+      },
+      { $unwind: { path: "$employeeType", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "employees",
+          localField: "createdByHrId",
+          foreignField: "_id",
+          as: "createdByHr",
+        },
+      },
+      { $unwind: { path: "$createdByHr", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "vacancyrequests",
+          localField: "_id",
+          foreignField: "jobPostId",
+          as: "jobId",
+        },
+      },
+      { $unwind: { path: "$jobId", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "vacancyrequests",
+          localField: "vacancyRequestId",
+          foreignField: "_id",
+          as: "vacancyRequest",
+        },
+      },
+      { $unwind: { path: "$vacancyRequest", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "subdropdowns",
+          localField: "qualificationId",
+          foreignField: "_id",
+          as: "qualification",
+        },
+      },
+      {
+        $lookup: {
+          from: "jobdescriptions",
+          localField: "vacancyRequest.jobDescriptionId",
+          foreignField: "_id",
+          as: "vacancyJobDescription",
+        },
+      },
+      { $unwind: { path: "$vacancyJobDescription", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "jobdescriptions",
+          localField: "jobDescriptionId",
+          foreignField: "_id",
+          as: "jobDescription",
+        },
+      },
+      { $unwind: { path: "$jobDescription", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "organizations",
+          localField: "organizationId",
+          foreignField: "_id",
+          as: "organization",
+        },
+      },
+      { $unwind: { path: "$organization", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          jobPostId: 1,
+          JobType: 1,
+          position: 1,
+          experience: 1,
+          numberOfApplicant: 1,
+          expiredDate: 1,
+          totalApplicants: 1,
+          noOfPosition: 1,
+          Worklocation: { _id: 1, name: 1 },
+          InterviewType: 1,
+          package: 1,
+          budget: 1,
+          budgetType: 1,
+          status: 1,
+          AgeLimit: 1,
+          gender: 1,
+          jobDescription: { _id: 1, jobDescription: 1 },
+          createdByHr: { _id: 1, employeName: 1 },
+          department: { _id: 1, name: 1 },
+          subDepartment: { _id: 1, name: 1 },
+          desingnation: { _id: 1, name: 1 },
+          organization: { _id: 1, name: 1 },
+          branch: { _id: 1, name: 1, address: 1 },
+          employmentType: { _id: 1, title: 1 },
+          qualification: 1,
+          employeeType: { _id: 1, title: 1 },
+          jobId: { _id: 1, company: 1 },
+          vacancyRequest: {
+            _id: 1,
+            vacancyType: 1,
+            vacancyApproval: 1,
+          },
+          vacancyJobDescription: {
+            _id: 1,
+            position: 1,
+            jobDescription: 1,
+          },
+          AI_Percentage: 1,
+          MaxAI_Score: 1,
+          MinAI_Score: 1,
+          AI_Screening: 1,
+          screeningCriteria: 1,
+          createdAt: 1,
+        }
+      }
+    ]);
+
+    if (!jobPostDetail.length) {
+      return notFound(res, "Job Post not found");
+    }
+
+    return success(res, "Job Post Detail", jobPostDetail[0]);
+  } catch (error) {
+    console.error("Error in job post detail:", error.message);
+    return unknownError(res, error.message);
+  }
+};
+
+
 import qualificationModel from "../../models/QualificationModel/qualification.model.js";
 import subDropDownModel from "../../models/masterDropDownModel/masterDropDownValue.model.js";
 import { returnFormatter } from "../../formatters/common.formatter.js"; // adjust to your utils path
@@ -2725,3 +3064,4 @@ export const qualificationDataUpdate = async (req, res) => {
     return res.status(500).json(returnFormatter(false, error.message));
   }
 };
+

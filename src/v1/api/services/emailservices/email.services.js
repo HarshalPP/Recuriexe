@@ -9,7 +9,7 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 // export async function sendThankuEmail(email, name, position) {
 //     try {
 //       const todayDate = new Date().toLocaleDateString("en-GB");
-  
+
 //       const transporter = nodemailer.createTransport({
 //         host: process.env.HRMS_EMAIL_HOST,
 //         port: 465,
@@ -20,7 +20,7 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 //         },
 //         tls: { rejectUnauthorized: false },
 //       });
-  
+
 //       const mailOptions = {
 //         from: process.env.HRMS_EMAIL_USER,
 //         to: email,
@@ -28,11 +28,11 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 //         html: `
 //         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
 //           <p>Dear <strong>${name}</strong>,</p>
-          
+
 //           <p>Thank you for applying for the position of <strong>${position}</strong> at <strong>Fincoopers Capital Private Limited</strong>. We have received your application and our team will review your profile shortly.</p>
-          
+
 //           <p>We appreciate your interest in joining our team and wish you the best of luck with your application process. If you are shortlisted, we will contact you for further steps.</p>
-          
+
 //           <br>
 //           <p>Best regards,</p>
 //           <p><strong>HR Department</strong></p>
@@ -40,7 +40,7 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 //         </div>
 //         `,
 //       };
-  
+
 //       await transporter.sendMail(mailOptions);
 //       console.log(`✅ Thank You email sent to ${email}`);
 //       return true;
@@ -53,15 +53,15 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 
 
 // Send Grid Connection //
-export async function sendThankuEmail(email, name, position , organizationName) {
+export async function sendThankuEmail(email, name, position, organizationName, candidateUniqueId) {
   try {
     console.log('email run ')
     const todayDate = new Date().toLocaleDateString("en-GB");
 
     const msg = {
-      from: "support@fincoopers.tech", 
+      from: "support@fincoopers.tech",
       to: email,
-      cc :"career@fincoopers.in",
+      cc: "career@fincoopers.in",
       // e.g., verified sender like hr@fincoopers.com
       subject: `Thank You for Applying for the ${position} Position at ${organizationName}`,
       html: `
@@ -84,7 +84,12 @@ export async function sendThankuEmail(email, name, position , organizationName) 
           Application Received: Recruiter Position!
         </h3>
         <p style="color: #374151; margin: 0; font-size: 16px; line-height: 1.6;">
-        Thank you for applying for the Recruiter <strong>${position}</strong> at <strong>${organizationName}</strong>!  We've successfully received your submission and appreciate your interest in our team.
+        Thank you for applying for the Recruiter <strong>${position}</strong> position at <strong>${organizationName}</strong>!  
+We've successfully received your submission and appreciate your interest in joining our team.
+
+Your Candidate ID is: <strong>${candidateUniqueId}</strong>.  
+Please keep this ID for future reference regarding your application status.
+
         </p>
       </div>
 
@@ -217,8 +222,8 @@ export const hrmsSendEmail = async (toEmails, ccEmails, subject, html, attachmen
     const attachments = Array.isArray(attachment)
       ? attachment
       : attachment
-      ? [attachment]
-      : [];
+        ? [attachment]
+        : [];
 
     const msg = {
       from: "harshal.brilliance@gmail.com",

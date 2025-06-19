@@ -1,174 +1,174 @@
 import {
-    badRequest,
-    success,
-    unknownError,
-    unauthorized,
-  } from "../../formatters/globalResponse.js"
-  import deparmentModel from "../../models/deparmentModel/deparment.model.js"
-  import designationModel from "../../models/designationModel/designation.model.js";
-  import mongoose from "mongoose";
-  import budgetModel from "../../models/budgedModel/budged.model.js"
-  
-  import {
-    addDesignation,
-    getAllDesignation,
-    getAllInactiveDesignation,
-    updateDesignation,
-    getDesignationById,
-    deactivateDesignation,
-    getDesignationFromJobApply
-  } from "../../services/designationservices/designation.service.js"
+  badRequest,
+  success,
+  unknownError,
+  unauthorized,
+} from "../../formatters/globalResponse.js"
+import deparmentModel from "../../models/deparmentModel/deparment.model.js"
+import designationModel from "../../models/designationModel/designation.model.js";
+import mongoose from "mongoose";
+import budgetModel from "../../models/budgedModel/budged.model.js"
 
-  import AIConfigModel from "../../models/AiModel/ai.model.js"
+import {
+  addDesignation,
+  getAllDesignation,
+  getAllInactiveDesignation,
+  updateDesignation,
+  getDesignationById,
+  deactivateDesignation,
+  getDesignationFromJobApply
+} from "../../services/designationservices/designation.service.js"
 
-
-  import employeModel from "../../models/employeemodel/employee.model.js";
-  import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
-  import JobApplyModel from "../../models/jobformModel/jobform.model.js";
-  import DepartmentBudget from "../../models/budgedModel/budged.model.js";
+import AIConfigModel from "../../models/AiModel/ai.model.js"
 
 
+import employeModel from "../../models/employeemodel/employee.model.js";
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
+import JobApplyModel from "../../models/jobformModel/jobform.model.js";
+import DepartmentBudget from "../../models/budgedModel/budged.model.js";
 
-import {generateAIResponse} from "../../services/Geminiservices/gemini.service.js"
-import {generateDepartmentPrompt , generateDesignationPrompt} from "../../prompt/resumeprompt.js"
 
-  
-  //-----------------------Add new designation ------------------------------
+
+import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js"
+import { generateDepartmentPrompt, generateDesignationPrompt } from "../../prompt/resumeprompt.js"
+
+
+//-----------------------Add new designation ------------------------------
 export async function addDesignationController(req, res) {
   try {
-    const { status, message, data } = await addDesignation(req.body, req.employee.id , req.employee.organizationId);
+    const { status, message, data } = await addDesignation(req.body, req.employee.id, req.employee.organizationId);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 }
 
-  
-  //----------------------------Get all designations ---------------------------------------
-  export async function getAllDesignationController(req, res) {
-    try {
-      const organizationId = req.employee.organizationId;
-      const { status, message, data } = await getAllDesignation(organizationId);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+
+//----------------------------Get all designations ---------------------------------------
+export async function getAllDesignationController(req, res) {
+  try {
+    const organizationId = req.employee.organizationId;
+    const { status, message, data } = await getAllDesignation(organizationId);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
-  
-    //----------------------------Get all designations job apply match ---------------------------------------
-  export async function getAllDesignationFromJobApply(req, res) {
-    try {
-      const organizationId = req.employee.organizationId;
-      const { status, message, data } = await getDesignationFromJobApply(organizationId);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+}
+
+//----------------------------Get all designations job apply match ---------------------------------------
+export async function getAllDesignationFromJobApply(req, res) {
+  try {
+    const organizationId = req.employee.organizationId;
+    const { status, message, data } = await getDesignationFromJobApply(organizationId);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
-  
-  //----------------------------Get all inactive designations ---------------------------------------
-  export async function getAllInactiveDesignationController(req, res) {
-    try {
-      const organizationId = req.employee.organizationId;
-      const { status, message, data } = await getAllInactiveDesignation(organizationId);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+}
+
+//----------------------------Get all inactive designations ---------------------------------------
+export async function getAllInactiveDesignationController(req, res) {
+  try {
+    const organizationId = req.employee.organizationId;
+    const { status, message, data } = await getAllInactiveDesignation(organizationId);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
-  
-  //----------------------------Get designation by ID ---------------------------------------
-  export async function getDesignationByIdController(req, res) {
-    try {
-      const { status, message, data } = await getDesignationById(req.params.designationId);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+}
+
+//----------------------------Get designation by ID ---------------------------------------
+export async function getDesignationByIdController(req, res) {
+  try {
+    const { status, message, data } = await getDesignationById(req.params.designationId);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
-  
-  //-----------------------Update designation ------------------------------
-  export async function updateDesignationController(req, res) {
-    try {
-      const { status, message, data } = await updateDesignation(req, req.body.Id, req.body);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+}
+
+//-----------------------Update designation ------------------------------
+export async function updateDesignationController(req, res) {
+  try {
+    const { status, message, data } = await updateDesignation(req, req.body.Id, req.body);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
-  
-  //---------------------------Deactivate designation ---------------------------------------------
-  export async function deactivateDesignationByIdController(req, res) {
-    try {
-      const { status, message, data } = await deactivateDesignation(req, req.params.designationId);
-      return status ? success(res, message, data) : badRequest(res, message);
-    } catch (error) {
-      return unknownError(res, error.message);
-    }
+}
+
+//---------------------------Deactivate designation ---------------------------------------------
+export async function deactivateDesignationByIdController(req, res) {
+  try {
+    const { status, message, data } = await deactivateDesignation(req, req.params.designationId);
+    return status ? success(res, message, data) : badRequest(res, message);
+  } catch (error) {
+    return unknownError(res, error.message);
   }
+}
 
 
-  // get deparment with desination //
+// get deparment with desination //
 
-  // export const getdeparmentwithdesignation = async (req, res) => {
-  //   try {
-  //     const departments = await deparmentModel.aggregate([
-  //       {
-  //         $lookup: {
-  //           from: 'newdesignations', 
-  //           localField: '_id', 
-  //           foreignField: 'departmentId', 
-  //           as: 'designations'
-  //         }
-  //       },
-  //       {
-  //         $unwind: { path: '$designations', preserveNullAndEmptyArrays: true } // Flatten the designations array
-  //       },
-  //       {
-  //         $lookup: {
-  //           from: 'jobdescriptions', 
-  //           localField: 'designations._id', 
-  //           foreignField: 'designationId', 
-  //           as: 'designations.jobDescriptions' 
-  //         }
-  //       },
-  //       {
-  //         $group: {
-  //           _id: '$_id', 
-  //           name: { $first: '$name' }, 
-  //           description: { $first: '$description' }, 
-  //           designations: { $push: '$designations' } 
-  //         }
-  //       },
-  //       {
-  //         $sort: { createdAt: -1 } // Sort by createdAt in descending order
-  //       },
-  //       {
-  //         $project: {
-  //           name: 1, 
-  //           designations: {
-  //             _id: 1,
-  //             name: 1, 
-  //             status: 1, 
-  //             jobDescriptions: {
-  //               _id: 1, 
-  //               position: 1, 
-  //               jobDescription: 1
-  //             }
-  //           }
-  //         }
-  //       }
-  //     ]);
-  
-  //     return success(res, 'Departments with designations and job descriptions fetched successfully', departments);
-  //   } catch (error) {
-  //     console.error('Error fetching departments with designations and job descriptions:', error);
-  //     return unknownError(res, error);
-  //   }
-  // };
-  
+// export const getdeparmentwithdesignation = async (req, res) => {
+//   try {
+//     const departments = await deparmentModel.aggregate([
+//       {
+//         $lookup: {
+//           from: 'newdesignations', 
+//           localField: '_id', 
+//           foreignField: 'departmentId', 
+//           as: 'designations'
+//         }
+//       },
+//       {
+//         $unwind: { path: '$designations', preserveNullAndEmptyArrays: true } // Flatten the designations array
+//       },
+//       {
+//         $lookup: {
+//           from: 'jobdescriptions', 
+//           localField: 'designations._id', 
+//           foreignField: 'designationId', 
+//           as: 'designations.jobDescriptions' 
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: '$_id', 
+//           name: { $first: '$name' }, 
+//           description: { $first: '$description' }, 
+//           designations: { $push: '$designations' } 
+//         }
+//       },
+//       {
+//         $sort: { createdAt: -1 } // Sort by createdAt in descending order
+//       },
+//       {
+//         $project: {
+//           name: 1, 
+//           designations: {
+//             _id: 1,
+//             name: 1, 
+//             status: 1, 
+//             jobDescriptions: {
+//               _id: 1, 
+//               position: 1, 
+//               jobDescription: 1
+//             }
+//           }
+//         }
+//       }
+//     ]);
 
-  export const getdeparmentwithdesignation = async (req, res) => {
+//     return success(res, 'Departments with designations and job descriptions fetched successfully', departments);
+//   } catch (error) {
+//     console.error('Error fetching departments with designations and job descriptions:', error);
+//     return unknownError(res, error);
+//   }
+// };
+
+
+export const getdeparmentwithdesignation = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
 
@@ -232,9 +232,9 @@ export async function addDesignationController(req, res) {
 };
 
 
-  // deparmnetwith desingation //
+// deparmnetwith desingation //
 
-  // First API: Get departments with their designations
+// First API: Get departments with their designations
 
 // export const getDepartmentsWithDesignations = async (req, res) => {
 //   try {
@@ -371,16 +371,16 @@ export const getDepartmentsWithDesignations = async (req, res) => {
 
 
 
-  
+
 
 
 export const getJobDescriptionsByDesignation = async (req, res) => {
   try {
     const { designationId } = req.params; // Capture designationId from the request parameters
-    
-  if(!designationId){
-    return badRequest(res , "Please Provide designation")
-  }
+
+    if (!designationId) {
+      return badRequest(res, "Please Provide designation")
+    }
 
     const designationWithJobDescriptions = await designationModel.aggregate([
       {
@@ -398,8 +398,8 @@ export const getJobDescriptionsByDesignation = async (req, res) => {
         $project: {
           name: 1, // Designation name
           jobDescriptions: {
-            _id: 1, 
-            position: 1, 
+            _id: 1,
+            position: 1,
             jobDescription: 1
           }
         }
@@ -407,7 +407,7 @@ export const getJobDescriptionsByDesignation = async (req, res) => {
     ]);
 
     if (designationWithJobDescriptions.length === 0) {
-    return badRequest(res , "jobdescription not found.")
+      return badRequest(res, "jobdescription not found.")
     }
 
     return success(res, 'Job descriptions fetched successfully', designationWithJobDescriptions[0]);
@@ -618,7 +618,7 @@ export const createBulkDesignations = async (req, res) => {
       return badRequest(res, "departmentId and non-empty designations array are required.");
     }
 
-    if(!organizationId){
+    if (!organizationId) {
       return unauthorized(res, "Organization ID is required.");
     }
     const department = await deparmentModel.findById(departmentId);
@@ -666,17 +666,17 @@ export const createBulkDesignations = async (req, res) => {
 
     const budgetEntries = inserted.map(designation => ({
       // departmentId,
-      desingationId: designation._id ,
+      desingationId: designation._id,
       departmentId: subDepartmentId || null,
       organizationId,
-      createdBy :req.employee?.id ||null,
+      createdBy: req.employee?.id || null,
       allocatedBudget: 0,
       numberOfEmployees: 0,
       status: "active"
     }));
-    
+
     await budgetModel.insertMany(budgetEntries);
-    
+
     return success(res, "Designations added successfully", inserted);
 
   } catch (error) {
@@ -685,13 +685,13 @@ export const createBulkDesignations = async (req, res) => {
   }
 };
 
-  
-  export const createMissingBudgetsForDesignations = async (req, res) => {
+
+export const createMissingBudgetsForDesignations = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
     const createdBy = req.employee.id;
 
-    if(!organizationId){
+    if (!organizationId) {
       console.log('router')
     }
     // 1. Get all designations for this organization
@@ -767,6 +767,8 @@ export const deleteDesignations = async (req, res) => {
       const isUsedInJobApply = await JobApplyModel.findOne({ position: id.name, status: "active" });
       if (isUsedInJobApply) usedIn.push("job applications");
 
+      // const isUsedInBudgets = await budgetModel.findOne({ desingationId: id, status: "active" });
+      // if (isUsedInBudgets) usedIn.push("budget");
 
       const isUsedInEmployees = await employeModel.findOne({ designationId: id, status: "active" });
       if (isUsedInEmployees) usedIn.push("Users");
@@ -782,6 +784,7 @@ export const deleteDesignations = async (req, res) => {
 
       // Safe to delete
       await designationModel.findByIdAndDelete(id);
+      await budgetModel.deleteMany({ desingationId: id });
     }
 
     const deletedCount = designationIds.length - undeletableDesignations.length;

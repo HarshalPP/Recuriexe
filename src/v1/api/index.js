@@ -113,8 +113,7 @@ import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
 import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 import socialMedia from "./routes/Linkedin/social.media.routes.js"
 
-//Gmail routes
-import authRoutes from "./routes/GmailRoute/auth.routes.js"
+
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
@@ -251,9 +250,7 @@ router.use("/organizations", organizationRoutes);
 router.use("/socialmedia", socialMedia );
 
 
-// Gmail Sending
 
-router.use("/auth",authRoutes)
 
 router.get("/googlesheet",bulkJobApplyToGoogleSheet)
 
@@ -264,5 +261,7 @@ router.use("/apis", apiRouter)
 router.use("/input",inputRouter);
 router.use("/form",formRouter);
 router.use("/value",valueRouter);
+router.use("/finalFileShare", fileShareDetail);
+
 
 export default router;

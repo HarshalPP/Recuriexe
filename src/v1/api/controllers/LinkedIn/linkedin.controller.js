@@ -42,10 +42,13 @@ export const handleCallback = asyncHandler(async (req, res) => {
   
   if (!org) throw new ApiError(400, "Invalid organization or state parameter");
 
-  const { accessToken, memberId } = await linkedinService.exchangeCodeForToken(org, code);
+  const { accessToken, memberId , name, email, picture } = await linkedinService.exchangeCodeForToken(org, code);
 
   org.accessToken = accessToken;
   org.memberId = memberId;
+  org.linkedinName = name;
+  org.linkedinEmail = email;
+  org.linkedinProfilePic = picture;
   await org.save();
 
   // res.status(200).json(new ApiResponse(200, null, "✅ LinkedIn connected successfully"));

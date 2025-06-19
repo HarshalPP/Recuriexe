@@ -10,22 +10,20 @@ import { log } from "console";
 // Create a new organization
 export const createOrganization = asyncHandler(async (req, res) => {
   
-  const { name, linkedinClientId, linkedinClientSecret, linkedinRedirectUri, description} = req.body;
+  const {  linkedinClientId, linkedinClientSecret, linkedinRedirectUri} = req.body;
   
   
   const organizationId = req.employee.organizationId;
   
-  if (!name || !linkedinClientId || !linkedinClientSecret || !linkedinRedirectUri) {
+  if (!linkedinClientId || !linkedinClientSecret || !linkedinRedirectUri) {
     throw new ApiError(400, "All fields are required");
   }
 
   const newOrg = await LinkedInOrganization.create({
-    name,
     linkedinClientId,
     linkedinClientSecret,
     linkedinRedirectUri,
     organizationId,
-    description,
   });
 
   res.status(201).json(new ApiResponse(201, newOrg, "Organization created successfully"));

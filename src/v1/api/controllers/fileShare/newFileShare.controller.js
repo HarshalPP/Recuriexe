@@ -11,7 +11,7 @@ import {
   streamFileDownload,
   uploadFile,
   uploadMultipleFiles
-} from "../../services/fileShareService/fileShare.service.js";
+} from "../../services/fileShareService/newFileShare.services.js";
 
 
 

@@ -132,19 +132,6 @@ export async function updateEmployeType(req, res) {
       return badRequest(res, "Employee Type not found");
     }
 
-    if (
-      updateFields.title &&
-      updateFields.title !== existingEmployeType.title
-    ) {
-      const isTitleExists = await employeTypeModel.findOne({
-        title: { $regex: `^${updateFields.title}$`, $options: "i" },
-      });
-
-      if (isTitleExists) {
-        return badRequest(res, "Title already exists");
-      }
-    }
-
     const updateData = await employeTypeModel.findByIdAndUpdate(
       employeeTypeId,
       updateFields,

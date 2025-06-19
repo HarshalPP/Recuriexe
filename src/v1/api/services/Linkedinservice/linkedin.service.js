@@ -15,10 +15,44 @@ import { handleSingleFileUpload, handleMultipleFileUpload } from "../../services
 import { log } from 'console';
 
 
+// export const exchangeCodeForToken = async (org, code) => {
+//   try {
+//     const tokenRes = await axios.post(
+//       'https://www.linkedin.com/oauth/v2/accessToken',
+//       qs.stringify({
+//         grant_type: 'authorization_code',
+//         code,
+//         redirect_uri: org.linkedinRedirectUri,
+//         client_id: org.linkedinClientId,
+//         client_secret: org.linkedinClientSecret,
+//       }),
+//       {
+//         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+//       }
+//     );
+    
+
+//     const accessToken = tokenRes.data.access_token;
+    
+//     const userInfoRes = await axios.get('https://api.linkedin.com/v2/userinfo', {
+//       headers: { Authorization: `Bearer ${accessToken}` },
+//     });
+
+//     console.log("userInfoRes:--",userInfoRes);
+    
+
+//     return { accessToken, memberId: userInfoRes.data.sub };
+//   } catch (error) {
+//     console.error('Error exchanging code for token:', error.response?.data || error.message);
+//     throw new ApiError(500, 'Failed to exchange authorization code for token');
+//   }
+// };
+
 export const exchangeCodeForToken = async (org, code) => {
   try {
+    // Step 1: Get Access Token
     const tokenRes = await axios.post(
-      'https://www.linkedin.com/oauth/v2/accessToken',
+      'https://www.linkedin.com/oauth/v2/accessToken', 
       qs.stringify({
         grant_type: 'authorization_code',
         code,
@@ -30,21 +64,42 @@ export const exchangeCodeForToken = async (org, code) => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       }
     );
-    
 
     const accessToken = tokenRes.data.access_token;
-    
-    const userInfoRes = await axios.get('https://api.linkedin.com/v2/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+
+    // Step 2: Get User Profile Info
+    const userInfoRes = await axios.get('https://api.linkedin.com/v2/userinfo',  {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
     });
 
-    return { accessToken, memberId: userInfoRes.data.sub };
+    const userData = userInfoRes.data;
+
+    // Extract name, email, and profile picture
+    const name = `${userData.given_name} ${userData.family_name}`.trim() || userData.name || 'Unknown';
+    const email = userData.email || '';
+    
+    let picture = '';
+    if (userData.picture) {
+      picture = userData.picture; // From OpenID Connect standard claim
+    } else if (userData.profilePicture && userData.profilePicture.displayImageURLWithFocalPoint) {
+      picture = userData.profilePicture.displayImageURLWithFocalPoint; // Fallback
+    }
+
+    return {
+      accessToken,
+      memberId: userData.sub, // Unique user ID from LinkedIn
+      name,
+      email,
+      picture
+    };
   } catch (error) {
     console.error('Error exchanging code for token:', error.response?.data || error.message);
     throw new ApiError(500, 'Failed to exchange authorization code for token');
   }
 };
-
 export const uploadImageToLinkedIn = async (accessToken, authorUrn, imageUrl) => {
   try {
     // Step 1: Initialize upload

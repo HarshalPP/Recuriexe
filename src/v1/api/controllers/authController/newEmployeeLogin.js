@@ -25,6 +25,8 @@ import PortalModel from '../../models/PortalSetUp/portalsetup.js';
 import { sendEmail1 } from '../../Utils/sendEmail.js'
 import AiScreening from '../../models/AiScreeing/AiScreening.model.js';
 import subdropDownModel from '../../models/masterDropDownModel/masterDropDownValue.model.js';
+import dotenv from 'dotenv'
+dotenv.config();
 
 
 export const newEmployeeLogin = async (req, res) => {
@@ -148,7 +150,7 @@ export const SuperAdminRegister = async (req, res) => {
 
 
     const adminRole = new roleModel({
-      roleName: "admin",
+      roleName: "SuperAdmin",
       status: "active",
       organizationId: newOrganization._id
     });
@@ -188,7 +190,7 @@ export const SuperAdminRegister = async (req, res) => {
 
     // Step 3: Update organization with userId and carrierlink
     newOrganization.userId = newEmployee._id;
-    newOrganization.carrierlink = `https://candidate-portal.fincooperstech.com/CareerPage/${newOrganization._id}`;
+    newOrganization.carrierlink = `${process.env.PORTAL_PAGE}/${newOrganization._id}`;
     await newOrganization.save();
 
 
@@ -261,7 +263,8 @@ export const SuperAdminRegister = async (req, res) => {
     // step 6:-  create a Portal //
 
     const createPortal = new PortalModel({
-      organizationId:newOrganization._id
+      organizationId:newOrganization._id,
+      bannerPhoto:"https://cdn.fincooper.in/STAGE/HRMS/IMAGE/1750155569228_Banner.png"
     })
 
     await createPortal.save();

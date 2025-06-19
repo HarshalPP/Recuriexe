@@ -35,6 +35,7 @@ const ScreeningResultSchema = new Schema({
   Accuracy: { type: Number, required: false },
   qualificationThreshold: { type: Number, required: false },
   confidenceThreshold: { type: Number, required: false },
+  ATS_Score:{type:Number ,  required:false , default:0},
   overallScore: { type: Number, required: false },
   decision: { type: String, required: false },
   breakdown: {

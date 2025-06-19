@@ -9,12 +9,14 @@ import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken ,
       jobPostapproveAndReject,
       exportJobPostsExcel,
       qualificationDataUpdate,
+      getJobPostDetail,
      } from "../../controllers/jobpostController/jobpost.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 
 router.post("/jobPostAdd" ,  verifyEmployeeToken , jobPostAdd)
 router.post("/jobPostAddDirect" , verifyEmployeeToken , jobPostAddDirect)
+router.get("/getDetail" , verifyEmployeeToken , getJobPostDetail)
 // router.post("/jobPostAddDirect " , getAllJobPostwithoutToken)
 router.post("/jobPostapproveAndReject", verifyEmployeeToken , jobPostapproveAndReject)
 router.get("/getAllJobPost"   , getAllJobPost)

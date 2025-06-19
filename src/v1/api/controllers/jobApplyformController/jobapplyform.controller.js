@@ -31,6 +31,7 @@ import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoo
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
 import AiScreening from "../../models/AiScreeing/AiScreening.model.js";
+import branchModel from "../../models/branchModel/branch.model.js" 
 // Run at 11:59 PM every day
 cron.schedule("59 23 * * *", async () => {
   try {
@@ -39,9 +40,9 @@ cron.schedule("59 23 * * *", async () => {
     const result = await jobPostModel.updateMany(
       {
         expiredDate: { $lt: now },
-        jobPostExpired: false
+        jobPostExpired: false,
       },
-      { $set: { jobPostExpired: true } }
+      { $set: { jobPostExpired: true ,status:'inactive'} }
     );
 
     console.log(`Today Job Expire ${result.modifiedCount}`);
@@ -321,6 +322,7 @@ export const jobApplyFormAdd = async (req, res) => {
     if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
       await jobPostModel.findByIdAndUpdate(jobPostId, {
         jobPostExpired: true,
+        status:'inactive'
       });
     }
 
@@ -332,7 +334,7 @@ export const jobApplyFormAdd = async (req, res) => {
       jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
       jobApplyMailSwitch?.hrmsMail?.jobApplyMail
     ) {
-      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase());
+      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
     }
     // job apply google sheete data save 
     await jobApplyToGoogleSheet(jobApplyForm._id)
@@ -349,6 +351,7 @@ export const jobApplyFormAdd = async (req, res) => {
     // }
 
     const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId: jobPost.organizationId })
+
     if (AIdata) {
       await processAIScreeningForCandidate({
         jobPostId: jobPostId,
@@ -908,6 +911,24 @@ export const getJobAppliedById = async (req, res) => {
         },
       },
       { $unwind: { path: "$designationDetail", preserveNullAndEmptyArrays: true } },
+    {
+  $lookup: {
+    from: "newbranches",
+    localField: "branchId",          // array of ObjectId(s)
+    foreignField: "_id",
+    pipeline: [
+      {
+        $project: {
+          _id: 0,
+          name: 1,
+          address: 1,
+          city: 1
+        }
+      }
+    ],
+    as: "newbrancheDetail"
+  }
+},
       {
         $lookup: {
           from: "newdepartments",
@@ -960,6 +981,10 @@ export const getJobAppliedById = async (req, res) => {
           position: 1,
           createdAt: 1,
           department: 1,
+          newbrancheDetail:{
+            name:1,
+            _id:1,
+          },
           designationDetail: {
             _id: 1,
             name: 1,
@@ -2339,7 +2364,7 @@ export const getDashboardMetrics = async (req, res) => {
     }
       else if (period == "1days") {
       startDate = new Date();
-      startDate.setDate(now.getDate() - 30);
+      startDate.setDate(now.getDate() -1);
       endDate = now;
     }
 
@@ -2638,7 +2663,7 @@ const getTopPositions = async (startDate, endDate, orgainizationId) => {
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId),
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       }
     },
     {
@@ -3233,6 +3258,12 @@ export const DeepAnalize = async (req, res) => {
     // Merge resume into main data
     if (findResume) {
       finddata.resume = findResume.resume;
+const branches = await branchModel
+  .find({ _id: { $in: findResume.branchId } })
+  .select("name address city -_id")
+  .lean();
+
+
 
       // Add userInfo object
       finddata.userInfo = {
@@ -3244,6 +3275,7 @@ export const DeepAnalize = async (req, res) => {
         JobType: findResume.JobType,
         currentCTC: findResume.currentCTC,
         expectedCTC: findResume.expectedCTC,
+        branchDetails : branches,
       };
     }
 
@@ -3376,30 +3408,48 @@ export const getAllDeepAnalyses = async (req, res) => {
 
 export const getDashboardOverview = async (req, res) => {
   try {
-    const { period, startDate, endDate, department } = req.query;
+    const { period = '30days', customStartDate, customEndDate, department } = req.query;
     const organizationId = req.employee.organizationId;
 
-    const filter = {
-      organizationId: new ObjectId(organizationId),
-    };
+    const now = new Date();
+    let startDate, endDate = now;
 
-    // Period-based filtering
-    if (period == '7d' || period == '30d') {
-      const days = parseInt(period.replace('d', ''));
-      filter.createdAt = {
-        $gte: dayjs().subtract(days, 'day').startOf('day').toDate(),
-        $lte: new Date()
-      };
-    } else if (startDate && endDate) {
-      filter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
+    // Determine date range
+    if (period === 'custom') {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
+      }
+      startDate = new Date(customStartDate);
+      endDate = new Date(customEndDate);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (period === 'all') {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+    } else {
+      startDate = new Date();
+      switch (period) {
+        case '1days':
+          startDate.setDate(startDate.getDate() - 1);
+          break;
+        case '7days':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case '90days':
+          startDate.setDate(startDate.getDate() - 90);
+          break;
+        case '30days':
+        default:
+          startDate.setDate(startDate.getDate() - 30);
+      }
     }
 
+    // Filter object
+    const filter = {
+      organizationId: new ObjectId(organizationId),
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
     if (department) filter.department = department;
 
-    // Run all dashboard queries in parallel
+    // Dashboard queries
     const [
       totalApplications,
       approvedApplications,
@@ -3446,15 +3496,7 @@ export const getDashboardOverview = async (req, res) => {
       ])
     ]);
 
-    console.log('Dashboard Overview Data:', {
-      totalApplications,
-      approvedApplications,
-      rejectedApplications,
-      avgProcessingSpeed,
-      avgConfidence,
-      departmentStats
-    })
-
+    // Calculated values
     const totalApps = totalApplications || 0;
     const approved = approvedApplications || 0;
     const rejected = rejectedApplications || 0;
@@ -3498,6 +3540,7 @@ export const getDashboardOverview = async (req, res) => {
     return unknownError(res, error);
   }
 };
+
 
 // Screening Analytics API  
 // export const getScreeningAnalytics = async (req, res) => {
@@ -3676,7 +3719,7 @@ export const getDashboardOverview = async (req, res) => {
 export const getScreeningAnalytics = async (req, res) => {
   try {
 
-    const { department, period = '30d',
+    const { department, period = '30days',
       customStartDate,
       customEndDate} = req.query;
 const now = new Date();
@@ -3696,16 +3739,16 @@ if (period == 'custom') {
 } else {
   startDate = new Date();
   switch (period) {
-    case '1d':
+    case '1days':
       startDate.setDate(startDate.getDate() - 1);
       break;
-    case '7d':
+    case '7days':
       startDate.setDate(startDate.getDate() - 7);
       break;
-    case '90d':
+    case '90days':
       startDate.setDate(startDate.getDate() - 90);
       break;
-    case '30d':
+    case '30days':
     default:
       startDate.setDate(startDate.getDate() - 30);
   }

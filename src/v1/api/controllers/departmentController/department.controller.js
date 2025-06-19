@@ -667,9 +667,74 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
 //Update Department //
 
 
+// export const updateDepartmentOrSubdepartment = async (req, res) => {
+//   try {
+//     const { departmentId, name, subDepartmentId, subDepartmentName } = req.body;
+
+//     if (!departmentId) {
+//       return badRequest(res, "Department ID is required.");
+//     }
+
+//     const department = await newDepartmentModel.findById(departmentId);
+//     if (!department) {
+//       return notFound(res, "Department not found.");
+//     }
+
+//     const responseData = {};
+
+//     // Update department name if provided
+//     if (name && typeof name === "string") {
+//       department.name = name.trim();
+//       responseData.updatedDepartment = {
+//         _id: departmentId,
+//         name: department.name,
+//       };
+//     }
+
+//     // Update sub-department if both ID and name are provided
+//     if (subDepartmentId && subDepartmentName && typeof subDepartmentName === "string") {
+//       const subDeptIndex = department.subDepartments.findIndex(
+//         (sub) => sub._id.toString() === subDepartmentId
+//       );
+
+//       if (subDeptIndex === -1) {
+//         return badRequest(res, "Sub-department not found.");
+//       }
+
+//       department.subDepartments[subDeptIndex].name = subDepartmentName.trim();
+
+//       responseData.updatedSubDepartment = {
+//         _id: subDepartmentId,
+//         name: department.subDepartments[subDeptIndex].name,
+//       };
+//     }
+
+//     await department.save();
+
+//     if (!responseData.updatedDepartment && !responseData.updatedSubDepartment) {
+//       return badRequest(res, "No valid update fields provided.");
+//     }
+
+//     return success(res, {
+//       message: "Update successful",
+//       ...responseData,
+//     });
+
+//   } catch (error) {
+//     console.log(error);
+//     return unknownError(res, error.message);
+//   }
+// };
+
 export const updateDepartmentOrSubdepartment = async (req, res) => {
   try {
-    const { departmentId, name, subDepartmentId, subDepartmentName } = req.body;
+    const {
+      departmentId,
+      name,
+      subDepartmentId,
+      subDepartmentName,
+      newSubDepartments = [],
+    } = req.body;
 
     if (!departmentId) {
       return badRequest(res, "Department ID is required.");
@@ -682,7 +747,7 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
 
     const responseData = {};
 
-    // Update department name if provided
+    // Update department name
     if (name && typeof name === "string") {
       department.name = name.trim();
       responseData.updatedDepartment = {
@@ -691,7 +756,7 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
       };
     }
 
-    // Update sub-department if both ID and name are provided
+    // Update sub-department name by ID
     if (subDepartmentId && subDepartmentName && typeof subDepartmentName === "string") {
       const subDeptIndex = department.subDepartments.findIndex(
         (sub) => sub._id.toString() === subDepartmentId
@@ -709,9 +774,22 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
       };
     }
 
+    // Add new sub-departments
+    if (Array.isArray(newSubDepartments) && newSubDepartments.length > 0) {
+      const formattedSubs = newSubDepartments
+        .filter((s) => s.name && typeof s.name === "string")
+        .map((s) => ({
+          name: s.name.trim(),
+          isActive: s.isActive !== false, // default to true if not set
+        }));
+
+      department.subDepartments.push(...formattedSubs);
+      responseData.addedSubDepartments = formattedSubs;
+    }
+
     await department.save();
 
-    if (!responseData.updatedDepartment && !responseData.updatedSubDepartment) {
+    if (!Object.keys(responseData).length) {
       return badRequest(res, "No valid update fields provided.");
     }
 
@@ -725,6 +803,7 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
     return unknownError(res, error.message);
   }
 };
+
 
 
 

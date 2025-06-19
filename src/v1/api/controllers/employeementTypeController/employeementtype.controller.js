@@ -104,19 +104,10 @@ export async function updateEmploymentType(req, res) {
       return badRequest(res, "Invalid Employment Type ID");
     }
 
-    const { title, punchOutsideBranch } = req.body;
+    const { title } = req.body;
 
     if (!title || title.trim() === "") {
       return badRequest(res, "Title is required and cannot be empty");
-    }
-
-    if (!punchOutsideBranch) {
-      return badRequest(res, "Punch Outside Branch is required and cannot be empty");
-    }
-
-    const validModes = ["allowed", "notAllowed"];
-    if (!validModes.includes(punchOutsideBranch)) {
-      return badRequest(res, "Punch Outside Branch must be allowed or notAllowed");
     }
 
     const existingEmploymentType = await employmentTypeModel.findById(employementTypeId);
@@ -124,18 +115,6 @@ export async function updateEmploymentType(req, res) {
       return badRequest(res, "Employment Type not found");
     }
 
-    if (
-      updateFields.title &&
-      updateFields.title !== existingEmploymentType.title
-    ) {
-      const isTitleExists = await employmentTypeModel.findOne({
-        title: { $regex: `^${updateFields.title}$`, $options: "i" },
-      });
-
-      if (isTitleExists) {
-        return badRequest(res, "Title already exists");
-      }
-    }
 
     const updateData = await employmentTypeModel.findByIdAndUpdate(
       employementTypeId,
