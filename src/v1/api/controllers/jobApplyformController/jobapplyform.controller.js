@@ -328,14 +328,16 @@ export const jobApplyFormAdd = async (req, res) => {
 
     success(res, "Job Applied Successfully", jobApplyForm);
 
-    const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
-    if (
-      jobApplyMailSwitch?.masterMailStatus &&
-      jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
-      jobApplyMailSwitch?.hrmsMail?.jobApplyMail
-    ) {
-      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
-    }
+    // const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
+    // if (
+    //   jobApplyMailSwitch?.masterMailStatus &&
+    //   jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
+    //   jobApplyMailSwitch?.hrmsMail?.jobApplyMail
+    // ) {
+    //   await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
+    // }
+
+    
     // job apply google sheete data save 
     await jobApplyToGoogleSheet(jobApplyForm._id)
 

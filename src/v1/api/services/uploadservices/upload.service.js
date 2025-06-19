@@ -31,7 +31,7 @@ import uploadToSpaces from "../spaceservices/space.service.js"
 // };
 
 
-export const handleSingleFileUpload = async (file, folderName = 'uploads') => {
+export const handleSingleFileUpload = async (file, folderName = 'DOCS') => {
   const allowedMimeTypes = [
     'image/jpeg',
     'image/png',
@@ -61,7 +61,7 @@ export const handleSingleFileUpload = async (file, folderName = 'uploads') => {
     contentType.includes('excel') ||
     contentType === 'text/plain'
   ) {
-    fileTypeFolder = 'DOCS';
+    fileTypeFolder = folderName;
   }
 
   const filePathInBucket = `${process.env.PATH_BUCKET}/HRMS/${fileTypeFolder}/${timestamp}_${file.originalname}`;

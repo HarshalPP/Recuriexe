@@ -16,13 +16,16 @@ import { PostgetAnalytics } from '../../services/Linkedinservice/linkedin.servic
 import PostedContent from '../../models/LinkedIn/PostedContent.js';
 import  {generateLinkedInPost}  from '../../services/Linkedinservice/linkedin.service.js';
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
+import { success, unknownError, serverValidation, badRequest, notFound } from "../../formatters/globalResponse.js"
 
 // Redirect to LinkedIn auth
 export const redirectToLinkedIn = asyncHandler(async (req, res) => {
   const { orgId } = req.query;
 
   const org = await LinkedInOrganization.findById(orgId);
-  if (!org) throw new ApiError(404, "Organization not found");
+
+  if (!org) return badRequest(res,"Organization not found")
+
 
   const state = orgId;
   const scope = 'openid profile email w_member_social';
@@ -38,9 +41,13 @@ export const handleCallback = asyncHandler(async (req, res) => {
   // console.log(code);
   
   const org = await LinkedInOrganization.findById(orgId);
+
+  if(!org){
+    return badRequest(res , "Invalid organization or state parameter")
+  }
   // console.log(org);
   
-  if (!org) throw new ApiError(400, "Invalid organization or state parameter");
+  // if (!org) throw new ApiError(400, "Invalid organization or state parameter");
 
   const { accessToken, memberId , name, email, picture } = await linkedinService.exchangeCodeForToken(org, code);
 
@@ -287,11 +294,13 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
 
   // Input validation
   if (!Array.isArray(postIds) || postIds.length === 0) {
-    throw new ApiError(400, "At least one post ID must be provided");
+    // throw new ApiError(400, "At least one post ID must be provided");
+    return badRequest(res , "At least one post ID must be provided")
   }
 
   if (!Array.isArray(orgs) || orgs.length === 0) {
-    throw new ApiError(400, "At least one organization must be provided");
+    // throw new ApiError(400, "At least one organization must be provided");
+    return badRequest(res , "At least one organization must be provided")
   }
 
   // Fetch drafts
@@ -301,7 +310,8 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
   });
 
   if (!drafts.length) {
-    throw new ApiError(404, "No drafts found for the given IDs");
+    // throw new ApiError(404, "No drafts found for the given IDs");
+    return badRequest(res , "No drafts found for the given IDs")
   }
 
   const results = [];
@@ -314,7 +324,11 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
         select: '_id'
       });
 
-      if (!OrganisationId) throw new ApiError(404, `Organization not found: ${orgId}`);
+      // if (!OrganisationId) throw new ApiError(404, `Organization not found: ${orgId}`);
+
+      if(!OrganisationId){
+        return badRequest(res , `Organization not found: ${orgId}`)
+      }
 
       const orgIdFromRef = OrganisationId.organizationId?._id;
       const linkedInOrg = await LinkedInOrganization.findById(orgId);
@@ -426,7 +440,6 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
                   );
                 }
               }
-
               return {
                 status: 'success',
                 orgId,
@@ -503,9 +516,314 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
     })
   );
 
-  return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
+  // return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
+  return success(res , "✅ Posts processed successfully", results); 
 });
 
+export const postSingleContentWithFilesUGC = asyncHandler(async (req, res) => {
+  const { orgs, message, imageUrls = [], scheduleTimes } = req.body;
+  const imageFiles = req.files || [];
+
+  // Input validation
+  if (!message || typeof message !== 'string') {
+    return badRequest(res, "Message is required");
+  }
+
+  if (!Array.isArray(orgs) || orgs.length === 0) {
+    return badRequest(res, "At least one organization must be provided");
+  }
+
+  const results = [];
+
+  // Process each organization
+  await Promise.all(
+    orgs.map(async ({ orgId, scheduleTimes }) => {
+      const linkedInOrg = await LinkedInOrganization.findById(orgId).populate('organizationId');
+
+      if (!linkedInOrg) {
+        return badRequest(res, `Organization not found: ${orgId}`);
+      }
+
+      if (!linkedInOrg?.accessToken) {
+        results.push({
+          status: 'failed',
+          orgId,
+          error: "LinkedIn not connected for this organization"
+        });
+        return;
+      }
+
+      let validScheduleTimes = [];
+      if (scheduleTimes && Array.isArray(scheduleTimes)) {
+        validScheduleTimes = scheduleTimes
+          .map(t => new Date(t))
+          .filter(date => !isNaN(date.getTime()));
+      }
+
+      const orgIdFromRef = linkedInOrg.organizationId?._id;
+
+      const postJob = async (scheduledPostId = null) => {
+        try {
+          let filesToPost = [];
+
+          if (scheduledPostId) {
+            const scheduledPost = await ScheduledPost.findById(scheduledPostId);
+            if (scheduledPost.imageFiles?.length > 0) {
+              filesToPost = await Promise.all(
+                scheduledPost.imageFiles.map(async (fileInfo) => ({
+                  buffer: await fs.readFile(fileInfo.path),
+                  mimetype: fileInfo.mimetype,
+                  originalname: fileInfo.filename
+                }))
+              );
+            }
+          } else {
+            filesToPost = [...imageFiles];
+          }
+
+          const result = await linkedinService.postToLinkedInWithFilesUGC(
+            linkedInOrg,
+            message,
+            imageUrls,
+            filesToPost
+          );
+
+          if (scheduledPostId) {
+            await ScheduledPost.findByIdAndUpdate(scheduledPostId, {
+              $set: {
+                orgId: linkedInOrg._id,
+                status: 'posted',
+                linkedinPostId: result.id,
+                organizationId: orgIdFromRef,
+                postedAt: new Date()
+              }
+            });
+
+            const scheduledPost = await ScheduledPost.findById(scheduledPostId);
+            if (scheduledPost.imageFiles?.length > 0) {
+              await Promise.all(
+                scheduledPost.imageFiles.map(async (fileInfo) => {
+                  try {
+                    await fs.unlink(fileInfo.path);
+                  } catch (err) {
+                    console.error('Error deleting file:', err);
+                  }
+                })
+              );
+            }
+          }
+
+          results.push({
+            status: 'success',
+            orgId,
+            result
+          });
+
+        } catch (error) {
+          console.error("❌ Error in post:", error);
+
+          if (scheduledPostId) {
+            await ScheduledPost.findByIdAndUpdate(scheduledPostId, {
+              $set: {
+                status: 'failed',
+                error: error.message
+              }
+            });
+          }
+
+          results.push({
+            status: 'failed',
+            orgId,
+            error: error.message
+          });
+        }
+      };
+
+      if (validScheduleTimes.length === 0) {
+        await postJob();
+      } else {
+        for (const scheduleDate of validScheduleTimes) {
+          const jobName = `linkedin-post-${uuidv4()}`;
+          const savedFileInfo = imageFiles.map(file => ({
+            filename: `${uuidv4()}-${file.originalname}`,
+            path: path.join('uploads', 'scheduled', `${uuidv4()}-${file.originalname}`),
+            mimetype: file.mimetype,
+            size: file.size
+          }));
+
+          // Save files to disk
+          await Promise.all(
+            imageFiles.map(async (file, i) => {
+              await fs.mkdir(path.dirname(savedFileInfo[i].path), { recursive: true });
+              await fs.writeFile(savedFileInfo[i].path, file.buffer);
+            })
+          );
+
+          const scheduledPost = await ScheduledPost.create({
+            orgId,
+            message,
+            imageUrls,
+            imageFiles: savedFileInfo,
+            scheduleTime: scheduleDate,
+            organizationId: orgIdFromRef,
+            jobId: uuidv4(),
+            jobName
+          });
+
+          const job = schedule.scheduleJob(jobName, scheduleDate, async () => {
+            await postJob(scheduledPost._id);
+            scheduledJobs.delete(jobName);
+          });
+
+          scheduledJobs.set(jobName, job);
+
+          results.push({
+            status: 'scheduled',
+            orgId,
+            scheduledPostId: scheduledPost._id,
+            jobName,
+            scheduledTime: scheduleDate.toISOString()
+          });
+        }
+      }
+    })
+  );
+
+  return success(res, "✅ Posts processed successfully", results);
+});
+
+export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
+  const { postId } = req.body;
+  const imageFiles = req.files || [];
+
+  // Input validation
+  if (!postId) {
+    return badRequest(res, "Post ID is required");
+  }
+
+  // Fetch draft
+  const draft = await PostedContent.findById(postId).where({ status: 'draft' });
+
+  if (!draft) {
+    return badRequest(res, "Draft not found or already posted");
+  }
+
+  const { message, imageUrls, mediaFiles, orgIds, jobId } = draft;
+
+  const results = [];
+
+  // Process each orgId from the draft.orgIds array
+  await Promise.all(
+    orgIds.map(async ({ orgId }) => {
+      const linkedInOrg = await LinkedInOrganization.findById(orgId).populate('organizationId');
+
+      if (!linkedInOrg) {
+        results.push({
+          status: 'failed',
+          orgId,
+          error: "Organization not found"
+        });
+        return;
+      }
+
+      if (!linkedInOrg.accessToken) {
+        results.push({
+          status: 'failed',
+          orgId,
+          error: "LinkedIn not connected for this organization"
+        });
+        return;
+      }
+
+      const orgIdFromRef = linkedInOrg.organizationId?._id;
+
+      // Filter files specific to this draft
+      const draftImageFiles = imageFiles.filter(file =>
+        file.fieldname === `draft-${postId.toString()}`
+      );
+
+      let combinedMediaFiles = [...(mediaFiles || []), ...draftImageFiles];
+
+      let savedFileInfo = combinedMediaFiles.map(file => ({
+        filename: file.filename || `${uuidv4()}-${file.originalname}`,
+        path: file.path || path.join('uploads', 'scheduled', `${uuidv4()}-${file.originalname}`),
+        mimetype: file.mimetype,
+        size: file.size
+      }));
+
+      // Save files to disk if needed
+      if (draftImageFiles.length > 0) {
+        await Promise.all(
+          draftImageFiles.map(async (file) => {
+            const fileInfo = savedFileInfo.find(f => f.originalname === file.originalname);
+            await fs.mkdir(path.dirname(fileInfo.path), { recursive: true });
+            await fs.writeFile(fileInfo.path, file.buffer);
+          })
+        );
+      }
+
+      // Prepare files for posting
+      const filesToPost = await Promise.all(
+        savedFileInfo.map(async (fileInfo) => ({
+          buffer: await fs.readFile(fileInfo.path),
+          mimetype: fileInfo.mimetype,
+          originalname: fileInfo.filename
+        }))
+      );
+
+      try {
+        const result = await linkedinService.postToLinkedInWithFilesUGC(
+          linkedInOrg,
+          message,
+          imageUrls || [],
+          filesToPost
+        );
+
+        console.log("✅ Content posted to LinkedIn", result);
+
+        // Update draft with orgId and status
+        await PostedContent.findByIdAndUpdate(postId, {
+          $set: {
+            status: 'posted',
+            [`orgIds.$[elem].postedAt`]: new Date(),
+            [`orgIds.$[elem].linkedinPostId`]: result.id,
+            [`orgIds.$[elem].status`]: 'posted'
+          }
+        }, {
+          arrayFilters: [{ "elem.orgId": orgId }]
+        });
+
+        results.push({
+          status: 'success',
+          orgId,
+          postId,
+          result
+        });
+
+      } catch (error) {
+        console.error(`❌ Error posting to org ${orgId}:`, error);
+
+        // Mark this org as failed in the draft
+        await PostedContent.findByIdAndUpdate(postId, {
+          $set: {
+            [`orgIds.$[elem].status`]: 'failed',
+            [`orgIds.$[elem].error`]: error.message
+          }
+        }, {
+          arrayFilters: [{ "elem.orgId": orgId }]
+        });
+
+        results.push({
+          status: 'failed',
+          orgId,
+          error: error.message
+        });
+      }
+    })
+  );
+
+  return success(res, "✅ Draft posted to all organizations", results);
+});
 // export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => {
 //   const { postIds, orgId, scheduleTimes } = req.body;
 //   const imageFiles = req.files || [];
@@ -735,11 +1053,13 @@ export const cancelScheduledPost = asyncHandler(async (req, res) => {
 
   const scheduledPost = await ScheduledPost.findById(scheduledPostId);
   if (!scheduledPost) {
-    throw new ApiError(404, "Scheduled post not found");
+    // throw new ApiError(404, "Scheduled post not found");
+    return badRequest(res , "Scheduled post not found")
   }
 
   if (scheduledPost.status !== 'scheduled') {
-    throw new ApiError(400, `Cannot cancel post with status: ${scheduledPost.status}`);
+    // throw new ApiError(400, `Cannot cancel post with status: ${scheduledPost.status}`);
+    return badRequest( res , `Cannot cancel post with status: ${scheduledPost.status}`)
   }
 
   // Cancel the job
@@ -764,9 +1084,11 @@ export const cancelScheduledPost = asyncHandler(async (req, res) => {
     }
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, scheduledPost, "✅ Scheduled post cancelled successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, scheduledPost, "✅ Scheduled post cancelled successfully")
+  // );
+
+  return success(res , "✅ Scheduled post cancelled successfully" , scheduledPost)
 });
 
 // Reschedule post
@@ -775,25 +1097,30 @@ export const reschedulePost = asyncHandler(async (req, res) => {
   const { newScheduleTime } = req.body;
 
   if (!newScheduleTime) {
-    throw new ApiError(400, "newScheduleTime is required");
+    // throw new ApiError(400, "newScheduleTime is required");
+    return badRequest( res , "newScheduleTime is required")
   }
 
   const scheduledPost = await ScheduledPost.findById(scheduledPostId);
   if (!scheduledPost) {
-    throw new ApiError(404, "Scheduled post not found");
+    // throw new ApiError(404, "Scheduled post not found");
+        return badRequest( res , "Scheduled post not found")
   }
 
   if (scheduledPost.status !== 'scheduled') {
-    throw new ApiError(400, `Cannot reschedule post with status: ${scheduledPost.status}`);
+    return badRequest(res , `Cannot reschedule post with status: ${scheduledPost.status}`)
+    // throw new ApiError(400, `Cannot reschedule post with status: ${scheduledPost.status}`);
   }
 
   const newScheduleDate = new Date(newScheduleTime);
   if (isNaN(newScheduleDate.getTime())) {
-    throw new ApiError(400, "Invalid newScheduleTime format");
+    // throw new ApiError(400, "Invalid newScheduleTime format");
+    return badRequest(res , "Invalid newScheduleTime format")
   }
 
   if (newScheduleDate <= new Date()) {
-    throw new ApiError(400, "New schedule time must be in the future");
+    // throw new ApiError(400, "New schedule time must be in the future");
+    return badRequest(res , "New schedule time must be in the future")
   }
 
   // Cancel existing job
@@ -833,16 +1160,22 @@ export const reschedulePost = asyncHandler(async (req, res) => {
     timeZone: 'UTC' 
   });
 
-  return res.status(200).json(
-    new ApiResponse(200, {
-      scheduledPost,
+  // return res.status(200).json(
+  //   new ApiResponse(200, {
+  //     scheduledPost,
+  //     newScheduledTime: displayTime,
+  //     newScheduledTimeISO: newScheduleDate.toISOString()
+  //   }, `✅ Post rescheduled for ${displayTime}`)
+  // );
+
+  return success(res , `✅ Post rescheduled for ${displayTime}` , {
+     scheduledPost,
       newScheduledTime: displayTime,
       newScheduledTimeISO: newScheduleDate.toISOString()
-    }, `✅ Post rescheduled for ${displayTime}`)
-  );
+  })
 });
 
-// Get all scheduled posts
+// Get all  posts
 export const getAllPostByorgId = asyncHandler(async (req, res) => {
   const { orgId } = req.query;
   const { status } = req.query;
@@ -861,12 +1194,43 @@ export const getAllPostByorgId = asyncHandler(async (req, res) => {
     .populate('orgId', 'name')
     .sort({ postedAt: -1 });
 
-  return res.status(200).json(
-    new ApiResponse(200, {
-      scheduledPosts,
-      postedContents
-    }, "✅ Posts retrieved successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, {
+  //     scheduledPosts,
+  //     postedContents
+  //   }, "✅ Posts retrieved successfully")
+  // );
+
+  return success(res , "✅ Posts retrieved successfully" ,  {
+     scheduledPosts,
+    postedContents
+  })
+});
+
+//get all Scheduled Posts
+export const getAllScheduledPosts = asyncHandler(async (req, res) => {
+  const { orgId } = req.query;
+
+  const query = {
+    status: "scheduled" // Only scheduled posts
+  };
+
+  if (orgId) {
+    query.orgId = orgId;
+  }
+
+  const scheduledPosts = await ScheduledPost.find(query)
+    .populate('orgId', 'name') // populate organization name
+    .sort({ scheduleTime: 1 }); // sort by scheduled time ascending
+
+  // return res.status(200).json(
+  //   new ApiResponse(200, {
+  //     scheduledPosts
+  //   }, "✅ Scheduled posts retrieved successfully")
+  // );
+
+
+  return success(res , "✅ Scheduled posts retrieved successfully" , scheduledPosts)
 });
 
 // Delete posted content from LinkedIn
@@ -875,12 +1239,14 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
   const { orgId } = req.body;
 
   if (!orgId || !postId) {
-    throw new ApiError(400, "orgId and postId are required");
+    // throw new ApiError(400, "orgId and postId are required");
+    return badRequest(res , "orgId and postId are required")
   }
 
   const org = await LinkedInOrganization.findById(orgId);
   if (!org?.accessToken) {
-    throw new ApiError(403, "LinkedIn not connected for this organization");
+    // throw new ApiError(403, "LinkedIn not connected for this organization");
+    return badRequest(res , "LinkedIn not connected for this organization")
   }
 
   try {
@@ -903,7 +1269,8 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
     console.log("Found PostedContent:", postedContent);
 
     if (!scheduledPost && !postedContent) {
-      throw new ApiError(404, "No matching posts found to delete in database");
+      return notFound(res , "No matching posts found to delete in database")
+      // throw new ApiError(404, "No matching posts found to delete in database");
     }
 
     let updatedScheduledPost = null;
@@ -938,16 +1305,24 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
       );
     }
 
-    return res.status(200).json(
-      new ApiResponse(200, {
+    // return res.status(200).json(
+    //   new ApiResponse(200, {
+    //     deletedPostId: postId,
+    //     method: deleteResult.method,
+    //     alreadyDeleted: deleteResult.alreadyDeleted || false,
+    //     updatedRecord: Boolean(updatedScheduledPost || updatedPostedContent)
+    //   }, deleteResult.alreadyDeleted ?
+    //     "✅ Post was already deleted from LinkedIn" :
+    //     "✅ Post deleted from LinkedIn successfully")
+    // );
+
+
+    return success( res , "Update" , {
         deletedPostId: postId,
         method: deleteResult.method,
         alreadyDeleted: deleteResult.alreadyDeleted || false,
         updatedRecord: Boolean(updatedScheduledPost || updatedPostedContent)
-      }, deleteResult.alreadyDeleted ?
-        "✅ Post was already deleted from LinkedIn" :
-        "✅ Post deleted from LinkedIn successfully")
-    );
+      } )
 
   } catch (error) {
     console.error('❌ Failed to delete LinkedIn post:', error);
@@ -976,9 +1351,11 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
         }
       );
 
-      return res.status(200).json(
-        new ApiResponse(200, { deletedPostId: postId }, "✅ Post was already deleted from LinkedIn")
-      );
+      // return res.status(200).json(
+      //   new ApiResponse(200, { deletedPostId: postId }, "✅ Post was already deleted from LinkedIn")
+      // );
+
+      return success(res , "✅ Post was already deleted from LinkedIn" , { deletedPostId: postId })
     }
 
     throw error;
@@ -995,20 +1372,25 @@ export const getLinkedInAnalytics = asyncHandler(async (req, res) => {
   
 
   if (!organizationId || typeof organizationId !== 'string') {
-    throw new ApiError(400, "Valid Organization ID is required");
+    // throw new ApiError(400, "Valid Organization ID is required");
+    return badRequest(res , "Valid Organization ID is required")
   }
+
 
   let analytics;
   try {
     analytics = await PostgetAnalytics(organizationId);
   } catch (error) {
     console.error("❌ Error fetching LinkedIn analytics:", error.message);
-    throw new ApiError(500, "Failed to fetch LinkedIn analytics");
+    return unknownError(res, "Failed to fetch LinkedIn analytics")
+    // throw new ApiError(500, "Failed to fetch LinkedIn analytics");
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, analytics, "✅ LinkedIn analytics fetched successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, analytics, "✅ LinkedIn analytics fetched successfully")
+  // );
+
+  return badRequest(res , "✅ LinkedIn analytics fetched successfully" , analytics)
 });
 
 //  saveDraftPost
@@ -1017,14 +1399,14 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
   const imageFiles = req.files || [];
 
   if (!Array.isArray(jobs) || jobs.length === 0) {
-    throw new ApiError(400, "Request body must be a non-empty array of jobs");
+    return badRequest(res, "Request body must be a non-empty array of jobs");
   }
 
   const results = [];
 
   await Promise.all(
     jobs.map(async (job) => {
-      const { jobId, message, imageUrls } = job;
+      const { jobId, message, imageUrls, orgs } = job;
 
       // Validate required fields
       if (!jobId || !message) {
@@ -1032,6 +1414,16 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
           jobId,
           status: 'failed',
           error: "Missing jobId or message"
+        });
+        return;
+      }
+
+      // Ensure orgs is an array and not empty
+      if (!Array.isArray(orgs) || orgs.length === 0) {
+        results.push({
+          jobId,
+          status: 'failed',
+          error: "At least one org must be provided"
         });
         return;
       }
@@ -1049,17 +1441,24 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
 
       const jobPosition = jobData.position || "Not specified";
 
-      // Filter files specific to this job (e.g., fieldname = `draft-${jobId}`)
+      // Filter files specific to this job
       const jobImageFiles = imageFiles.filter(file =>
         file.fieldname === `draft-${jobId}`
       );
+
+      // Prepare orgIds array with optional scheduleTime
+      const orgIds = orgs.map(({ orgId, scheduleTime }) => ({
+        orgId,
+        ...(scheduleTime && { scheduleTime })
+      }));
 
       const draftData = {
         jobId,
         message,
         imageUrls: imageUrls || [],
         position: jobPosition,
-        status: 'draft'
+        status: 'draft',
+        orgIds // <-- Saving array of orgIds here
       };
 
       if (jobImageFiles.length > 0) {
@@ -1089,9 +1488,7 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
     })
   );
 
-  return res.status(201).json(
-    new ApiResponse(201, results, "✅ Draft posts saved successfully")
-  );
+  return success(res, "✅ Draft posts saved successfully", results);
 });
 
 // Edit the draft 
@@ -1104,7 +1501,8 @@ export const editDraftPost = asyncHandler(async (req, res) => {
   const draft = await PostedContent.findOne({ _id: draftId, status: 'draft' });
 
   if (!draft) {
-    throw new ApiError(404, "Draft post not found or already published");
+    // throw new ApiError(404, "Draft post not found or already published");
+    return badRequest(res , "Draft post not found or already published")
   }
 
   // Update fields
@@ -1123,9 +1521,11 @@ export const editDraftPost = asyncHandler(async (req, res) => {
 
   await draft.save();
 
-  return res.status(200).json(
-    new ApiResponse(200, draft, "✅ Draft post updated successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, draft, "✅ Draft post updated successfully")
+  // );
+
+  return success(res , "✅ Draft post updated successfully" , draft)
 });
 
 
@@ -1133,9 +1533,10 @@ export const editDraftPost = asyncHandler(async (req, res) => {
 export const getDraftPosts = asyncHandler(async (req, res) => {
   const draftPosts = await PostedContent.find({ status: 'draft' }).sort({ createdAt: -1 });
 
-  return res.status(200).json(
-    new ApiResponse(200, draftPosts, "✅ Draft posts fetched successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, draftPosts, "✅ Draft posts fetched successfully")
+  // );
+  return success(res  , "✅ Draft posts fetched successfully" , draftPosts)
 });
 
 // Generate a LinkedIn job post using Gemini AI
@@ -1232,19 +1633,22 @@ export const generatePostText = asyncHandler(async (req, res) => {
   const { jobIds } = req.params;
   
     if (!jobIds || typeof jobIds !== 'string') {
-    throw new ApiError(400, "Job IDs must be provided as comma-separated string");
+    // throw new ApiError(400, "Job IDs must be provided as comma-separated string");
+    return badRequest( res , "Job IDs must be provided as comma-separated string")
   }
 
   const jobIdList = jobIds.split(',').map(id => id.trim());
 
   if (jobIdList.length === 0) {
-    throw new ApiError(400, "At least one job ID must be provided");
+    // throw new ApiError(400, "At least one job ID must be provided");
+    return badRequest(res , "At least one job ID must be provided")
   }
 
   // Fetch all job positions
   const jobPositionDocs = await jobPostModel.find({ _id: { $in: jobIdList } }).select('position');
   if (!jobPositionDocs || jobPositionDocs.length === 0) {
-    throw new ApiError(404, "No job found.");
+    // throw new ApiError(404, "No job found.");
+    return badRequest(res , "No job found.")
   }
 
   const positions = jobPositionDocs.map(doc => doc.position).filter(Boolean);
@@ -1254,7 +1658,8 @@ export const generatePostText = asyncHandler(async (req, res) => {
     .populate('departmentId subDepartmentId employmentTypeId Worklocation qualificationId package jobDescriptionId organizationId');
 
   if (!jobData) {
-    throw new ApiError(404, "Main job not found.");
+    // throw new ApiError(404, "Main job not found.");
+    return badRequest(res , "Main job not found.")
   }
 
   /* 1.  Create a PostedContent document in “processing” state */
@@ -1265,11 +1670,19 @@ export const generatePostText = asyncHandler(async (req, res) => {
   });
 
   /* 2.  Send early response so gateway never times out */
-  res.status(202).json({
+  // res.status(202).json({
+  //   message: 'Post generation started. Please wait while we fetch and process the data.',
+  //   id: cacheDoc._id.toString(),
+  //   status: 'processing'
+  // });
+
+   success(res , "created" , {
+
     message: 'Post generation started. Please wait while we fetch and process the data.',
     id: cacheDoc._id.toString(),
     status: 'processing'
-  });
+
+  })
 
   /* 3.  Heavy work happens after the response */
   generateLinkedInPost(positions, jobData)
@@ -1296,11 +1709,15 @@ export const getPostGenStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const doc = await PostedContent.findById(id).lean();
 
-  if (!doc) throw new ApiError(404, 'Generation task not found');
+  // if (!doc) throw new ApiError(404, 'Generation task not found');
+  if(!doc){
+    return badRequest(res , "Generation task not found")
+  }
 
   // 202 until ready, 200 when done
   const httpCode = doc.status === 'ready' ? 200 : 202;
-  res.status(httpCode).json(doc);
+  return success(res , `${httpCode}`, doc)
+  // res.status(httpCode).json(doc);
 });
 
 

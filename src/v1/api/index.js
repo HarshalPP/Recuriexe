@@ -74,7 +74,7 @@ import notesDetail from './routes/notesRoutes/notes.routes.js'
 
 //  FILE SHARE STORE
 // import fileShareDetail from './routes/fileShareRoutes/fileShare.routes.js'
-import fileShareDetail from './routes/fileShareRoutes/newfileShare.routes.js'
+import fileShareDetail from './routes/fileShareRoutes/finalFileShareRoutes.js'
 
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"

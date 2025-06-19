@@ -5,8 +5,9 @@ import {
   createNewFolder,
   uploadSingleFile,
   searchFilesAndFolders,
-  advancedFileSearch
-
+  advancedFileSearch,
+recentFilesController,
+  mostActiveFilesController
   
 } from "../../controllers/fileShare/finalFileShare.controller.js";
 
@@ -41,7 +42,12 @@ router.post('/create-folder',verifyEmployeeToken, createNewFolder);
 router.post('/upload', verifyEmployeeToken, singleFileUpload, uploadSingleFile);
 
 router.post('/search',verifyEmployeeToken, searchFilesAndFolders);
-router.post('/search/advanced',verifyEmployeeToken, advancedFileSearch);
+router.get('/search/advanced',verifyEmployeeToken, advancedFileSearch);
+
+router.get('/recent-activity', verifyEmployeeToken, recentFilesController);
+
+// Most active files/folders (paginated)
+router.get('/most-active', verifyEmployeeToken, mostActiveFilesController);
 
 
 export default router;

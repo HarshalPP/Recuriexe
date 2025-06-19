@@ -13,6 +13,7 @@ import pLimit from 'p-limit';
 
 import { handleSingleFileUpload, handleMultipleFileUpload } from "../../services/uploadservices/upload.service.js"
 import { log } from 'console';
+import { badRequest, unknownError } from '../../formatters/globalResponse.js';
 
 
 // export const exchangeCodeForToken = async (org, code) => {
@@ -97,7 +98,8 @@ export const exchangeCodeForToken = async (org, code) => {
     };
   } catch (error) {
     console.error('Error exchanging code for token:', error.response?.data || error.message);
-    throw new ApiError(500, 'Failed to exchange authorization code for token');
+    return badRequest(res , "Failed to exchange authorization code for token")
+    // throw new ApiError(500, 'Failed to exchange authorization code for token');
   }
 };
 export const uploadImageToLinkedIn = async (accessToken, authorUrn, imageUrl) => {
@@ -143,7 +145,8 @@ export const uploadImageToLinkedIn = async (accessToken, authorUrn, imageUrl) =>
     return asset; // This is the media URN to use in the post
   } catch (error) {
     console.error('Error uploading image to LinkedIn:', error.response?.data || error.message);
-    throw new ApiError(500, 'Failed to upload image to LinkedIn');
+    return unknownError(res , "Internal server error")
+    // throw new ApiError(500, 'Failed to upload image to LinkedIn');
   }
 };
 
@@ -207,7 +210,8 @@ export const postToLinkedIn = async (org, message, imageUrls = []) => {
     return response.data;
   } catch (error) {
     console.error('Error posting to LinkedIn:', error.response?.data || error.message);
-    throw new ApiError(500, 'Failed to post content to LinkedIn');
+    return unknownError(res , 'Failed to post content to LinkedIn')
+    // throw new ApiError(500, 'Failed to post content to LinkedIn');
   }
 };
 
@@ -344,7 +348,8 @@ export const postToLinkedInAsOrganization = async (org, message, imageUrls = [])
     return response.data;
   } catch (error) {
     console.error('Error posting to LinkedIn as organization:', error.response?.data || error.message);
-    throw new ApiError(500, 'Failed to post content to LinkedIn as organization');
+    return unknownError(res  , "Failed to post content to LinkedIn as organization")
+    // throw new ApiError(500, 'Failed to post content to LinkedIn as organization');
   }
 };
 
@@ -388,7 +393,8 @@ export const uploadImageBufferToLinkedIn = async (accessToken, authorUrn, imageB
     return asset; // Return the media URN
   } catch (error) {
     console.error("Error uploading image buffer to LinkedIn:", error.response?.data || error.message);
-    throw new ApiError(500, "Failed to upload image to LinkedIn");
+    return unknownError(res ,  "Failed to upload image to LinkedIn")
+    // throw new ApiError(500, "Failed to upload image to LinkedIn");
   }
 };
 
@@ -490,7 +496,8 @@ export const postToLinkedInWithFilesUGC = async (org, message, imageUrls = [], i
     return response.data; // Return the LinkedIn response
   } catch (error) {
     console.error("Error posting to LinkedIn UGC:", error.response?.data || error.message);
-    throw new ApiError(500, "Failed to post content to LinkedIn");
+    return unknownError(res , "Failed to post content to LinkedIn")
+    // throw new ApiError(500, "Failed to post content to LinkedIn");
   }
 };
 

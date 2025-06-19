@@ -6,7 +6,7 @@ export const uploadImageOrPdf = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const folder = req.body.folder || 'uploads';
+    const folder = req.query.folder || 'uploads';
     const url = await handleSingleFileUpload(req.file, folder);
 
     return res.status(200).json({

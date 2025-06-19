@@ -6,6 +6,7 @@ import {ApiResponse} from "../../Utils/LinkedIn/ApiResponse.js";
 import axios from "axios";
 import qs from "querystring";
 import { log } from "console";
+import { success, unknownError, serverValidation, badRequest } from "../../formatters/globalResponse.js"
 
 // Create a new organization
 export const createOrganization = asyncHandler(async (req, res) => {
@@ -16,7 +17,8 @@ export const createOrganization = asyncHandler(async (req, res) => {
   const organizationId = req.employee.organizationId;
   
   if (!linkedinClientId || !linkedinClientSecret || !linkedinRedirectUri) {
-    throw new ApiError(400, "All fields are required");
+    return badRequest(res , "All fields are required")
+    // throw new ApiError(400, "All fields are required");
   }
 
   const newOrg = await LinkedInOrganization.create({
@@ -26,7 +28,10 @@ export const createOrganization = asyncHandler(async (req, res) => {
     organizationId,
   });
 
-  res.status(201).json(new ApiResponse(201, newOrg, "Organization created successfully"));
+  
+  // res.status(201).json(new ApiResponse(201, newOrg, "Organization created successfully"));
+  return success(res,"Organization created successfully" ,newOrg)
+
 });
 
 // Get all organizations
@@ -35,7 +40,9 @@ export const getAllOrganizations = asyncHandler(async (req, res) => {
 
 const orgs = await LinkedInOrganization.find({ organizationId: organizationId });
 
-res.status(200).json(new ApiResponse(200, orgs, "Organizations fetched"));
+// res.status(200).json(new ApiResponse(200, orgs, "Organizations fetched"));
+  return success(res,"Organization fetched" ,orgs)
+
 });
 
 // Get a specific organization by ID
@@ -44,10 +51,12 @@ export const getOrganizationById = asyncHandler(async (req, res) => {
   const org = await LinkedInOrganization.findById(id);
 
   if (!org) {
-    throw new ApiError(404, "Organization not found");
+    return badRequest(res, "Organization not found" )
+    // throw new ApiError(404, "Organization not found");
   }
 
-  res.status(200).json(new ApiResponse(200, org, "Organization found"));
+  // res.status(200).json(new ApiResponse(200, org, "Organization found"));
+  return success(res ,"Organization found", org  )
 });
 
 // Delete an organization by ID
@@ -56,12 +65,14 @@ export const deleteOrganization = asyncHandler(async (req, res) => {
 
   const org = await LinkedInOrganization.findById(id);
   if (!org) {
-    throw new ApiError(404, "Organization not found");
+    return badRequest(res , "Organization not found")
+    // throw new ApiError(404, "Organization not found");
   }
 
   await LinkedInOrganization.findByIdAndDelete(id);
 
-  res.status(200).json(new ApiResponse(200, null, "Organization deleted successfully"));
+  // res.status(200).json(new ApiResponse(200, null, "Organization deleted successfully"));
+  return success(res,"Organization deleted successfully" ,null)
 });
 
 // Controller for disconnecting LinkedIn
@@ -71,12 +82,14 @@ export const disconnectLinkedIn = asyncHandler(async (req, res) => {
   // Find organization by ID
   const org = await LinkedInOrganization.findById(orgId);
   if (!org) {
-    throw new ApiError(404, "Organization not found");
+    return badRequest(res, "Organization not found" )
+    // throw new ApiError(404, "Organization not found");
   }
 
   // If already disconnected
   if (!org.accessToken && !org.memberId) {
-    return res.status(200).json(new ApiResponse(200, null, "Already disconnected"));
+    // return res.status(200).json(new ApiResponse(200, null, "Already disconnected"));
+    return success(res ,"Already disconnected", null  )
   }
 
   // Optionally revoke token on LinkedIn side
@@ -94,7 +107,8 @@ export const disconnectLinkedIn = asyncHandler(async (req, res) => {
   org.memberId = undefined;
   await org.save();
 
-  return res.status(200).json(new ApiResponse(200, null, "✅ LinkedIn disconnected successfully"));
+  // return res.status(200).json(new ApiResponse(200, null, "✅ LinkedIn disconnected successfully"));
+  return success(res ,"✅ LinkedIn disconnected successfully",null )
 });
 
 // Helper: Revoke LinkedIn access token

@@ -42,12 +42,11 @@ const FileHistorySchema = new mongoose.Schema({
   },
   candidateId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: true,
     ref: 'jobApplyForm'
   },
   action: { // 'open', 'upload', 'update', 'delete'
     type: String,
-    enum: ['open', 'upload', 'update', 'delete'],
+    enum: ['open', 'upload', 'update', 'delete','createFolder','deleteFolder'],
     required: true
   },
   detail: { // optional: kya update hua, kya delete hua, etc.

@@ -7,6 +7,7 @@ import {
   cancelScheduledPost,
   reschedulePost,
   getAllPostByorgId,
+  getAllScheduledPosts,
   deleteLinkedInPost,
   getLinkedInAnalytics,
   postMultipleContentWithFilesUGC,
@@ -14,7 +15,9 @@ import {
   getDraftPosts,
   generatePostText,
   getPostGenStatus,
-  editDraftPost
+  postSingleContentWithFilesUGC,
+  editDraftPost,
+  postSingleDraftToAllOrgs
 } from '../../controllers/LinkedIn/linkedin.controller.js';
 
 const router = express.Router();
@@ -25,8 +28,16 @@ router.get("/auth/linkedin/callback", handleCallback);
 
 // Post routes
 router.post("/posts/publish",  postMultipleContentWithFilesUGC);
+router.post("/post/publish",  postSingleContentWithFilesUGC);
+router.post("/post/draft",  postSingleDraftToAllOrgs);
+
+
 // Scheduled posts management
-router.get("/scheduled-posts", getAllPostByorgId);
+router.get("/scheduled-posts", getAllScheduledPosts);
+
+//all post by linkedinAccount
+router.get("/post-linkedinAccount", getAllPostByorgId);
+
 router.delete("/scheduled-posts/:scheduledPostId", cancelScheduledPost);
 router.put("/scheduled-posts/:scheduledPostId/reschedule", reschedulePost);
 

@@ -8,7 +8,6 @@ const foldersSchema = new mongoose.Schema({
   },
   candidateId: {
     type: mongoose.Schema.Types.ObjectId,
-    required: false,
     ref: 'jobApplyForm'
   },
   parentId: {

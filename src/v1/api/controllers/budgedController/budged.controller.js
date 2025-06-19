@@ -1825,13 +1825,16 @@ const desingationFind  = await designationModel.findById(desingationId)
       }
     ]);
     const totalNoOfPositions = jobPosts[0]?.totalNoOfPositions || 0;
-
+ const perEmployeeLPA = (
+  Number(findBudget.allocatedBudget) / Number(findBudget.numberOfEmployees)
+).toFixed(2);
     const budgetData = {
       allocatedBudget: findBudget.allocatedBudget,
       usedBudget: findBudget.usedBudget,
       allocatedBudgetLPA: (findBudget.allocatedBudget / 100000).toFixed(2),
       usedBudgetLPA: (findBudget.usedBudget / 100000).toFixed(2),
       numberOfEmployees: findBudget.numberOfEmployees - Number(totalNoOfPositions),
+      perEmployee:Number(perEmployeeLPA),
     };
 
     return success(res, "budget Detail", budgetData)

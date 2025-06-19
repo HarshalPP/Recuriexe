@@ -855,16 +855,16 @@ else {
 
 
 // 4. Flatten + filter valid screening criteria for AI prompt
-const filteredCriteria = screeningRules.flatMap(rule =>
-  (rule.screeningCriteria || [])
-    .filter(c => c?.name && c?.weight > 0)
-    .map(c => ({
-      name: c.name.trim(),
-      description: c.description || '',
-      weight: c.weight,
-      confidence: c.confidence || 0,
-    }))
-);
+const filteredCriteria = screeningRules
+  .filter(c => c?.name && c?.weight > 0)
+  .map(c => ({
+    name: c.name.trim(),
+    description: c.description || '',
+    weight: c.weight,
+    confidence: c.confidence || 0,
+  }));
+
+
 
 
 // console.log("filteredCriteria:", filteredCriteria);
@@ -874,6 +874,7 @@ const criteriaArrayString = filteredCriteria.map(c =>
   `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
 ).join(',\n');
 
+console.log("criteriaArrayString" , criteriaArrayString)
 
 // console.log("Criteria Array String:", criteriaArrayString);
 

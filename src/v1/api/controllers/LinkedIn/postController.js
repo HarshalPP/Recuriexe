@@ -6,6 +6,8 @@ import { ApiResponse} from "../../Utils/LinkedIn/ApiResponse.js";
 import ScheduledPost from '../../models/LinkedIn/ScheduledPost.js';
 import PostedContent from '../../models/LinkedIn/PostedContent.js';
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
+import { success, unknownError, serverValidation, badRequest } from "../../formatters/globalResponse.js"
+
 
 export const getAllPosts = asyncHandler(async (req, res) => {
   const organizationId = new mongoose.Types.ObjectId(req.employee.organizationId);
@@ -71,10 +73,13 @@ export const getAllPosts = asyncHandler(async (req, res) => {
     PostedContent.aggregate(buildAggregationPipeline())
   ]);
 
-  return res.status(200).json(
-    new ApiResponse(200, {
-      scheduledPosts,
-      postedContents
-    }, "✅ Posts fetched successfully")
-  );
+  
+  return success(res ,"✅ Posts fetched successfully" , { scheduledPosts,postedContents } )
+
+  // return res.status(200).json(
+  //   new ApiResponse(200, {
+  //     scheduledPosts,
+  //     postedContents
+  //   }, "✅ Posts fetched successfully")
+  // );
 });

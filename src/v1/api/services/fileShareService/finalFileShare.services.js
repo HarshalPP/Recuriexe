@@ -284,6 +284,14 @@ export async function createFolder(folderPath, req) {
     });
     await folderDoc.save();
 
+    await RecentActivity.create({
+  fileId: folderDoc._id,
+  organizationId,
+  candidateId,
+  action: 'createFolder',
+  at: new Date()
+});
+
     return { status: true, message: "Folder created successfully", data: { path: normalizedPath } };
   } catch (error) {
     return { status: false, message: error.message };
@@ -424,6 +432,13 @@ export async function uploadFile(file, destinationPath = '', req) {
     });
     await fileDoc.save();
 
+   await RecentActivity.create({
+  fileId: fileDoc._id,
+  organizationId,
+  candidateId,
+  action: 'upload',
+  at: new Date()
+});
     return {
       status: true,
       message: "File uploaded successfully",
@@ -1178,6 +1193,92 @@ export async function advancedSearch(options, req) {
 
   } catch (error) {
     console.error('Error in unified search:', error);
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+
+export async function getRecentActivities(req, page = 1, limit = 10) {
+  try {
+    const organizationId = req.employee.organizationId;
+    if (!organizationId) {
+      return returnFormatter(false, "OrganizationId is required");
+    }
+
+    const skip = (page - 1) * limit;
+
+    const activities = await RecentActivity.find({ organizationId })
+      .sort({ at: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await RecentActivity.countDocuments({ organizationId });
+
+    const fileIds = [...new Set(activities.map(a => a.fileId?.toString()))];
+    const files = await Folder.find({ _id: { $in: fileIds } }).lean();
+
+    const recent = activities.map(act => ({
+      ...act,
+      file: files.find(f => f._id.toString() === act.fileId?.toString())
+    }));
+
+    return returnFormatter(true, "Recent activities", {
+      items: recent,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error('Error in getRecentActivities:', error);
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+export async function getMostActiveFiles(req, page = 1, limit = 10) {
+  try {
+    const organizationId = req.employee.organizationId;
+    if (!organizationId) {
+      return returnFormatter(false, "OrganizationId is required");
+    }
+
+    const skip = (page - 1) * limit;
+
+    const agg = await RecentActivity.aggregate([
+      { $match: { organizationId } },
+      { $group: { _id: "$fileId", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ]);
+
+    const totalAgg = await RecentActivity.aggregate([
+      { $match: { organizationId } },
+      { $group: { _id: "$fileId" } },
+      { $count: "total" }
+    ]);
+    const total = totalAgg[0]?.total || 0;
+
+    const fileIds = agg.map(a => a._id);
+    const files = await Folder.find({ _id: { $in: fileIds } }).lean();
+
+    const mostActive = agg.map(a => ({
+      count: a.count,
+      file: files.find(f => f._id.toString() === a._id.toString())
+    }));
+
+    return returnFormatter(true, "Most active files/folders", {
+      items: mostActive,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error('Error in getMostActiveFiles:', error);
     return returnFormatter(false, error.message);
   }
 }

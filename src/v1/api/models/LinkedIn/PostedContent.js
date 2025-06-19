@@ -4,11 +4,12 @@ import { type } from 'os';
 
 const PostedContentSchema = new mongoose.Schema(
   {
-    orgId: {
-      type: mongoose.Schema.Types.ObjectId,
+  orgIds: [{ // <-- Now an array
+    orgId:
+    { type: mongoose.Schema.Types.ObjectId,
       ref: 'LinkedInOrganization',
-      required: false
-    },
+      required: true },
+    }],
     jobId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'jobPosts',
