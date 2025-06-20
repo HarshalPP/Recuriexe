@@ -31,21 +31,63 @@ import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoo
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
 import AiScreening from "../../models/AiScreeing/AiScreening.model.js";
-import branchModel from "../../models/branchModel/branch.model.js" 
+import branchModel from "../../models/branchModel/branch.model.js"
+import BudgetModel from "../../models/budgedModel/budged.model.js"
+
 // Run at 11:59 PM every day
+// cron.schedule("59 23 * * *", async () => {
+//   try {
+//     const now = new Date();
+//     // Find and update all job posts whose expiredDate has passed and are not yet marked expired
+//     const result = await jobPostModel.updateMany(
+//       {
+//         expiredDate: { $lt: now },
+//         jobPostExpired: false,
+//       },
+//       { $set: { jobPostExpired: true ,status:'inactive'} }
+//     );
+
+//     console.log(`Today Job Expire ${result.modifiedCount}`);
+//   } catch (error) {
+//     console.error("Error running job expiry cron:", error);
+//   }
+// });
+
+
 cron.schedule("59 23 * * *", async () => {
   try {
     const now = new Date();
-    // Find and update all job posts whose expiredDate has passed and are not yet marked expired
-    const result = await jobPostModel.updateMany(
-      {
-        expiredDate: { $lt: now },
-        jobPostExpired: false,
-      },
-      { $set: { jobPostExpired: true ,status:'inactive'} }
-    );
 
-    console.log(`Today Job Expire ${result.modifiedCount}`);
+    const expiredJobPosts = await jobPostModel.find({
+      expiredDate: { $lt: now },
+      status: "active"
+    });
+
+    for (const job of expiredJobPosts) {
+      // Update job post status
+      await jobPostModel.updateOne(
+        { _id: job._id },
+        { $set: { status: "inactive" } }
+      );
+
+      // Update budget if needed
+      const budget = await BudgetModel.findOne({
+        organizationId: job.organizationId,
+        desingationId: job.designationId,
+      });
+
+      if (budget) {
+        const budgetImpact = Number(job.budget || 0);
+        const noOfPosition = Number(job.noOfPosition || 0);
+
+        budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
+        budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+
+        await budget.save();
+      }
+    }
+
+    console.log(`Expired and updated ${expiredJobPosts.length} job post(s) at ${now}`);
   } catch (error) {
     console.error("Error running job expiry cron:", error);
   }
@@ -217,10 +259,6 @@ export const jobApplyFormAdd = async (req, res) => {
 
     const { emailId, jobPostId, resume, name, } = req.body;
     // not hanlde organization 
-    const organizationFind = await organizationModel.findOne().select('name')
-    // not hanlde organization 
-    const portalsetUpDetail = await portalsetUpModel.findOne().select('maxApplicationsPerEmployee minDaysBetweenApplications')
-
 
     if (!jobPostId) {
       return badRequest(res, "Job post Id required.");
@@ -231,7 +269,11 @@ export const jobApplyFormAdd = async (req, res) => {
       return badRequest(res, "Job post not found.");
     }
 
-    if (jobPost.applicantsCount >= jobPost.numberOfApplicant) {
+    const organizationFind = await organizationModel.findById(jobPost.organizationId).select('name')
+    const portalsetUpDetail = await portalsetUpModel.findOne({ organizationId: new ObjectId(organizationFind._id) }).select('maxApplicationsPerEmployee minDaysBetweenApplications')
+
+
+    if (jobPost.totalApplicants >= jobPost.numberOfApplicant) {
       return badRequest(res, "This job is no longer accepting applications.");
     }
     // const alreadyApplied = await jobApply.findOne({
@@ -246,14 +288,13 @@ export const jobApplyFormAdd = async (req, res) => {
     if (portalsetUpDetail) {
       const maxApplications = portalsetUpDetail.maxApplicationsPerEmployee;
       const minDaysGap = portalsetUpDetail.minDaysBetweenApplications;
-
       const now = new Date();
       const minDate = new Date(now);
       minDate.setDate(minDate.getDate() - minDaysGap);
-
       // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
       const recentApplications = await jobApply.find({
         emailId,
+        orgainizationId: new ObjectId(organizationFind._id),
         // jobPostId: jobPostId,
         createdAt: { $gte: minDate }
       }).sort({ createdAt: -1 });
@@ -321,9 +362,21 @@ export const jobApplyFormAdd = async (req, res) => {
 
     if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
       await jobPostModel.findByIdAndUpdate(jobPostId, {
-        jobPostExpired: true,
-        status:'inactive'
+        // jobPostExpired: true,
+        status: 'inactive'
       });
+      // 2. Update budget
+      const budget = await BudgetModel.findOne({
+        organizationId: jobPost.organizationId,
+        desingationId: jobPost.designationId,
+      });
+      if (budget) {
+        const budgetImpact = Number(jobPost.budget || 0);
+        const noOfPosition = Number(jobPost.noOfPosition || 0);
+        budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
+        budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+        await budget.save();
+      }
     }
 
     success(res, "Job Applied Successfully", jobApplyForm);
@@ -337,7 +390,7 @@ export const jobApplyFormAdd = async (req, res) => {
     //   await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
     // }
 
-    
+
     // job apply google sheete data save 
     await jobApplyToGoogleSheet(jobApplyForm._id)
 
@@ -382,7 +435,7 @@ export const getAllJobApplied = async (req, res) => {
 
 
     // Extract search and filter parameters
-    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result, resumeShortlisted, departmentId } = req.query;
+    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result, resumeShortlisted, departmentId, branchId, qualificationId } = req.query;
 
     // Build match conditions
     let matchConditions = {
@@ -462,6 +515,25 @@ export const getAllJobApplied = async (req, res) => {
       matchConditions.departmentId = new ObjectId(departmentId);
     }
 
+    if (branchId) {
+      const branchIdsArray = Array.isArray(branchId)
+        ? branchId
+        : branchId.split(',');
+
+      matchConditions.branchId = {
+        $in: branchIdsArray.map(id => new ObjectId(id))
+      };
+    }
+
+    if (qualificationId) {
+      const qualificationIdsArray = qualificationId
+        ? (Array.isArray(qualificationId) ? qualificationId : qualificationId.split(',')).map(id => new ObjectId(id))
+        : null;
+    }
+
+
+
+
 
 
     const jobAppliedDetails = await jobApply.aggregate([
@@ -489,18 +561,24 @@ export const getAllJobApplied = async (req, res) => {
       {
         $lookup: {
           from: "newbranches",
-          localField: "branchId",
-          foreignField: "_id",
-          pipeline: [{ $project: { _id: 0, name: 1 } }],
-          as: "branches",
-        },
+          let: { branchIds: "$branchId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$branchIds"] }
+              }
+            },
+            {
+              $project: {
+                _id: 1,      // include _id
+                name: 1      // include name
+              }
+            }
+          ],
+          as: "branches"
+        }
       },
-      {
-        $unwind: {
-          path: "$branches",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
+
       {
         $lookup: {
           from: "employees",
@@ -640,6 +718,35 @@ export const getAllJobApplied = async (req, res) => {
 
       {
         $lookup: {
+          from: "qualifications",
+          let: {
+            qualificationIds: {
+              $cond: {
+                if: { $isArray: "$jobPostDetail.qualificationId" },
+                then: "$jobPostDetail.qualificationId",
+                else: []
+              }
+            }
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$qualificationIds"] }
+              }
+            },
+            {
+              $project: {
+                _id: 1,
+                name: 1
+              }
+            }
+          ],
+          as: "qualificationDetails"
+        }
+      },
+
+      {
+        $lookup: {
           from: "newdesignations",
           localField: "jobPostDetail.designationId",
           foreignField: "_id",
@@ -690,8 +797,8 @@ export const getAllJobApplied = async (req, res) => {
         $project: {
           candidateUniqueId: 1,
           name: 1,
-          pincode:1,
-          immediatejoiner:1,
+          pincode: 1,
+          immediatejoiner: 1,
           mobileNumber: 1,
           emailId: 1,
           resume: 1,
@@ -712,6 +819,7 @@ export const getAllJobApplied = async (req, res) => {
           position: 1,
           createdAt: 1,
           department: 1,
+          qualificationDetails: 1,
           designationDetail: {
             _id: 1,
             name: 1,
@@ -720,6 +828,7 @@ export const getAllJobApplied = async (req, res) => {
             _id: 1,
             name: 1
           },
+          branches: 1
         },
       },
       { $skip: skip },
@@ -913,24 +1022,24 @@ export const getJobAppliedById = async (req, res) => {
         },
       },
       { $unwind: { path: "$designationDetail", preserveNullAndEmptyArrays: true } },
-    {
-  $lookup: {
-    from: "newbranches",
-    localField: "branchId",          // array of ObjectId(s)
-    foreignField: "_id",
-    pipeline: [
       {
-        $project: {
-          _id: 0,
-          name: 1,
-          address: 1,
-          city: 1
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",          // array of ObjectId(s)
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                _id: 0,
+                name: 1,
+                address: 1,
+                city: 1
+              }
+            }
+          ],
+          as: "newbrancheDetail"
         }
-      }
-    ],
-    as: "newbrancheDetail"
-  }
-},
+      },
       {
         $lookup: {
           from: "newdepartments",
@@ -983,9 +1092,9 @@ export const getJobAppliedById = async (req, res) => {
           position: 1,
           createdAt: 1,
           department: 1,
-          newbrancheDetail:{
-            name:1,
-            _id:1,
+          newbrancheDetail: {
+            name: 1,
+            _id: 1,
           },
           designationDetail: {
             _id: 1,
@@ -1653,7 +1762,7 @@ export const getDashboardSummary = async (req, res) => {
 
     const orgainizationId = req.employee.organizationId;
 
-    const { year = new Date().getFullYear(), 
+    const { year = new Date().getFullYear(),
       period = "year",
       customStartDate,
       customEndDate
@@ -1663,7 +1772,7 @@ export const getDashboardSummary = async (req, res) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      let startDate, endDate;
+    let startDate, endDate;
     const now = new Date();
 
     // Handle different period types including custom dates and "all"
@@ -1673,11 +1782,11 @@ export const getDashboardSummary = async (req, res) => {
       endDate = new Date(customEndDate);
 
       endDate.setHours(23, 59, 59, 999);
-    } 
+    }
     else if (period == "all") {
       startDate = new Date("2000-01-01T00:00:00.000Z");
       endDate = now;
-    } 
+    }
     else if (period == "7days") {
       startDate = new Date();
       startDate.setDate(now.getDate() - 7);
@@ -1687,7 +1796,7 @@ export const getDashboardSummary = async (req, res) => {
       startDate = new Date();
       startDate.setDate(now.getDate() - 1);
       endDate = now;
-    } 
+    }
     else if (period == "30days") {
       startDate = new Date();
       startDate.setDate(now.getDate() - 30);
@@ -1698,16 +1807,16 @@ export const getDashboardSummary = async (req, res) => {
       endDate = new Date(`${year}-12-31T23:59:59.999Z`);
     }
 
-       // Validate custom dates if provided
+    // Validate custom dates if provided
     if (period == "custom") {
       if (!customStartDate || !customEndDate) {
-        return badRequest(res , "Both customStartDate and customEndDate are required when using custom period")
+        return badRequest(res, "Both customStartDate and customEndDate are required when using custom period")
       }
 
     }
 
-    console.log("startDate" , startDate)
-    console.log("endDate" , endDate)
+    console.log("startDate", startDate)
+    console.log("endDate", endDate)
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
@@ -1785,7 +1894,7 @@ export const getDashboardSummary = async (req, res) => {
 
 
     // total Pending //
-      const totalPending = await jobApply.aggregate([
+    const totalPending = await jobApply.aggregate([
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
@@ -1947,7 +2056,7 @@ export const getDashboardSummary = async (req, res) => {
     });
 
 
-    
+
     // 1. Count applications in the last 7 days
     const Recommended = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
@@ -2273,12 +2382,12 @@ export const getDashboardSummary = async (req, res) => {
       overview: {
         totalApplications,
         totalShortlisted: timeToHireData[0]?.totalShortlisted || 0,
-        totalPending:totalPending[0]?.totalPending || 0 ,
+        totalPending: totalPending[0]?.totalPending || 0,
         totalRejected: rejectedCandidates[0]?.totalRejected || 0,
         applicationsLast7Days: appsLast7Days || 0,
         rejectedLast7Days: rejectedLast7Days || 0,
-        Recommended:Recommended || 0,
-        NoRecommended:NoRecommended || 0,
+        Recommended: Recommended || 0,
+        NoRecommended: NoRecommended || 0,
         avgResponseTime: avgResponseTime || 0,
         scheduledInterviews: scheduledInterviews || 0,
         departmentCounts: departmentCount,
@@ -2338,14 +2447,14 @@ export const getDashboardSummary = async (req, res) => {
  */
 export const getDashboardMetrics = async (req, res) => {
   try {
-    const { year = new Date().getFullYear() , period = "year" , customStartDate,
+    const { year = new Date().getFullYear(), period = "year", customStartDate,
       customEndDate } = req.query;
 
     const orgainizationId = req.employee.organizationId;
-        const sevenDaysAgo = new Date();
+    const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  let startDate, endDate;
+    let startDate, endDate;
     const now = new Date();
 
     if (period == "7days") {
@@ -2354,19 +2463,19 @@ export const getDashboardMetrics = async (req, res) => {
       endDate = now;
     }
 
-      else if (period == "all") {
+    else if (period == "all") {
       startDate = new Date("2000-01-01T00:00:00.000Z");
       endDate = now;
-    } 
+    }
 
     else if (period == "30days") {
       startDate = new Date();
       startDate.setDate(now.getDate() - 30);
       endDate = now;
     }
-      else if (period == "1days") {
+    else if (period == "1days") {
       startDate = new Date();
-      startDate.setDate(now.getDate() -1);
+      startDate.setDate(now.getDate() - 1);
       endDate = now;
     }
 
@@ -3260,10 +3369,10 @@ export const DeepAnalize = async (req, res) => {
     // Merge resume into main data
     if (findResume) {
       finddata.resume = findResume.resume;
-const branches = await branchModel
-  .find({ _id: { $in: findResume.branchId } })
-  .select("name address city -_id")
-  .lean();
+      const branches = await branchModel
+        .find({ _id: { $in: findResume.branchId } })
+        .select("name address city -_id")
+        .lean();
 
 
 
@@ -3277,7 +3386,7 @@ const branches = await branchModel
         JobType: findResume.JobType,
         currentCTC: findResume.currentCTC,
         expectedCTC: findResume.expectedCTC,
-        branchDetails : branches,
+        branchDetails: branches,
       };
     }
 
@@ -3723,38 +3832,38 @@ export const getScreeningAnalytics = async (req, res) => {
 
     const { department, period = '30days',
       customStartDate,
-      customEndDate} = req.query;
-const now = new Date();
-let startDate, endDate = now;
+      customEndDate } = req.query;
+    const now = new Date();
+    let startDate, endDate = now;
 
-// Handle different period types
-if (period == 'custom') {
-  if (!customStartDate || !customEndDate) {
-    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
-  }
-  startDate = new Date(customStartDate);
-  endDate = new Date(customEndDate);
-  endDate.setHours(23, 59, 59, 999);
+    // Handle different period types
+    if (period == 'custom') {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
+      }
+      startDate = new Date(customStartDate);
+      endDate = new Date(customEndDate);
+      endDate.setHours(23, 59, 59, 999);
 
-} else if (period == 'all') {
-  startDate = new Date("2000-01-01T00:00:00.000Z");
-} else {
-  startDate = new Date();
-  switch (period) {
-    case '1days':
-      startDate.setDate(startDate.getDate() - 1);
-      break;
-    case '7days':
-      startDate.setDate(startDate.getDate() - 7);
-      break;
-    case '90days':
-      startDate.setDate(startDate.getDate() - 90);
-      break;
-    case '30days':
-    default:
-      startDate.setDate(startDate.getDate() - 30);
-  }
-}
+    } else if (period == 'all') {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+    } else {
+      startDate = new Date();
+      switch (period) {
+        case '1days':
+          startDate.setDate(startDate.getDate() - 1);
+          break;
+        case '7days':
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case '90days':
+          startDate.setDate(startDate.getDate() - 90);
+          break;
+        case '30days':
+        default:
+          startDate.setDate(startDate.getDate() - 30);
+      }
+    }
 
 
     const filter = {
@@ -3803,7 +3912,7 @@ if (period == 'custom') {
             projectExposure: { $avg: '$breakdown.Project_Exposure' },
             learningAbility: { $avg: '$breakdown.Learning_Ability' },
             culturalFit: { $avg: '$breakdown.Cultural_Fit' },
-            certification:{$avg:'$breakdown.CertificateMatch'}
+            certification: { $avg: '$breakdown.CertificateMatch' }
           }
         }
       ]),
@@ -3955,13 +4064,13 @@ if (period == 'custom') {
     const skillsRadar = {
       technicalSkills: Math.round(skillsData.technicalSkills || 0),
       experienceSkills: Math.round(skillsData.experienceSkills || 0),
-      educationMatch:Math.round(skillsData.educationMatch || 0),
-      projectExposure:Math.round(skillsData.projectExposure || 0),
+      educationMatch: Math.round(skillsData.educationMatch || 0),
+      projectExposure: Math.round(skillsData.projectExposure || 0),
       communication: Math.round(skillsData.communicationSkills || 0),
       leadership: Math.round(skillsData.leadershipSkills || 0),
       adaptability: Math.round(skillsData.learningAbility || 0),
       culturalFit: Math.round(skillsData.culturalFit || 0),
-      certification:Math.round(skillsData.certification || 0)
+      certification: Math.round(skillsData.certification || 0)
     };
 
     // Confidence distribution

@@ -114,6 +114,9 @@ import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 import socialMedia from "./routes/Linkedin/social.media.routes.js"
 
 
+// gmail send Routes 
+
+import emailRoutes from "./routes/GmailRoute/mail.routes.js"
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
@@ -262,6 +265,9 @@ router.use("/input",inputRouter);
 router.use("/form",formRouter);
 router.use("/value",valueRouter);
 router.use("/finalFileShare", fileShareDetail);
+
+// gmail routes 
+router.use("/mail",emailRoutes)
 
 
 export default router;

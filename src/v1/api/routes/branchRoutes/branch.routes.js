@@ -4,7 +4,7 @@ const router = express.Router();
 
 import {addBranchController , getAllBranchController , getAllListBranchController,  getAllBranchdata  , getAllInactiveBranchController ,
      getRegionalBranchController , getBranchByIdController , getBranchByRegionalIdController , updateBranchController ,
-      deactivateBranchByIdController , allRegionalBranches , branchesByRegionalBranch , allBranch , getBranchByJobPostApi } from "../../controllers/branchController/branch.controller.js"
+      deactivateBranchByIdController , allRegionalBranches , branchesByRegionalBranch , allBranch , getBranchByJobPostApi , getBranchNamesFromJobApply } from "../../controllers/branchController/branch.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 
@@ -23,6 +23,7 @@ router.post("/delete/:branchId", verifyEmployeeToken ,deactivateBranchByIdContro
 router.get("/getAllBranchdata" , verifyEmployeeToken , getAllBranchdata);
 router.get("/all", verifyEmployeeToken ,allBranch)
 router.post("/getBranchByJobPost" , getBranchByJobPostApi)
+router.get("/getBranchNamesFromJobApply" , verifyEmployeeToken , getBranchNamesFromJobApply)
 
 
 

@@ -253,10 +253,10 @@ export const jobPostAddDirect = async (req, res) => {
     }
 
     // console.log('noOfPosition + findBudget.jobPostForNumberOfEmployees', findBudget.jobPostForNumberOfEmployees)
-    if ((findBudget.jobPostForNumberOfEmployees) > findBudget.numberOfEmployees) {
-      return badRequest(res, `Total job posts cannot exceed allocated employees`)
-      // return badRequest(res , "No of Position cannot be greater than allocated Employees budget")
-    }
+    // if ((findBudget.jobPostForNumberOfEmployees) > findBudget.numberOfEmployees) {
+    //   return badRequest(res, `Total job posts cannot exceed allocated employees`)
+    //   // return badRequest(res , "No of Position cannot be greater than allocated Employees budget")
+    // }
     // save budget data 
     await findBudget.save();
     req.body.budgetId = findBudget._id || null;
@@ -1335,7 +1335,7 @@ export const getAllJobPostBypermission = async (req, res) => {
 
       {
         $lookup: {
-          from: "subdropdowns",
+          from: "qualifications",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualification",
@@ -1463,14 +1463,38 @@ export const updateJobPost = async (req, res) => {
 
     const updateFields = req.body;
 
+     const existingJobPost = await jobPostModel.findById(id);
+    if (!existingJobPost) {
+      return badRequest(res, "Job post not found");
+    }
+    const isStatusChanging = updateFields.status && updateFields.status !== existingJobPost.status;
+
     const updatedJobPost = await jobPostModel.findByIdAndUpdate(id, updateFields, {
       new: true,
       runValidators: true,
     });
 
-    if (!updatedJobPost) {
-      return badRequest(res, "Job post not found")
+      if (isStatusChanging && (updateFields.status === "inactive" || updateFields.status === "active")) {
+      const budget = await BudgetModel.findOne({
+        organizationId: updatedJobPost.organizationId,
+        desingationId: updatedJobPost.designationId,
+      });
+
+      if (budget) {
+        const budgetImpact = Number(existingJobPost.budget);
+        if (updateFields.status === "inactive") {
+          // Decrease usedBudget and jobPostForNumberOfEmployees
+          budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
+          budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - existingJobPost.noOfPosition);
+        } else if (updateFields.status === "active") {
+          // Increase usedBudget and jobPostForNumberOfEmployees
+          budget.usedBudget += budgetImpact;
+          budget.jobPostForNumberOfEmployees += existingJobPost.noOfPosition;
+        }
+        await budget.save();
+      }
     }
+
 
     success(res, "Job post updated successfully", updatedJobPost);
   } catch (error) {
@@ -2936,7 +2960,7 @@ export const getJobPostDetail = async (req, res) => {
       { $unwind: { path: "$vacancyRequest", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "subdropdowns",
+          from: "qualifications",
           localField: "qualificationId",
           foreignField: "_id",
           as: "qualification",
@@ -3015,6 +3039,7 @@ export const getJobPostDetail = async (req, res) => {
           AI_Screening: 1,
           screeningCriteria: 1,
           createdAt: 1,
+          updatedAt:1,
         }
       }
     ]);
@@ -3065,3 +3090,140 @@ export const qualificationDataUpdate = async (req, res) => {
   }
 };
 
+
+
+
+import axios from 'axios';
+
+const getLatLngByPincode = async (pincode) => {
+  try {
+    const response = await axios.get(`https://india-pincode-with-latitude-and-longitude.p.rapidapi.com/api/v1/pincode/${pincode}`, {
+      headers: {
+        'x-rapidapi-host': 'india-pincode-with-latitude-and-longitude.p.rapidapi.com',
+        'x-rapidapi-key': '19f2bb1fe8msh6e05099924533f9p1f7e4ajsn1ab4ed5f6cfb', // Use your key securely
+      },
+    });
+if (response.status === 200 && Array.isArray(response.data) && response.data.length > 0) {
+  const { lat, lng } = response.data[0];
+  return { latitude: lat, longitude: lng };
+} else {
+  console.log("No location found for pincode.");
+  return null;
+}
+  } catch (error) {
+    console.error(`Failed for pincode ${pincode}:`, error.message);
+    return null;
+  }
+};
+
+
+
+// export const getApplicantsLocationByJob = async (req, res) => {
+//   try {
+//     const { jobPostId } = req.query;
+
+//     if (!jobPostId) return res.status(400).json({ message: "jobPostId is required" });
+
+//     // Fetch job applications
+//     const jobApplies = await jobApply.find({ jobPostId: new ObjectId(jobPostId) }).select("pincode");
+
+//     const locationCountMap = {}; // Key: "lat,long", Value: count
+//     const enrichedResults = [];
+
+//     for (const apply of jobApplies) {
+//       const pincode = apply.pincode?.toString().trim();
+//       if (!pincode) continue;
+
+//       const latLng = await getLatLngByPincode(pincode);
+//       if (!latLng) continue;
+
+//       const key = `${latLng.latitude},${latLng.longitude}`;
+//       locationCountMap[key] = (locationCountMap[key] || 0) + 1;
+
+//       enrichedResults.push({
+//         _id: apply._id,
+//         pincode,
+//         latitude: latLng.latitude,
+//         longitude: latLng.longitude,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       totalApplications: jobApplies.length,
+//       locationCounts: locationCountMap,
+//       data: enrichedResults,
+//     });
+//   } catch (err) {
+//     console.error("Error:", err);
+//     return res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
+
+
+
+export const getApplicantsLocationByJob = async (req, res) => {
+  try {
+    const { jobPostId } = req.query;
+    if (!jobPostId) return badRequest(res, "jobPostId is required");
+
+    // Step 1: Aggregation to get applicants + branch info
+    const jobApplies = await jobApply.aggregate([
+      {
+        $match: {
+          jobPostId: new ObjectId(jobPostId)
+        }
+      },
+      {
+        $lookup: {
+          from: "newbranches", // <-- collection name (check your MongoDB)
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branchDetails"
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          mobileNumber: 1,
+          pincode: 1,
+          branchNames: "$branchDetails.name" // extract just the branch names
+        }
+      }
+    ]);
+
+    const locationCountMap = {};
+    const enrichedResults = [];
+
+    for (const apply of jobApplies) {
+      const pincode = apply.pincode?.toString().trim();
+      if (!pincode) continue;
+
+      const latLng = await getLatLngByPincode(pincode);
+      if (!latLng) continue;
+
+      const key = `${latLng.latitude},${latLng.longitude}`;
+      // locationCountMap[key] = (locationCountMap[key] || 0) + 1;
+      locationCountMap[pincode] = (locationCountMap[pincode] || 0) + 1;
+
+      enrichedResults.push({
+        name: apply.name,
+        mobileNumber: apply.mobileNumber,
+        pincode,
+        branchNames: apply.branchNames || [],
+        latitude: latLng.latitude,
+        longitude: latLng.longitude
+      });
+    }
+
+    return success(res , "Application Location Detail",{
+      totalApplications: jobApplies.length,
+      locationCounts: locationCountMap,
+      data: enrichedResults}
+    );
+
+  } catch (err) {
+    console.error("Error:", err);
+    return unknownError(res , "Internal Server Error" ,err);
+  }
+};

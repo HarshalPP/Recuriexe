@@ -11,6 +11,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { scheduledJobs } from '../../Utils/LinkedIn/scheduler.js';;
 import {PostContent} from '../../models/LinkedIn/social.media.js';
+import { success, unknownError, serverValidation, badRequest, notFound } from "../../formatters/globalResponse.js"
+
 
 // saveDraft
 export const saveDraft = asyncHandler(async (req, res) => {
@@ -23,7 +25,8 @@ console.log("req.message:", req.body);
   const imageUrlsArray = Array.isArray(imageUrls) ? imageUrls : (imageUrls ? [imageUrls] : []);
 
   if (!message && imageUrlsArray.length === 0) {
-    throw new ApiError(400, 'Message or image files are required');
+    // throw new ApiError(400, 'Message or image files are required');
+    return badRequest(res, "Message or image files are required")
   }
 
   const organizationId = req.employee.organizationId;
@@ -36,16 +39,18 @@ console.log("req.message:", req.body);
     status: 'draft',
   });
 
-  res.status(201).json(new ApiResponse(201, draftPost, 'Draft post saved successfully'));
+  // res.status(201).json(new ApiResponse(201, draftPost, 'Draft post saved successfully'));
+  return success(res , "Draft post saved successfully", draftPost)
 });
 
 //getDraftPosts
 export const getDraftPosts = asyncHandler(async (req, res) => {
   const draftPosts = await PostContent.find({ status: 'draft' }).sort({ createdAt: -1 });
 
-  return res.status(200).json(
-    new ApiResponse(200, draftPosts, "✅ Draft posts fetched successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, draftPosts, " Draft posts fetched successfully")
+  
+  return success(res, "Draft posts fetched successfully",draftPosts)
 });
 
 // Edit the draft 
@@ -58,7 +63,8 @@ export const editDraftPost = asyncHandler(async (req, res) => {
   const draft = await PostContent.findOne({ _id: draftId, status: 'draft' });
 
   if (!draft) {
-    throw new ApiError(404, "Draft post not found or already published");
+    // throw new ApiError(404, "Draft post not found or already published");
+    notFound(res, "Draft post not found or already published")
   }
 
   // Update fields
@@ -77,9 +83,11 @@ export const editDraftPost = asyncHandler(async (req, res) => {
 
   await draft.save();
 
-  return res.status(200).json(
-    new ApiResponse(200, draft, "✅ Draft post updated successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, draft, " Draft post updated successfully") );
+
+    return success(res , "Draft post updated successfully" , draft)
+  
 });
 
 // post on linkedin without jobID dependency
@@ -92,7 +100,8 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
 
   // Validate input
   if (!Array.isArray(orgs) || !orgs.length) {
-    throw new ApiError(400, "At least one organization must be provided");
+    // throw new ApiError(400, "At least one organization must be provided");
+    badRequest(res, "At least one organization must be provided")
   }
 
   let drafts = [];
@@ -107,14 +116,18 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
     });
 
     if (!drafts.length) {
-      throw new ApiError(404, "No drafts found for the given IDs");
+      // throw new ApiError(404, "No drafts found for the given IDs");
+      badRequest(res, "No drafts found for the given IDs")
+
     }
 
     // Use first draft's message and imageUrls if not provided directly
     combinedMessage = directMessage || drafts[0].message;
     combinedImages = directImageUrls || [...drafts[0].imageUrls];
   } else if (!directMessage || !Array.isArray(directImageUrls)) {
-    throw new ApiError(400, "Either valid postIds or message + imageUrls must be provided");
+    // throw new ApiError(400, "Either valid postIds or message + imageUrls must be provided");
+    badRequest(res, "Either valid postIds or message + imageUrls must be provided")
+   
   }
 
   const results = [];
@@ -186,7 +199,7 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
             filesToPost
           );
 
-          console.log("✅ Content posted to LinkedIn", result);
+          console.log(" Content posted to LinkedIn", result);
 
           // Update draft status if it exists
           if (drafts.length) {
@@ -314,7 +327,9 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
     })
   );
 
-  return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
+  // return res.status(200).json(new ApiResponse(200, results, " Posts processed successfully"));
+
+  return success(res, "Posts processed successfully" ,results )
 });
 
 // get all schedule post by Organisation id
@@ -322,7 +337,8 @@ export const getScheduledPostsByOrganization = asyncHandler(async (req, res) => 
   const { organizationId } = req.params;
 
   if (!organizationId) {
-    throw new ApiError(400, "Organization ID is required");
+    // throw new ApiError(400, "Organization ID is required");
+    return badRequest(res , "Organization ID is required");
   }
 
   const scheduledPosts = await PostContent.find({
@@ -331,13 +347,16 @@ export const getScheduledPostsByOrganization = asyncHandler(async (req, res) => 
   }).sort({ scheduleTime: 1 });
 
   if (!scheduledPosts || scheduledPosts.length === 0) {
-    return res.status(200).json(
-      new ApiResponse(200, [], "No scheduled posts found for this organization")
-    );
+    // return res.status(200).json(
+    //   new ApiResponse(200, [], "No scheduled posts found for this organization")
+    // );
+    return success(res, "No scheduled posts found for this organization" ,[])
   }
 
-  return res.status(200).json(
-    new ApiResponse(200, scheduledPosts, "✅ Scheduled posts fetched successfully")
-  );
+  // return res.status(200).json(
+  //   new ApiResponse(200, scheduledPosts, " Scheduled posts fetched successfully")
+  // );
+
+  return success(res, "Scheduled posts fetched successfully" ,scheduledPosts)
 });
 

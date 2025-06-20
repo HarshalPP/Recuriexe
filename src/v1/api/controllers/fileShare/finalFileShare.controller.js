@@ -6,7 +6,8 @@ import {
   searchObjects,
   advancedSearch,
   getRecentActivities,
-  getMostActiveFiles
+  getMostActiveFiles,
+  getFolderDataUsage
 } from "../../services/fileShareService/finalFileShare.services.js";
 
 async function getFileSystem(req, res) {
@@ -171,6 +172,15 @@ async function mostActiveFilesController(req, res) {
   }
 }
 
+async function folderDataUsageController(req, res) {
+  try {
+    const result = await getFolderDataUsage(req);
+    return result.status ? success(res, result.message, result.data) : badRequest(res, result.message);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+}
+
 export {
   getFileSystem,
   createNewFolder,
@@ -178,6 +188,7 @@ export {
   searchFilesAndFolders,
   advancedFileSearch,
   recentFilesController,
-  mostActiveFilesController
+  mostActiveFilesController,
+  folderDataUsageController
  
 };

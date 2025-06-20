@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 const candidateSchema = new Schema(
-  { 
+  {
 
-    
+
     organizationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
@@ -19,43 +19,43 @@ const candidateSchema = new Schema(
 
     Portallogo: {
       type: String,
-      default:""
+      default: ""
     },
     PortalName: {
       type: String,
-      default:""
+      default: ""
     },
     PortalNameFont: {
       fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+      fontColor: { type: String, default: "" },
     },
     header: {
       type: String,
-      default:""
+      default: ""
     },
-     headerFont:  {
+    headerFont: {
       fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+      fontColor: { type: String, default: "" },
     },
     footer: {
       type: String,
-      default:""
+      default: ""
     },
-         footerFont:  {
+    footerFont: {
       fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+      fontColor: { type: String, default: "" },
     },
     WorkingDayWithHour: {
       type: String,
-      default:""
+      default: ""
     },
     phoneNumber: {
       type: String,
-      default:""
+      default: ""
     },
     email: {
       type: String,
-      default:""
+      default: ""
     },
     linkedinConnection: {
       type: String,
@@ -81,11 +81,11 @@ const candidateSchema = new Schema(
       type: String,
       default: "",
     },
-    registerOfficeAddress:{
+    registerOfficeAddress: {
       type: String,
       default: "",
     },
-    corporateOfficeAddress:{
+    corporateOfficeAddress: {
       type: String,
       default: "",
     },
@@ -94,59 +94,59 @@ const candidateSchema = new Schema(
     linkedin: {
       clientId: {
         type: String,
-        default:""
+        default: ""
       },
 
       clientSecret: {
         type: String,
-        default:""
+        default: ""
       },
 
       callbackURL: {
         type: String,
-        default:""
+        default: ""
       },
 
       scope: {
         type: String,
-        default:""
+        default: ""
       },
 
       RedirectURL: {
         type: String,
-        default:""
+        default: ""
       },
     },
 
     google: {
       clientId: {
         type: String,
-        default:""
+        default: ""
       },
 
       clientSecret: {
         type: String,
-        default:""
+        default: ""
       },
 
       callbackURL: {
         type: String,
-        default:""
+        default: ""
       },
 
       scope: {
         type: String,
-        default:""
+        default: ""
       },
 
       successRedirectUrl: {
         type: String,
-        default:""
+        default: ""
       },
 
       failureRedirectUrl: {
         type: String,
-        default:""
+        default: ""
       },
     },
     termsAndConditions: {
@@ -159,28 +159,66 @@ const candidateSchema = new Schema(
     },
     bannerPhoto: { type: String, default: "" },
     mainHeaderText: { type: String, default: "" },
-         mainHeaderTextFont:  {
+    mainHeaderTextFont: {
       fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+      fontColor: { type: String, default: "" },
     },
     headerText: { type: String, default: "" },
-         headerTextFont:  {
+    headerTextFont: {
       fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+      fontColor: { type: String, default: "" },
     },
-    whyJoinOrganization : {type:Boolean , default :true},
-    tipsForApplying : {type :Boolean , default:true},
-    proTip : {
-      proTipTitle : {type :String, default:""},
-           proTipTitleFont:  {
-      fontSize: { type: String, default: "" },
-  fontColor: { type: String, default: "" },
+    whyJoinOrganization: { type: Boolean, default: true },
+    tipsForApplying: { type: Boolean, default: true },
+    proTip: {
+      proTipTitle: { type: String, default: "" },
+      proTipTitleFont: {
+        fontSize: { type: String, default: "" },
+        fontColor: { type: String, default: "" },
+      },
+      appliGuidelinesTitle: { type: String, default: "" }
     },
-      appliGuidelinesTitle :{type:String , default : ""}
+    minDaysBetweenApplications: { type: Number, default: null },
+    maxApplicationsPerEmployee: { type: Number, default: null },
+    resumeTemplate: { type: String, default: "" },
+
+    jobListCard: {
+      positionName: { type: Boolean, default: true },
+      JobType: { type: Boolean, default: false },
+      jobPostTime: { type: Boolean, default: true },
+      branch: { type: Boolean, default: true },
+      JobSummary: { type: Boolean, default: true },
+      keySkills: { type: Boolean, default: true },
+      experience: { type: Boolean, default: false },
+      AgeLimit: { type: Boolean, default: false },
+      gender: { type: Boolean, default: false },
+      expiredDate: { type: Boolean, default: false },
+      qualification: { type: Boolean, default: false },
+      employmentType: { type: Boolean, default: false },
+      employeeType: { type: Boolean, default: false },
+      noOfPosition: { type: Boolean, default: false },
+      applicationCount: { type: Boolean, default: false },
+      department: { type: Boolean, default: false },
     },
-    minDaysBetweenApplications: {type :Number , default : null},
-    maxApplicationsPerEmployee :{type :Number , default : null},
-    resumeTemplate : { type :String , default : ""},
+    jobApplyDetail: {
+      positionName: { type: Boolean, default: true },
+      branch: { type: Boolean, default: true },
+      experience: { type: Boolean, default: false },
+      qualification: { type: Boolean, default: true },
+      employmentType: { type: Boolean, default: true },
+      noOfPosition: { type: Boolean, default: true },
+      JobType: { type: Boolean, default: true },
+      jobPostTime: { type: Boolean, default: true },
+      JobSummary: { type: Boolean, default: true },
+      keySkills: { type: Boolean, default: true },
+      AgeLimit: { type: Boolean, default: false },
+      gender: { type: Boolean, default: false },
+      expiredDate: { type: Boolean, default: true },
+      employeeType: { type: Boolean, default: false },
+      applicationCount: { type: Boolean, default: true },
+      department: { type: Boolean, default: true },
+      rolesAndResponsibilities: { type: Boolean, default: true },
+    }
   },
   {
     timestamps: true,

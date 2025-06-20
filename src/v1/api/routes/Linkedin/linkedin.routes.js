@@ -17,8 +17,10 @@ import {
   getPostGenStatus,
   postSingleContentWithFilesUGC,
   editDraftPost,
-  postSingleDraftToAllOrgs
+  postSingleDraftToAllOrgs,
+  deleteDraft
 } from '../../controllers/LinkedIn/linkedin.controller.js';
+import {verifyEmployeeToken } from "../../middleware/authicationmiddleware.js"
 
 const router = express.Router();
 
@@ -33,7 +35,7 @@ router.post("/post/draft",  postSingleDraftToAllOrgs);
 
 
 // Scheduled posts management
-router.get("/scheduled-posts", getAllScheduledPosts);
+router.get("/scheduled-posts", verifyEmployeeToken,getAllScheduledPosts);
 
 //all post by linkedinAccount
 router.get("/post-linkedinAccount", getAllPostByorgId);
@@ -51,10 +53,14 @@ router.get("/analytics/:organizationId", getLinkedInAnalytics);
 router.post("/save-posts", saveDraftPost);
 
 // Get all draft posts
-router.get("/posts/drafts", getDraftPosts);
+router.get("/posts/drafts",verifyEmployeeToken, getDraftPosts);
 
 // Edit the drafts
 router.patch("/posts/draft/:draftId",editDraftPost);
+
+// delete the draft
+router.delete("/draft/delete/:draftId", deleteDraft);
+
 
 
 //

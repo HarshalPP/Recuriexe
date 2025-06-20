@@ -22,6 +22,8 @@ import {
   } from "../../services/branchservices/branch.service.js"
   
   import newBranch from "../../models/branchModel/branch.model.js"
+  import jobApplyModel from "../../models/jobformModel/jobform.model.js"
+  import employeeModel from "../../models/employeemodel/employee.model.js"
   
   //----------------------- Add new branch ------------------------------
   
@@ -218,3 +220,25 @@ import {
       return unknownError(res, error.message);
     }
   }
+
+
+export const getBranchNamesFromJobApply = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    const branchIds = await jobApplyModel
+      .find({ orgainizationId: organizationId, branchId: { $ne: null } })
+      .distinct("branchId");
+
+    // Step 2: Fetch branch names
+    const branches = await newBranch.find(
+      { _id: { $in: branchIds }, organizationId },
+      { _id: 1, name: 1 } // Only return _id and name
+    );
+
+    return success(res, "Branch names from job applications", branches);
+  } catch (error) {
+    return unknownError(res, error.message);
+  }
+};
+

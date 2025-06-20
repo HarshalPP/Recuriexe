@@ -17,6 +17,7 @@ import PostedContent from '../../models/LinkedIn/PostedContent.js';
 import  {generateLinkedInPost}  from '../../services/Linkedinservice/linkedin.service.js';
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
 import { success, unknownError, serverValidation, badRequest, notFound } from "../../formatters/globalResponse.js"
+import e from 'express';
 
 // Redirect to LinkedIn auth
 export const redirectToLinkedIn = asyncHandler(async (req, res) => {
@@ -58,7 +59,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
   org.linkedinProfilePic = picture;
   await org.save();
 
-  // res.status(200).json(new ApiResponse(200, null, "✅ LinkedIn connected successfully"));
+  // res.status(200).json(new ApiResponse(200, null, "  LinkedIn connected successfully"));
   res.redirect(`https://recruitexe.com/employeeSetup/Linkedin`);
 });
 
@@ -175,7 +176,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
 //           filesToPost
 //         );
 
-//         console.log("✅ Content posted to LinkedIn", result);
+//         console.log("  Content posted to LinkedIn", result);
 
 //         // Mark draft as posted
 //         await PostedContent.findByIdAndUpdate(postId, {
@@ -283,7 +284,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
 //     }
 //   }
 
-//   return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
+//   return res.status(200).json(new ApiResponse(200, results, "  Posts processed successfully"));
 // });
 
 
@@ -404,7 +405,7 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
                 filesToPost
               );
 
-              console.log("✅ Content posted to LinkedIn", result);
+              console.log("  Content posted to LinkedIn", result);
 
               await PostedContent.findByIdAndUpdate(postId, {
                 $set: {
@@ -516,8 +517,8 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
     })
   );
 
-  // return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
-  return success(res , "✅ Posts processed successfully", results); 
+  // return res.status(200).json(new ApiResponse(200, results, "  Posts processed successfully"));
+  return success(res , "  Posts processed successfully", results); 
 });
 
 export const postSingleContentWithFilesUGC = asyncHandler(async (req, res) => {
@@ -612,6 +613,7 @@ export const postSingleContentWithFilesUGC = asyncHandler(async (req, res) => {
               );
             }
           }
+          
 
           results.push({
             status: 'success',
@@ -689,7 +691,7 @@ export const postSingleContentWithFilesUGC = asyncHandler(async (req, res) => {
     })
   );
 
-  return success(res, "✅ Posts processed successfully", results);
+  return success(res, "  Posts processed successfully", results);
 });
 
 export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
@@ -779,18 +781,17 @@ export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
           filesToPost
         );
 
-        console.log("✅ Content posted to LinkedIn", result);
+        console.log("  Content posted to LinkedIn", result);
 
         // Update draft with orgId and status
         await PostedContent.findByIdAndUpdate(postId, {
           $set: {
-            status: 'posted',
-            [`orgIds.$[elem].postedAt`]: new Date(),
-            [`orgIds.$[elem].linkedinPostId`]: result.id,
-            [`orgIds.$[elem].status`]: 'posted'
+          status: 'posted',
+          postedAt : new Date(),
+          linkedinPostId : result.id,
           }
         }, {
-          arrayFilters: [{ "elem.orgId": orgId }]
+           new: true 
         });
 
         results.push({
@@ -822,7 +823,7 @@ export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
     })
   );
 
-  return success(res, "✅ Draft posted to all organizations", results);
+  return success(res, "  Draft posted to all organizations", results);
 });
 // export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => {
 //   const { postIds, orgId, scheduleTimes } = req.body;
@@ -932,7 +933,7 @@ export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
 //             filesToPost
 //           );
 
-//           console.log("✅ Content posted to LinkedIn", result);
+//           console.log("  Content posted to LinkedIn", result);
 
 //           await PostedContent.findByIdAndUpdate(postId, {
 //             $set: {
@@ -1040,7 +1041,7 @@ export const postSingleDraftToAllOrgs = asyncHandler(async (req, res) => {
 //     })
 //   );
 
-//   return res.status(200).json(new ApiResponse(200, results, "✅ Posts processed successfully"));
+//   return res.status(200).json(new ApiResponse(200, results, "  Posts processed successfully"));
 // });
 
 
@@ -1085,10 +1086,10 @@ export const cancelScheduledPost = asyncHandler(async (req, res) => {
   }
 
   // return res.status(200).json(
-  //   new ApiResponse(200, scheduledPost, "✅ Scheduled post cancelled successfully")
+  //   new ApiResponse(200, scheduledPost, "  Scheduled post cancelled successfully")
   // );
 
-  return success(res , "✅ Scheduled post cancelled successfully" , scheduledPost)
+  return success(res , "  Scheduled post cancelled successfully" , scheduledPost)
 });
 
 // Reschedule post
@@ -1165,10 +1166,10 @@ export const reschedulePost = asyncHandler(async (req, res) => {
   //     scheduledPost,
   //     newScheduledTime: displayTime,
   //     newScheduledTimeISO: newScheduleDate.toISOString()
-  //   }, `✅ Post rescheduled for ${displayTime}`)
+  //   }, `  Post rescheduled for ${displayTime}`)
   // );
 
-  return success(res , `✅ Post rescheduled for ${displayTime}` , {
+  return success(res , `  Post rescheduled for ${displayTime}` , {
      scheduledPost,
       newScheduledTime: displayTime,
       newScheduledTimeISO: newScheduleDate.toISOString()
@@ -1198,10 +1199,10 @@ export const getAllPostByorgId = asyncHandler(async (req, res) => {
   //   new ApiResponse(200, {
   //     scheduledPosts,
   //     postedContents
-  //   }, "✅ Posts retrieved successfully")
+  //   }, "  Posts retrieved successfully")
   // );
 
-  return success(res , "✅ Posts retrieved successfully" ,  {
+  return success(res , "  Posts retrieved successfully" ,  {
      scheduledPosts,
     postedContents
   })
@@ -1226,11 +1227,11 @@ export const getAllScheduledPosts = asyncHandler(async (req, res) => {
   // return res.status(200).json(
   //   new ApiResponse(200, {
   //     scheduledPosts
-  //   }, "✅ Scheduled posts retrieved successfully")
+  //   }, "  Scheduled posts retrieved successfully")
   // );
 
 
-  return success(res , "✅ Scheduled posts retrieved successfully" , scheduledPosts)
+  return success(res , "  Scheduled posts retrieved successfully" , scheduledPosts)
 });
 
 // Delete posted content from LinkedIn
@@ -1312,8 +1313,8 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
     //     alreadyDeleted: deleteResult.alreadyDeleted || false,
     //     updatedRecord: Boolean(updatedScheduledPost || updatedPostedContent)
     //   }, deleteResult.alreadyDeleted ?
-    //     "✅ Post was already deleted from LinkedIn" :
-    //     "✅ Post deleted from LinkedIn successfully")
+    //     "  Post was already deleted from LinkedIn" :
+    //     "  Post deleted from LinkedIn successfully")
     // );
 
 
@@ -1352,10 +1353,10 @@ export const deleteLinkedInPost = asyncHandler(async (req, res) => {
       );
 
       // return res.status(200).json(
-      //   new ApiResponse(200, { deletedPostId: postId }, "✅ Post was already deleted from LinkedIn")
+      //   new ApiResponse(200, { deletedPostId: postId }, "  Post was already deleted from LinkedIn")
       // );
 
-      return success(res , "✅ Post was already deleted from LinkedIn" , { deletedPostId: postId })
+      return success(res , "  Post was already deleted from LinkedIn" , { deletedPostId: postId })
     }
 
     throw error;
@@ -1387,13 +1388,12 @@ export const getLinkedInAnalytics = asyncHandler(async (req, res) => {
   }
 
   // return res.status(200).json(
-  //   new ApiResponse(200, analytics, "✅ LinkedIn analytics fetched successfully")
+  //   new ApiResponse(200, analytics, "  LinkedIn analytics fetched successfully")
   // );
 
-  return badRequest(res , "✅ LinkedIn analytics fetched successfully" , analytics)
+  return badRequest(res , "  LinkedIn analytics fetched successfully" , analytics)
 });
 
-//  saveDraftPost
 export const saveDraftPost = asyncHandler(async (req, res) => {
   const jobs = req.body; // Expecting array of job objects
   const imageFiles = req.files || [];
@@ -1446,11 +1446,8 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
         file.fieldname === `draft-${jobId}`
       );
 
-      // Prepare orgIds array with optional scheduleTime
-      const orgIds = orgs.map(({ orgId, scheduleTime }) => ({
-        orgId,
-        ...(scheduleTime && { scheduleTime })
-      }));
+      // Prepare orgIds array — now only contains orgId
+      const orgIds = orgs.map(({ orgId }) => ({ orgId }));
 
       const draftData = {
         jobId,
@@ -1458,7 +1455,7 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
         imageUrls: imageUrls || [],
         position: jobPosition,
         status: 'draft',
-        orgIds // <-- Saving array of orgIds here
+        orgIds
       };
 
       if (jobImageFiles.length > 0) {
@@ -1488,9 +1485,8 @@ export const saveDraftPost = asyncHandler(async (req, res) => {
     })
   );
 
-  return success(res, "✅ Draft posts saved successfully", results);
+  return success(res, "  Draft posts saved successfully", results);
 });
-
 // Edit the draft 
 export const editDraftPost = asyncHandler(async (req, res) => {
   const { draftId } = req.params;
@@ -1522,10 +1518,10 @@ export const editDraftPost = asyncHandler(async (req, res) => {
   await draft.save();
 
   // return res.status(200).json(
-  //   new ApiResponse(200, draft, "✅ Draft post updated successfully")
+  //   new ApiResponse(200, draft, "  Draft post updated successfully")
   // );
 
-  return success(res , "✅ Draft post updated successfully" , draft)
+  return success(res , "  Draft post updated successfully" , draft)
 });
 
 
@@ -1534,9 +1530,29 @@ export const getDraftPosts = asyncHandler(async (req, res) => {
   const draftPosts = await PostedContent.find({ status: 'draft' }).sort({ createdAt: -1 });
 
   // return res.status(200).json(
-  //   new ApiResponse(200, draftPosts, "✅ Draft posts fetched successfully")
+  //   new ApiResponse(200, draftPosts, "  Draft posts fetched successfully")
   // );
-  return success(res  , "✅ Draft posts fetched successfully" , draftPosts)
+  return success(res  , "  Draft posts fetched successfully" , draftPosts)
+});
+
+export const deleteDraft = asyncHandler(async (req, res) => {
+  const { draftId } = req.params;
+
+  if (!draftId) {
+    return badRequest(res, "Draft ID is required");
+  }
+
+  // Find and delete the draft by ID and status 'draft'
+  const deletedDraft = await PostedContent.findOneAndDelete({
+    _id: draftId,
+    status: 'draft'
+  });
+
+  if (!deletedDraft) {
+    return badRequest(res, "Draft not found or already published");
+  }
+
+  return success(res, "  Draft deleted successfully", deletedDraft);
 });
 
 // Generate a LinkedIn job post using Gemini AI
@@ -1716,7 +1732,7 @@ export const getPostGenStatus = asyncHandler(async (req, res) => {
 
   // 202 until ready, 200 when done
   const httpCode = doc.status === 'ready' ? 200 : 202;
-  return success(res , `${httpCode}`, doc)
+  return success(res , "AI-generated message retrieved successfully.", doc)
   // res.status(httpCode).json(doc);
 });
 

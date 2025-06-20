@@ -8,15 +8,13 @@ dotenv.config();
 passport.use(new GoogleStrategy({
   clientID: "59791320328-i1d74g3tv6iqoq0jd1ij2krv7r1u4rgl.apps.googleusercontent.com",
   clientSecret: "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",
-  callbackURL: 'https://hrms-api.fincooperstech.com/api/google/callback',
+  callbackURL: 'http://localhost:4000/api/google/callback',
   scope: ['profile', 'email','https://www.googleapis.com/auth/gmail.send'],
 },
   async (accessToken, refreshToken, profile, done) => {
-      console.log("🎯 GoogleStrategy triggered");
-  console.log("🔑 AccessToken:", accessToken);
-  console.log("🧑 Profile:", profile);
     try {
       let user = await Emailuser.findOne({ googleId: profile.id });
+        const organizationId = req.employee.organizationId;
 
       if (user) {
         user.accessToken = accessToken;
@@ -28,6 +26,7 @@ passport.use(new GoogleStrategy({
           displayName: profile.displayName,
           email: profile.emails[0].value,
           photo: profile.photos[0].value,
+          organizationId:organizationId , 
           accessToken,
           refreshToken
         });

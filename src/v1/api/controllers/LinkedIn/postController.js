@@ -74,12 +74,12 @@ export const getAllPosts = asyncHandler(async (req, res) => {
   ]);
 
   
-  return success(res ,"✅ Posts fetched successfully" , { scheduledPosts,postedContents } )
+  return success(res ," Posts fetched successfully" , { scheduledPosts,postedContents } )
 
   // return res.status(200).json(
   //   new ApiResponse(200, {
   //     scheduledPosts,
   //     postedContents
-  //   }, "✅ Posts fetched successfully")
+  //   }, " Posts fetched successfully")
   // );
 });

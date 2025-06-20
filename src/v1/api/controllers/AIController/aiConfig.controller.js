@@ -1470,7 +1470,7 @@ const criteriaArrayString = filteredCriteria.map(c =>
   `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
 ).join(',\n');
 
-console.log("criteriaArrayString" , criteriaArrayString)
+// console.log("criteriaArrayString" , criteriaArrayString)
 
 // console.log("Criteria Array String:", criteriaArrayString);
 

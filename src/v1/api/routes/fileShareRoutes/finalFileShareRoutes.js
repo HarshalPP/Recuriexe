@@ -7,7 +7,8 @@ import {
   searchFilesAndFolders,
   advancedFileSearch,
 recentFilesController,
-  mostActiveFilesController
+  mostActiveFilesController,
+  folderDataUsageController
   
 } from "../../controllers/fileShare/finalFileShare.controller.js";
 
@@ -48,6 +49,8 @@ router.get('/recent-activity', verifyEmployeeToken, recentFilesController);
 
 // Most active files/folders (paginated)
 router.get('/most-active', verifyEmployeeToken, mostActiveFilesController);
+
+router.get('/folder-data-usage', verifyEmployeeToken, folderDataUsageController);
 
 
 export default router;

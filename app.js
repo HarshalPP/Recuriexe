@@ -88,6 +88,8 @@ app.use("/api/auth" , linkedInRoutes)
 
 // >>>>>>>>>>
 
+// mail send setup 
+
 
 // Gmail Sending
 // Middleware
@@ -104,8 +106,6 @@ app.use(session({
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
-
-
 
 app.use("/api",authRoutes)
 
