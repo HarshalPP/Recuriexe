@@ -5,7 +5,7 @@ const emailSchema = new mongoose.Schema({
   to: { type: String, required: true },
   subject: { type: String },
   message: { type: String },
-  filePath: { type: String },
+  filePath:[{ type: String }],
   sentAt: { type: Date, default: Date.now },
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }, 
   

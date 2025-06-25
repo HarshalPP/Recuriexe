@@ -1,5 +1,6 @@
 import Qualification from "../../models/QualificationModel/qualification.model.js"
-import jobApplyModel from "../../models/jobPostModel/jobPost.model.js"
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
+import jobApplyModel from "../../models/jobformModel/jobform.model.js"
 import { formatQualification } from '../../formatters/qualification.formatter.js';
 import {
   success,
@@ -43,12 +44,47 @@ export const getAllQualifications = async (req, res) => {
   }
 };
 
+// get All for Job Apply //
+export const getAllQualificationsFromJobApply = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const searchTerm = req.query.search || '';
+    const regex = new RegExp(searchTerm, 'i'); // For name filter
+
+    // Step 1: Fetch distinct qualificationIds from job posts linked to jobApply
+    const jobPostIds = await jobApplyModel.distinct("jobPostId", {
+      organizationId: new ObjectId(organizationId),
+      jobPostId: { $ne: null }
+    });
+
+    const qualificationIds = await JobPost.distinct("qualificationId", {
+      _id: { $in: jobPostIds },
+      organizationId: new ObjectId(organizationId),
+      qualificationId: { $ne: null }
+    });
+
+    // Step 2: Fetch qualifications using those IDs
+    const qualifications = await Qualification.find({
+      _id: { $in: qualificationIds },
+      organizationId: new ObjectId(organizationId),
+      isActive: true,
+      name: { $regex: regex }
+    }).select('_id name'); // Return only _id and name
+
+    return success(res, 'Fetched qualifications from job applications successfully', qualifications);
+  } catch (err) {
+    console.error("Error in getAllQualificationsFromJobApply:", err);
+    return unknownError(res, err.message);
+  }
+};
+
+
 
 // Get by ID
 export const getQualificationById = async (req, res) => {
   try {
     const qualification = await Qualification.findById(req.params.id);
-    if (!qualification) return success(res ,"fetch Qualification")
+    if (!qualification) return success(res, "fetch Qualification")
     return success(res, 'Qualification found', qualification);
   } catch (err) {
     return unknownError(res, err.message);
@@ -93,16 +129,16 @@ export const jobApplyUsedQualification = async (req, res) => {
 
     const organizationId = req.query.organizationId;
 
-    if(!organizationId){
-      return badRequest(res , "OrganizationId Is Required")
+    if (!organizationId) {
+      return badRequest(res, "OrganizationId Is Required")
     }
 
     // Step 1: Fetch jobApply entries for this organization
-   const jobApplies = await jobApplyModel.find({
+    const jobApplies = await jobPostModel.find({
       organizationId: new ObjectId(organizationId)
     }).select("qualificationId");
 
-  const allQualificationIds = jobApplies
+    const allQualificationIds = jobApplies
       .flatMap(d => Array.isArray(d.qualificationId) ? d.qualificationId : [d.qualificationId])
       .filter(Boolean)
       .map(id => new ObjectId(id)); // ensure they are valid ObjectId

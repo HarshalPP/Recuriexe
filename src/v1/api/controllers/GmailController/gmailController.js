@@ -42,6 +42,7 @@ export const sendMail = async (req, res) => {
       filePath: normalizedPath || null,
       sentAt: new Date()
     });
+    
 
     await emailDoc.save();
 
@@ -58,19 +59,21 @@ export const getAllUsers = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
 
-    const users = await User.find({organizationId}).select('-__v'); 
+    const users = await User.find({ organizationId })
+      .select('_id displayName email accessToken organizationId'); // ✅ only required fields
+
     return success(res, "Users fetched successfully", users);
-    
+
   } catch (error) {
     console.error('Error fetching users:', error);
-    return unknownError(res, "Failed to send users", err);
+    return unknownError(res, "Failed to fetch users", error); // 🔁 changed `err` to `error`
   }
 };
 
 // disconnect account
 
 export const disconnectGoogleAccount = async (req, res) => {
-  const organizationId = req.employee.organizationId;
+  // const organizationId = req.employee.organizationId;
 
   const { userId } = req.params;
 

@@ -126,7 +126,12 @@ import {bulkJobApplyToGoogleSheet} from "./controllers/googleSheet/jobApplyGoogl
 import valueRouter from "./routes/dynamicCarrer/value.router.js";
 import formRouter from "./routes/dynamicCarrer/form.route.js";
 import inputRouter from "./routes/dynamicCarrer/input.route.js";
+import templateRouter from "./routes/pdfTemplateRoutes/template.routes.js"
+import variableRouter from "./routes/pdfTemplateRoutes/variableSetUp.router.js"
 //expense
+//airphone
+import airphoneRouter from "./routes/airPhoneRoutes/airphone.routes.js"
+
 router.use("/expenseCategory",expenseCategoryRouter)
 router.use("/expenseType",expenseTypeRouter)
 router.use("/field",fieldRouter)
@@ -178,6 +183,9 @@ router.use("/masterPlan", PlanRouter)
 router.use("/tracking" ,tracking)
 router.use("/mail" ,  mailSwitchRouter)
 router.use("/masterDropDown",masterDropDownRouter)
+router.use('/template',templateRouter)
+router.use('/variable',variableRouter)
+
 // Job description setUp //
 
 router.use("/jobdescription" , jobdescription)
@@ -268,6 +276,9 @@ router.use("/finalFileShare", fileShareDetail);
 
 // gmail routes 
 router.use("/mail",emailRoutes)
+
+//airphone routes
+router.use("/airphone", airphoneRouter);
 
 
 export default router;

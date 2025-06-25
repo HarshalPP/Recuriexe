@@ -4,6 +4,7 @@ import {
   getDraftPosts,
   editDraftPost,
   postMultipleContentWithFilesUGC,
+  deleteDraft,
   getScheduledPostsByOrganization
 } from '../../controllers/LinkedIn/social.media.controller.js';
 import {verifyEmployeeToken } from "../../middleware/authicationmiddleware.js"
@@ -15,6 +16,8 @@ const router = express.Router();
 router.post('/save-draft', verifyEmployeeToken , saveDraft); // Save a draft post
 router.get('/drafts',verifyEmployeeToken, getDraftPosts); // Get all drafts
 router.put('/edit-draft/:draftId', editDraftPost); // Edit a specific draft
+// delete the draft
+router.delete("/draft/delete/:draftId", deleteDraft);
 
 // 🚀 Post to LinkedIn (UGC)
 router.post('/post-multiple-content', postMultipleContentWithFilesUGC);

@@ -108,7 +108,7 @@ export const disconnectLinkedIn = asyncHandler(async (req, res) => {
   await org.save();
 
   // return res.status(200).json(new ApiResponse(200, null, "   LinkedIn disconnected successfully"));
-  return success(res ,"LinkedIn disconnected successfully",null )
+  return success(res ,"LinkedIn Account disconnected successfully",null )
 });
 
 // Helper: Revoke LinkedIn access token

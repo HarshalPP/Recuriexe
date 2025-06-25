@@ -3,7 +3,7 @@ const router = express.Router();
 import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview ,
      RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview ,
       getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel ,
-       assignCandidateUniqueIds , convertBranchIdToArray}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+       assignCandidateUniqueIds , convertBranchIdToArray , bulkJobApplyWithResumeExtraction , pincodeByLatitudeAndLongitude}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -33,6 +33,8 @@ router.get("/getScreeningAnalytics" , verifyEmployeeToken , getScreeningAnalytic
 
 // data update 
 router.get("/convertBranchIdToArray",convertBranchIdToArray)
+router.post("/bulkJobApplyWithResumeExtraction" , verifyEmployeeToken , bulkJobApplyWithResumeExtraction)
 
+router.post("/pincodeByLatitudeAndLongitude" , pincodeByLatitudeAndLongitude)
 
 export default router;

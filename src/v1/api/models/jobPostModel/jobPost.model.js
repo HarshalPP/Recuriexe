@@ -9,12 +9,15 @@ import moment from "moment-timezone";
 const ScreeningCriteria = new Schema({
     name: {
         type: String,
+        default:""
     },
     description: {
         type: String,
+        default:""
     },
     weight: {
         type: Number,
+        default:""
     },
     isActive: {
         type: Boolean,
@@ -26,6 +29,7 @@ const ScreeningCriteria = new Schema({
     },
     experience: {
         type: String,
+        default:""
     }
 },{
     _id:true, // Ensure each criteria has its own unique ID
@@ -63,7 +67,7 @@ const jobPostingModelSchema = new Schema(
     },
     branchId: [{ type: ObjectId, ref: "newbranch" }],
     createdByHrId: { type: ObjectId, ref: "employee", default: null },
-    position: { type: String, required: [true, "Position Is Required"] },
+    position: { type: String, required: [true, "Position Is Required"] ,default:""},
     // eligibility: { type: String, required: [true, "Eligibility Is Required"] },
     //    qualificationId: {
     //   type: ObjectId,
@@ -79,12 +83,12 @@ const jobPostingModelSchema = new Schema(
         // required: [true, "Eligibility Is Required"],
       },
     ],
-    experience: { type: String, required: [true, "Experience Is Required"] },
+    experience: { type: String, required: [true, "Experience Is Required"], default:"" },
     noOfPosition: {
       type: Number,
       required: [true, "No of positions Is Required"],
     },
-    budget: { type: String, required: [true, "Budget Is Required"] },
+    budget: { type: String, required: [true, "Budget Is Required"] , default:""},
     budgetType: {
       type: String,
       enum: ["Monthly", "LPA"],
@@ -92,12 +96,14 @@ const jobPostingModelSchema = new Schema(
 
     JobType:{
      type: String,
+     default:""
     },
 
     budgetId : { type: ObjectId, ref: "DepartmentBudget", default: null },
     
     package: {
       type: String,
+      default:""
     },
 
     AI_Screening:{
@@ -124,7 +130,8 @@ const jobPostingModelSchema = new Schema(
 
     
     Qualification:{
-      type:String
+      type:String,
+      default:""
     },
 
     Holdingbuged: {
@@ -146,6 +153,7 @@ const jobPostingModelSchema = new Schema(
 
     InterviewType:{
       type: String,
+      default:""
     },
 
     Worklocation: {

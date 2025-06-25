@@ -17,8 +17,10 @@ import departmentModel from "../../models/deparmentModel/deparment.model.js"
 import screenai from "../../models/AiScreeing/AiScreening.model.js"
 import CandidateAIScreeningModel from "../../models/screeningResultModel/screeningResult.model.js"
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
+import BugedModel from "../../models/budgedModel/budged.model.js"
 import mongoose from "mongoose";
 import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+import { ObjectId } from "mongodb";
 
 
 import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
@@ -651,6 +653,13 @@ export const screenCandidateAIProfile = async (req, res) => {
   jobApply.findById(candidateId).lean() // Fetch candidate details
 ]);
 
+// Candidate Buged //
+
+
+
+
+
+
 // Error checks
 if (!findJd) return badRequest(res, "Job description not found");
 // if (!Qualificationdata) return badRequest(res, "Qualification not found");
@@ -658,7 +667,109 @@ if (!designation) return badRequest(res, "Designation not found");
 if (!department) return badRequest(res, "Department not found");
 
 
-    const validationPrompt = `
+  const expectedCTCString = candidate.expectedCTC?.toString().replace(/,/g, '');
+const expectedCTC = Number(expectedCTCString);
+console.log("expectedCTC" , expectedCTC)
+
+
+// Step: Budget validation (after resume validation, before AI screening prompt)
+if (expectedCTC && designation?._id) {
+const budgetData = await BugedModel.findOne({
+  organizationId: orgainizationId,
+  desingationId: designation._id
+});
+
+
+
+  const perEmployeeBudget = budgetData?.allocatedBudget && budgetData?.numberOfEmployees
+    ? Math.floor(budgetData.allocatedBudget / budgetData.numberOfEmployees)
+    : null;
+
+  if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
+    const rejectionData = {
+      jobPostId,
+      candidateId,
+      position: job.position,
+      department: department.name,
+      AI_Confidence: 90,
+      AI_Processing_Speed: 1,
+      Accuracy: 100,
+      qualificationThreshold: 0,
+      confidenceThreshold: 0,
+      overallScore: 0,
+      decision: "Rejected",
+      breakdown: {
+        skillsMatch: 0,
+        experienceMatch: 0,
+        educationMatch: 0,
+        CertificateMatch: 0,
+        Project_Exposure: 0,
+        Leadership_Initiative: 0,
+        Cultural_Fit: 0,
+        Communication_Skills: 0,
+        Learning_Ability: 0
+      },
+      criteria: [{
+        criteria: "CTC Validation",
+        description: "Expected CTC exceeds per-employee budget for this role",
+        weight: 100,
+        score: 0,
+        reason: `Candidate expected CTC: ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`
+      }],
+      acceptReason: [],
+      rejectReason: [
+        {
+          point: "CTC Expectation Too High",
+          description: `Candidate expected ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+          percentage: "0%",
+          weight: "Critical",
+          impact: "High"
+        }
+      ],
+      recommendation: "Candidate's expected salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+      improvementSuggestions: [
+        "Reassess salary expectations",
+        "Ensure alignment with job market benchmarks and internal ranges"
+      ],
+      riskFactors: [
+        {
+          factor: "Budget Breach Risk",
+          level: "Critical",
+          description: "Expected CTC exceeds available per-head allocation",
+          mitigation: "Negotiate or increase allocated budget"
+        }
+      ],
+      organizationId: orgainizationId
+    };
+
+    await jobApply.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(candidateId) },
+      {
+        AI_Screeing_Result: "Rejected",
+        AI_Screeing_Status: "Completed",
+        AI_Score: 0,
+        AI_Confidence: 90,
+        lastOrganization: "CTC Validation Failed"
+      },
+      { new: true }
+    );
+
+    await CandidateAIScreeningModel.findOneAndUpdate(
+      { candidateId },
+      rejectionData,
+      { new: true, upsert: true }
+    );
+
+    return success(res, "AI Screening Rejected due to CTC mismatch", rejectionData);
+  }
+}
+
+
+
+
+
+// Resume Validation //
+const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
@@ -670,23 +781,29 @@ RESUME CONTENT:
 ${resume}
 
 VALIDATION RULES:
-1. Check if the name in the resume matches or is reasonably similar to the candidate's name
-
-
-
+1. Check if the name in the resume matches or is reasonably similar to the candidate's name.
+2. The comparison should be case-insensitive.
+3. It's acceptable if the resume includes the candidate's full name (e.g., "Harshal Pawar") while the system only has the first name (e.g., "Harshal").
+4. Minor variations such as use of middle names or initials are acceptable as long as the first name clearly matches.
+5. Consider common resume formatting differences (e.g., ALL CAPS, lowercase, or capitalized names).
+6. Do not reject solely for formatting differences.
 
 Respond ONLY with a JSON object in this exact format:
 {
-
   "nameMatch": true/false,
-
+  "reason": "Brief reason explaining the decision",
+  "resumeName": "Extracted name from resume, if available"
 }
 `;
 
 
-    // Validate resume first
+// Validate resume first
     const validationResult = await generateAIScreening(validationPrompt, resume);
-    
+if (validationResult.status == 429) {
+  return badRequest(res, "You have reached your AI usage limit. Please upgrade your plan to continue.");
+}
+
+
     if (!validationResult || validationResult.error) {
       throw new Error("Resume validation failed");
     }
@@ -722,7 +839,7 @@ Respond ONLY with a JSON object in this exact format:
           description: "Verify if resume belongs to the candidate",
           weight: 100,
           score: 0,
-          reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}, Email: ${validationResult.resumeEmail}, Mobile: ${validationResult.resumeMobile}`
+          reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`
         }],
         acceptReason: [],
         rejectReason: [
@@ -735,7 +852,7 @@ Respond ONLY with a JSON object in this exact format:
           },
           {
             point: "Identity Mismatch",
-            description: `Expected: ${candidate.name} (${candidate.emailId}, ${candidate.mobileNumber}) but resume contains different information`,
+            description: `Expected: ${candidate.name} but resume contains different information`,
             percentage: "0%",
             weight: "Critical",
             impact: "High"
@@ -928,6 +1045,14 @@ Return the response in this JSON format:
 }
 
 
+From the following resume, extract the total **years of experience** the candidate has. Return the response in this exact JSON format:
+
+{
+  "CandidateAIExperince": 1.2
+}
+
+
+
 Detailed screening rules and their criteria:
 ${JSON.stringify(filteredCriteria, null, 2)}
 
@@ -940,6 +1065,7 @@ Use the following format in JSON:
   "Project_Exposure": 0,
   "lastOrganization": [],
   "Leadership_Initiative": 0,
+  "CandidateAIExperince":0, // Extract experience in number of years from resume
   "Cultural_Fit": 0,
   "Communication_Skills": 0,
   "Learning_Ability": 0,
@@ -1061,7 +1187,8 @@ ${resume}
       Accuracy,
       qualificationThreshold,
       improvementSuggestions,
-      riskFactors
+      riskFactors,
+      CandidateAIExperince
 
 
     } = aiResult;
@@ -1069,7 +1196,6 @@ ${resume}
 
         // Override decision based on verifiedOverallScore
 const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
-
 
         // Upsert AI screening data
     const filter = { candidateId };
@@ -1101,9 +1227,12 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       recommendation,
       improvementSuggestions,
       riskFactors,
+      CandidateAIExperince,
       orgainizationId: orgainizationId, // Include organization ID
 
     };
+
+    console.log("updateData" , updateData)
 
         
     success(res,  "AI_Screening" , updateData);
@@ -1194,11 +1323,117 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
       jobApply.findById(candidateId).lean(),
     ]);
 
+  const expectedCTCString = candidate.expectedCTC?.toString().replace(/,/g, '');
+const expectedCTC = Number(expectedCTCString);
+console.log("expectedCTC" , expectedCTC)
+
 
     if (!findJd  || !designation || !department) {
       throw new Error("Missing related job details (JD/Qualification/Designation/Department)");
     }
-    const validationPrompt = `
+
+
+
+    // Step: Budget validation (after resume validation, before AI screening prompt)
+if (expectedCTC && designation?._id) { 
+  const budgetData = await BugedModel.findOne({
+    organizationId: organizationId,
+    desingationId: designation._id
+  }).lean();
+
+  // console.log("budgetData" , budgetData)
+
+  const perEmployeeBudget = budgetData?.allocatedBudget && budgetData?.numberOfEmployees
+    ? Math.floor(budgetData.allocatedBudget / budgetData.numberOfEmployees)
+    : null;
+
+
+    console.log("perEmployeeBudget" , perEmployeeBudget)
+    // console.log("candidate" , Number(candidate.expectedCTC))
+
+  if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
+    console.log("called budged")
+    const rejectionData = {
+      jobPostId,
+      candidateId,
+      position: job.position,
+      department: department.name,
+      AI_Confidence: 90,
+      AI_Processing_Speed: 1,
+      Accuracy: 100,
+      qualificationThreshold: 0,
+      confidenceThreshold: 0,
+      overallScore: 0,
+      decision: "Rejected",
+      breakdown: {
+        skillsMatch: 0,
+        experienceMatch: 0,
+        educationMatch: 0,
+        CertificateMatch: 0,
+        Project_Exposure: 0,
+        Leadership_Initiative: 0,
+        Cultural_Fit: 0,
+        Communication_Skills: 0,
+        Learning_Ability: 0
+      },
+      criteria: [{
+        criteria: "CTC Validation",
+        description: "Expected CTC exceeds per-employee budget for this role",
+        weight: 100,
+        score: 0,
+        reason: `Candidate expected CTC: ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`
+      }],
+      acceptReason: [],
+      rejectReason: [
+        {
+          point: "CTC Expectation Too High",
+          description: `Candidate expected ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+          percentage: "0%",
+          weight: "Critical",
+          impact: "High"
+        }
+      ],
+      recommendation: "Candidate's expected salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+      improvementSuggestions: [
+        "Reassess salary expectations",
+        "Ensure alignment with job market benchmarks and internal ranges"
+      ],
+      riskFactors: [
+        {
+          factor: "Budget Breach Risk",
+          level: "Critical",
+          description: "Expected CTC exceeds available per-head allocation",
+          mitigation: "Negotiate or increase allocated budget"
+        }
+      ],
+      organizationId: organizationId
+    };
+
+    await jobApply.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(candidateId) },
+      {
+        AI_Screeing_Result: "Rejected",
+        AI_Screeing_Status: "Completed",
+        AI_Score: 0,
+        AI_Confidence: 90,
+        lastOrganization: "CTC Validation Failed"
+      },
+      { new: true }
+    );
+
+    await CandidateAIScreeningModel.findOneAndUpdate(
+      { candidateId },
+      rejectionData,
+      { new: true, upsert: true }
+    );
+
+    return  rejectionData;
+  }
+}
+
+
+
+const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
@@ -1210,16 +1445,18 @@ RESUME CONTENT:
 ${resume}
 
 VALIDATION RULES:
-1. Check if the name in the resume matches or is reasonably similar to the candidate's name
-
-
-
+1. Check if the name in the resume matches or is reasonably similar to the candidate's name.
+2. The comparison should be case-insensitive.
+3. It's acceptable if the resume includes the candidate's full name (e.g., "Harshal Pawar") while the system only has the first name (e.g., "Harshal").
+4. Minor variations such as use of middle names or initials are acceptable as long as the first name clearly matches.
+5. Consider common resume formatting differences (e.g., ALL CAPS, lowercase, or capitalized names).
+6. Do not reject solely for formatting differences.
 
 Respond ONLY with a JSON object in this exact format:
 {
-
   "nameMatch": true/false,
-
+   "reason": "Brief reason explaining the decision",
+  "resumeName": "Extracted name from resume, if available"
 }
 `;
 
@@ -1262,7 +1499,7 @@ Respond ONLY with a JSON object in this exact format:
           description: "Verify if resume belongs to the candidate",
           weight: 100,
           score: 0,
-          reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}, Email: ${validationResult.resumeEmail}, Mobile: ${validationResult.resumeMobile}`
+         reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`
         }],
         acceptReason: [],
         rejectReason: [
@@ -1275,7 +1512,7 @@ Respond ONLY with a JSON object in this exact format:
           },
           {
             point: "Identity Mismatch",
-            description: `Expected: ${candidate.name} (${candidate.emailId}, ${candidate.mobileNumber}) but resume contains different information`,
+            description: `Expected: ${candidate.name} but resume contains different information`,
             percentage: "0%",
             weight: "Critical",
             impact: "High"
@@ -1319,6 +1556,9 @@ Respond ONLY with a JSON object in this exact format:
 
       // return success("AI Screening Rejected due to resume validation failure", rejectionData);
     }
+
+
+    // 
 
   // 1. Fetch AI Screening config from DB
 const screenaiDocs = await screenai.find({ organizationId: organizationId }).lean();
@@ -1523,6 +1763,17 @@ Return the response in this JSON format:
 }
 
 
+From the following resume, extract ONLY the total **years of working experience** the candidate has.
+
+Return the response strictly in this JSON format:
+{
+  "CandidateAIExperince": 1.2
+}
+
+DO NOT include any explanation, scoring, or unrelated information. Extract from the resume content only, and round the result to 1 decimal place if needed.
+
+
+
 Detailed screening rules and their criteria:
 ${JSON.stringify(filteredCriteria, null, 2)}
 
@@ -1535,6 +1786,7 @@ Use the following format in JSON:
   "lastOrganization": [],
   "Project_Exposure": 0,
   "Leadership_Initiative": 0,
+  "CandidateAIExperince":0, // Extract experience in number of years from resume
   "Cultural_Fit": 0,
   "Communication_Skills": 0,
   "Learning_Ability": 0,
@@ -1649,6 +1901,7 @@ ${resume}
       confidenceThreshold,
       improvementSuggestions,
       riskFactors,
+      CandidateAIExperince,
       ATS_Score
 
     } = aiResult;
@@ -1689,6 +1942,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       improvementSuggestions,
       ATS_Score,
       riskFactors,
+      CandidateAIExperince,
       organizationId: organizationId // Include organizationId for context
     };
 

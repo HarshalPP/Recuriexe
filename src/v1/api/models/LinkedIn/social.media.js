@@ -3,10 +3,17 @@ import mongoose from 'mongoose';
 
 const PostContentSchema = new mongoose.Schema(
   {
-    orgId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'LinkedInOrganization',
-      required: false
+    orgIds: {
+      type: [
+        {
+          orgId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'LinkedInOrganization',
+            required: true
+          }
+        }
+      ],
+      _id: false // 👈 This disables automatic _id generation per array item
     },
     message: {
       type: String,

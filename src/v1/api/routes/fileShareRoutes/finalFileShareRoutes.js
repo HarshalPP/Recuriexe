@@ -42,6 +42,7 @@ router.post('/create-folder',verifyEmployeeToken, createNewFolder);
 
 router.post('/upload', verifyEmployeeToken, singleFileUpload, uploadSingleFile);
 
+
 router.post('/search',verifyEmployeeToken, searchFilesAndFolders);
 router.get('/search/advanced',verifyEmployeeToken, advancedFileSearch);
 

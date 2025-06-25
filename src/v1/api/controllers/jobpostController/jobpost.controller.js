@@ -17,6 +17,10 @@ const ObjectId = mongoose.Types.ObjectId;
 import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import PlanModel from "../../models/PlanModel/Plan.model.js"
 import { generateJobPostExcelAndUpload } from "../../Utils/excelUploader.js"
+import { createFolder } from "../../services/fileShareService/finalFileShare.services.js"
+import portalSetUp from "../../models/PortalSetUp/portalsetup.js"
+import folderSchema from "../../models/fileShare.model.js/folder.model.js"
+import axios from 'axios';
 
 // Helper function to convert package string to budget amount
 const convertPackageToBudget = (packageString) => {
@@ -271,6 +275,55 @@ export const jobPostAddDirect = async (req, res) => {
         { new: true }
       );
     }
+
+    //  Auto-create folder using designation name
+    const formatFolderName = (name) => {
+      return name
+        .trim()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('_');
+    };
+    // const rootFolderKey = 'akash/job-posts';
+        const rootFolderKey = 'job-posts';
+    let parentId;
+
+    // Step 1: Check if root folder exists
+    let folderSchemaDetail = await folderSchema.findOne({
+      organizationId: new ObjectId(req.body.organizationId),
+      key: rootFolderKey
+    });
+
+    // Step 2: If not exists, create root folder manually
+    if (!folderSchemaDetail) {
+      console.log('create ')
+      const newRootFolder = new folderSchema({
+        organizationId: req.body.organizationId,
+        candidateId: null,
+        parentId: null,
+        name: 'job-posts',
+        type: 'folder',
+        key: rootFolderKey,
+        mimetype: 'application/x-directory',
+        status: 'active',
+      });
+
+      const createRootFolder = await newRootFolder.save();
+      parentId = createRootFolder._id;
+    } else {
+      console.log('created ')
+      parentId = folderSchemaDetail._id;
+    }
+
+    // ✅ Step 3: Create subfolder (designation + jobPostId)
+    const folderPath = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
+
+    // Inject parentId into req.body
+    req.body.parentId = parentId;
+    req.body.candidateId = null; // if you're also linking to a candidate
+
+    const createFolderResult = await createFolder(folderPath, req);
+
 
     return success(res, "Job Post Added Successfully", jobPost);
   } catch (error) {
@@ -1463,7 +1516,7 @@ export const updateJobPost = async (req, res) => {
 
     const updateFields = req.body;
 
-     const existingJobPost = await jobPostModel.findById(id);
+    const existingJobPost = await jobPostModel.findById(id);
     if (!existingJobPost) {
       return badRequest(res, "Job post not found");
     }
@@ -1474,7 +1527,7 @@ export const updateJobPost = async (req, res) => {
       runValidators: true,
     });
 
-      if (isStatusChanging && (updateFields.status === "inactive" || updateFields.status === "active")) {
+    if (isStatusChanging && (updateFields.status === "inactive" || updateFields.status === "active")) {
       const budget = await BudgetModel.findOne({
         organizationId: updatedJobPost.organizationId,
         desingationId: updatedJobPost.designationId,
@@ -2281,7 +2334,7 @@ export const getDashboardAnalytics = async (req, res) => {
     }
 
 
-    
+
     const totalJobs = await jobPostModel.countDocuments({
       ...commonMatchFilter,
     });
@@ -2844,7 +2897,7 @@ export const getJobPostDetail = async (req, res) => {
   try {
     const { jobPostId } = req.query;
 
-    if(!jobPostId){
+    if (!jobPostId) {
       return badRequest(res, "job Post Id Required");
     }
     if (!mongoose.Types.ObjectId.isValid(jobPostId)) {
@@ -3039,7 +3092,7 @@ export const getJobPostDetail = async (req, res) => {
           AI_Screening: 1,
           screeningCriteria: 1,
           createdAt: 1,
-          updatedAt:1,
+          updatedAt: 1,
         }
       }
     ]);
@@ -3093,9 +3146,8 @@ export const qualificationDataUpdate = async (req, res) => {
 
 
 
-import axios from 'axios';
 
-const getLatLngByPincode = async (pincode) => {
+export const getLatLngByPincode = async (pincode) => {
   try {
     const response = await axios.get(`https://india-pincode-with-latitude-and-longitude.p.rapidapi.com/api/v1/pincode/${pincode}`, {
       headers: {
@@ -3103,13 +3155,14 @@ const getLatLngByPincode = async (pincode) => {
         'x-rapidapi-key': '19f2bb1fe8msh6e05099924533f9p1f7e4ajsn1ab4ed5f6cfb', // Use your key securely
       },
     });
-if (response.status === 200 && Array.isArray(response.data) && response.data.length > 0) {
-  const { lat, lng } = response.data[0];
-  return { latitude: lat, longitude: lng };
-} else {
-  console.log("No location found for pincode.");
-  return null;
-}
+    console.log("response",response)
+    if (response.status === 200 && Array.isArray(response.data) && response.data.length > 0) {
+      const { lat, lng, district, state ,area} = response.data[0];
+      return { latitude: lat, longitude: lng, district, state ,area};
+    } else {
+      console.log("No location found for pincode.");
+      return null;
+    }
   } catch (error) {
     console.error(`Failed for pincode ${pincode}:`, error.message);
     return null;
@@ -3118,68 +3171,57 @@ if (response.status === 200 && Array.isArray(response.data) && response.data.len
 
 
 
-// export const getApplicantsLocationByJob = async (req, res) => {
-//   try {
-//     const { jobPostId } = req.query;
-
-//     if (!jobPostId) return res.status(400).json({ message: "jobPostId is required" });
-
-//     // Fetch job applications
-//     const jobApplies = await jobApply.find({ jobPostId: new ObjectId(jobPostId) }).select("pincode");
-
-//     const locationCountMap = {}; // Key: "lat,long", Value: count
-//     const enrichedResults = [];
-
-//     for (const apply of jobApplies) {
-//       const pincode = apply.pincode?.toString().trim();
-//       if (!pincode) continue;
-
-//       const latLng = await getLatLngByPincode(pincode);
-//       if (!latLng) continue;
-
-//       const key = `${latLng.latitude},${latLng.longitude}`;
-//       locationCountMap[key] = (locationCountMap[key] || 0) + 1;
-
-//       enrichedResults.push({
-//         _id: apply._id,
-//         pincode,
-//         latitude: latLng.latitude,
-//         longitude: latLng.longitude,
-//       });
-//     }
-
-//     return res.status(200).json({
-//       totalApplications: jobApplies.length,
-//       locationCounts: locationCountMap,
-//       data: enrichedResults,
-//     });
-//   } catch (err) {
-//     console.error("Error:", err);
-//     return res.status(500).json({ message: "Internal Server Error" });
-//   }
-// };
 
 
-
+import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
 
 export const getApplicantsLocationByJob = async (req, res) => {
   try {
-    const { jobPostId } = req.query;
+
+    const { jobPostId, AI_Screeing_Status, resumeShortlisted, position, branchIds } = req.query;
     if (!jobPostId) return badRequest(res, "jobPostId is required");
 
-    // Step 1: Aggregation to get applicants + branch info
+    const matchStage = {
+      jobPostId: new ObjectId(jobPostId)
+    };
+
+
+    if (AI_Screeing_Status !== undefined) {
+      const AIScreeing = AI_Screeing_Status.split(',').map(val => val.trim());
+      matchStage.AI_Screeing_Status = { $in: AIScreeing };
+    }
+
+    if (resumeShortlisted !== undefined) {
+      const resumeValues = resumeShortlisted.split(',').map(val => val.trim());
+      matchStage.resumeShortlisted = { $in: resumeValues };
+    }
+
+    // console.log('matchStage',matchStage)
+    if (position) {
+      matchStage.position = position.trim();
+    }
+
+    if (branchIds) {
+      const branchArray = Array.isArray(branchIds) ? branchIds : branchIds.split(",");
+      matchStage.branchId = { $in: branchArray.map(id => new ObjectId(id)) };
+    }
+
     const jobApplies = await jobApply.aggregate([
+      { $match: matchStage },
       {
-        $match: {
-          jobPostId: new ObjectId(jobPostId)
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branchDetails"
         }
       },
       {
         $lookup: {
-          from: "newbranches", // <-- collection name (check your MongoDB)
-          localField: "branchId",
+          from: "newdepartments",
+          localField: "departmentId",
           foreignField: "_id",
-          as: "branchDetails"
+          as: "newdepartmentDetail"
         }
       },
       {
@@ -3187,7 +3229,22 @@ export const getApplicantsLocationByJob = async (req, res) => {
           name: 1,
           mobileNumber: 1,
           pincode: 1,
-          branchNames: "$branchDetails.name" // extract just the branch names
+          AI_Screeing_Status: 1,
+          resumeShortlisted: 1,
+          createdAt: 1,
+          position: 1, // 🟢 Add this if your model has it
+          branchNames: "$branchDetails.name",
+           branches: {
+            $map: {
+              input: "$branchDetails",
+              as: "branch",
+              in: {
+                _id: "$$branch._id",
+                name: "$$branch.name"
+              }
+            }
+          },
+          newdepartmentDetail: "$newdepartmentDetail.name",
         }
       }
     ]);
@@ -3199,31 +3256,150 @@ export const getApplicantsLocationByJob = async (req, res) => {
       const pincode = apply.pincode?.toString().trim();
       if (!pincode) continue;
 
-      const latLng = await getLatLngByPincode(pincode);
-      if (!latLng) continue;
+      // Check if lat/lng already saved in DB
+      let pinLocation = await pincodeLocationModel.findOne({ pincode });
 
-      const key = `${latLng.latitude},${latLng.longitude}`;
-      // locationCountMap[key] = (locationCountMap[key] || 0) + 1;
+      if (!pinLocation) {
+        const latlng = await getLatLngByPincode(pincode);
+        if (!latlng) {
+          console.log('pin code found for', pincode)
+        }
+        if (!latlng) continue;
+
+        pinLocation = await pincodeLocationModel.findOneAndUpdate(
+          { pincode },
+          {
+            $setOnInsert: {
+              latitude: latlng.latitude,
+              longitude: latlng.longitude,
+              district: latlng.district,
+              state: latlng.state,
+              area:latlng.area,
+            }
+          },
+          {
+            upsert: true,
+            new: true
+          }
+        );
+      }
+
       locationCountMap[pincode] = (locationCountMap[pincode] || 0) + 1;
 
       enrichedResults.push({
         name: apply.name,
         mobileNumber: apply.mobileNumber,
         pincode,
+        newdepartmentDetail: apply.newdepartmentDetail,
+        latitude: pinLocation.latitude,
+        longitude: pinLocation.longitude,
+        district: pinLocation.district,
+        state: pinLocation.state,
+        area:pinLocation.area,
+        position: apply.position || "N/A",
+        appliedAt: apply.createdAt,
         branchNames: apply.branchNames || [],
-        latitude: latLng.latitude,
-        longitude: latLng.longitude
+        resumeShortlisted: apply.resumeShortlisted,
+        AI_Screeing_Status: apply.AI_Screeing_Status,
+        branches:apply.branches,
+
       });
     }
 
-    return success(res , "Application Location Detail",{
+    return success(res, "Application Location Detail", {
       totalApplications: jobApplies.length,
       locationCounts: locationCountMap,
-      data: enrichedResults}
-    );
+      data: enrichedResults
+    });
 
   } catch (err) {
     console.error("Error:", err);
-    return unknownError(res , "Internal Server Error" ,err);
+    return unknownError(res, "Internal Server Error", err);
   }
 };
+
+
+
+export const getAllJobPostForLocation = async (req, res) => {
+  try {
+    const { status, startDate, endDate } = req.query;
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) {
+      return badRequest(res, "Invalid token. Organization ID not found.");
+    }
+
+    const matchStage = {
+      organizationId: new ObjectId(organizationId)
+    };
+
+    if (status && status !== "all") {
+      matchStage.status = status;
+    }
+
+    if (startDate && endDate) {
+      matchStage.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const getJobPosts = await jobPostModel.aggregate([
+      { $match: matchStage },
+
+      // Join with newdesignations
+      {
+        $lookup: {
+          from: "newdesignations",
+          localField: "designationId",
+          foreignField: "_id",
+          as: "designation"
+        }
+      },
+      { $unwind: "$designation" },
+
+      // Join with newbranches
+      {
+        $lookup: {
+          from: "newbranches",
+          localField: "branchId",
+          foreignField: "_id",
+          as: "branchDetails"
+        }
+      },
+
+      // Final projection
+      {
+        $project: {
+          _id: 1,
+          createdAt: 1,
+          noOfPosition: 1,
+          jobPostId: 1,
+          expiredDate: 1,
+          numberOfApplicant: 1,
+          totalApplicants: 1,
+          experience: 1,
+          status: 1,
+          "designation._id": 1,
+          "designation.name": 1,
+          branches: {
+            $map: {
+              input: "$branchDetails",
+              as: "branch",
+              in: {
+                _id: "$$branch._id",
+                name: "$$branch.name"
+              }
+            }
+          },
+        }
+      }
+    ]);
+
+    return success(res, "Job Post List", getJobPosts);
+  } catch (error) {
+    console.error("Error in getAllJobPostForLocation:", error);
+    return unknownError(res, error);
+  }
+};
+

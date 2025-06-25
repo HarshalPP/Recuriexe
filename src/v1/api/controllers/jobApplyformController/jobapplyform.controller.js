@@ -33,7 +33,11 @@ import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
 import AiScreening from "../../models/AiScreeing/AiScreening.model.js";
 import branchModel from "../../models/branchModel/branch.model.js"
 import BudgetModel from "../../models/budgedModel/budged.model.js"
-
+import { saveFileFromUrl, createFolder } from "../../services/fileShareService/finalFileShare.services.js"
+import folderSchema from "../../models/fileShare.model.js/folder.model.js"
+import {extractCandidateDataFromResume} from "../../services/Geminiservices/gemini.service.js"
+import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js"
+import {getLatLngByPincode} from"../jobpostController/jobpost.controller.js"
 // Run at 11:59 PM every day
 // cron.schedule("59 23 * * *", async () => {
 //   try {
@@ -257,13 +261,17 @@ export const jobApplyFormAdd = async (req, res) => {
 
 
 
-    const { emailId, jobPostId, resume, name, } = req.body;
+    const { emailId, jobPostId, resume, name, pincode } = req.body;
     // not hanlde organization 
 
     if (!jobPostId) {
       return badRequest(res, "Job post Id required.");
     }
 
+
+    if (!pincode) {
+      return badRequest(res, "Pincode is required.");
+    }
     const jobPost = await jobPostModel.findById(jobPostId).lean();
     if (!jobPost) {
       return badRequest(res, "Job post not found.");
@@ -379,8 +387,92 @@ export const jobApplyFormAdd = async (req, res) => {
       }
     }
 
+
     success(res, "Job Applied Successfully", jobApplyForm);
 
+    // create job folder with condidate id and resume
+    
+    const rootFolderKey = 'job-posts';
+    // const rootFolderKey = 'akash/job-posts';
+    const formatFolderName = (name) => {
+      return name
+        .trim()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join('_');
+    };
+    const folderKey = `${rootFolderKey}/${formatFolderName(finddesingnation.name)}_${jobPost.jobPostId}/`;
+
+    const parentFolder = await folderSchema.findOne({
+      organizationId: new ObjectId(jobPost.organizationId),
+      key: folderKey
+    }).lean();
+
+    let parentId;
+    const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
+    let candidateFolder = await folderSchema.findOne({
+      organizationId: new ObjectId(jobPost.organizationId),
+      key: candidateFolderKey
+    });
+
+    if (!candidateFolder) {
+      console.log('create candidate folder create run ')
+      const newRootFolder = new folderSchema({
+        organizationId: jobPost.organizationId,
+        candidateId: null,
+        parentId: parentFolder._id,
+        name: `${jobApplyForm.candidateUniqueId}`,
+        type: 'folder',
+        key: candidateFolderKey,
+        mimetype: 'application/x-directory',
+        status: 'active',
+      });
+
+      const newCreateRootFolder = await newRootFolder.save();
+      parentId = newCreateRootFolder._id;
+    } else {
+      console.log('create candidate folder create alresy done  ')
+      parentId = candidateFolder._id;
+    }
+
+    // ✅ Step 3: Create subfolder (designation + jobPostId)
+    const folderPath = `${rootFolderKey}/${formatFolderName(finddesingnation.name)}_${jobPost.jobPostId}/`;
+
+    req.body.parentId = parentId;
+    req.body.candidateId = null;
+
+    const createFolderResult = await createFolder(folderPath, req);
+
+    console.log('file create ')
+    const saveResumeResult = await saveFileFromUrl({
+      fileUrl: resume,
+      parentId: parentId,
+      organizationId: jobPost.organizationId,
+      candidateId: null
+    });
+
+    if (!saveResumeResult.status) {
+      console.warn("Failed to save resume from URL:", saveResumeResult.message);
+    }
+
+   let existingPin = await pincodeLocationModel.findOne({ pincode: pincode.trim() });
+    let latlng = null;
+
+    if (!existingPin) {
+      latlng = await getLatLngByPincode(pincode);
+
+      if (latlng) {
+        existingPin = await pincodeLocationModel.create({
+          pincode: pincode.trim(),
+          latitude: latlng.latitude,
+          longitude: latlng.longitude,
+          state:latlng.state,
+          district: latlng.district
+        });
+      } else {
+        console.warn(`Lat/Lng not found for pincode: ${pincode}`);
+      }
+    }
     // const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
     // if (
     //   jobApplyMailSwitch?.masterMailStatus &&
@@ -406,6 +498,7 @@ export const jobApplyFormAdd = async (req, res) => {
     // }
 
     const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId: jobPost.organizationId })
+  
 
     if (AIdata) {
       await processAIScreeningForCandidate({
@@ -525,16 +618,15 @@ export const getAllJobApplied = async (req, res) => {
       };
     }
 
-    if (qualificationId) {
-      const qualificationIdsArray = qualificationId
-        ? (Array.isArray(qualificationId) ? qualificationId : qualificationId.split(',')).map(id => new ObjectId(id))
-        : null;
-    }
+let qualificationIdsArray = [];
 
+if (qualificationId) {
+  qualificationIdsArray = Array.isArray(qualificationId)
+    ? qualificationId.map(id => new ObjectId(id))
+    : qualificationId.split(',').map(id => new ObjectId(id));
+}
 
-
-
-
+// console.log("matchConditions", JSON.stringify(matchConditions, null, 2));
 
     const jobAppliedDetails = await jobApply.aggregate([
       {
@@ -716,34 +808,52 @@ export const getAllJobApplied = async (req, res) => {
         },
       },
 
+  {
+  $lookup: {
+    from: "qualifications",
+    let: {
+      qualificationIds: {
+        $cond: {
+          if: { $isArray: "$jobPostDetail.qualificationId" },
+          then: "$jobPostDetail.qualificationId",
+          else: []
+        }
+      }
+    },
+    pipeline: [
       {
-        $lookup: {
-          from: "qualifications",
-          let: {
-            qualificationIds: {
-              $cond: {
-                if: { $isArray: "$jobPostDetail.qualificationId" },
-                then: "$jobPostDetail.qualificationId",
-                else: []
-              }
-            }
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $in: ["$_id", "$$qualificationIds"] }
-              }
-            },
-            {
-              $project: {
-                _id: 1,
-                name: 1
-              }
-            }
-          ],
-          as: "qualificationDetails"
+        $match: {
+          $expr: {
+            $and: [
+              { $in: ["$_id", "$$qualificationIds"] },
+              ...(qualificationIdsArray.length > 0
+                ? [{ $in: ["$_id", qualificationIdsArray] }]
+                : [])
+            ]
+          }
         }
       },
+      {
+        $project: {
+          _id: 1,
+          name: 1
+        }
+      }
+    ],
+    as: "qualificationDetails"
+  }
+},
+
+// 🔍 Add this immediately after the above $lookup
+...(qualificationIdsArray.length > 0
+  ? [{
+      $match: {
+        qualificationDetails: { $ne: [], $exists: true }
+      }
+    }]
+  : []),
+
+
 
       {
         $lookup: {
@@ -1762,67 +1872,73 @@ export const getDashboardSummary = async (req, res) => {
 
     const orgainizationId = req.employee.organizationId;
 
-    const { year = new Date().getFullYear(),
-      period = "year",
-      customStartDate,
-      customEndDate
-    } = req.query;
+ const {
+  year = new Date().getFullYear(),
+  period = "year",
+  customStartDate,
+  customEndDate
+} = req.query;
+
+let startDate, endDate;
+const now = new Date();
+
+// Helper functions
+const setStartOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
+
+const setEndOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+};
+
+if (period == "custom") {
+  if (!customStartDate || !customEndDate) {
+    return badRequest(res, "Both customStartDate and customEndDate are required when using custom period");
+  }
+  startDate = setStartOfDayUTC(new Date(customStartDate));
+  endDate = setEndOfDayUTC(new Date(customEndDate));
+}
+else if (period == "all") {
+  startDate = new Date("2000-01-01T00:00:00.000Z");
+  endDate = new Date();
+}
+else if (period == "1days") {
+  // ✅ This is what you need
+  startDate = setStartOfDayUTC(now);
+  endDate = setEndOfDayUTC(now);
+}
+else if (period == "7days") {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6); // includes today
+  startDate = setStartOfDayUTC(sevenDaysAgo);
+  endDate = setEndOfDayUTC(now);
+}
+else if (period == "30days") {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 29); // includes today
+  startDate = setStartOfDayUTC(thirtyDaysAgo);
+  endDate = setEndOfDayUTC(now);
+}
+else {
+  // full year
+  startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+  endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+}
 
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    let startDate, endDate;
-    const now = new Date();
-
-    // Handle different period types including custom dates and "all"
-    if (period == "custom" && customStartDate && customEndDate) {
-      // Custom date range
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-
-      endDate.setHours(23, 59, 59, 999);
-    }
-    else if (period == "all") {
-      startDate = new Date("2000-01-01T00:00:00.000Z");
-      endDate = now;
-    }
-    else if (period == "7days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 7);
-      endDate = now;
-    }
-    else if (period == "1days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 1);
-      endDate = now;
-    }
-    else if (period == "30days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 30);
-      endDate = now;
-    } else {
-      // default: full year
-      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
-    }
-
-    // Validate custom dates if provided
-    if (period == "custom") {
-      if (!customStartDate || !customEndDate) {
-        return badRequest(res, "Both customStartDate and customEndDate are required when using custom period")
-      }
-
-    }
-
-    console.log("startDate", startDate)
-    console.log("endDate", endDate)
+console.log("startDate", startDate )
+console.log("endDate", endDate);
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: new ObjectId(orgainizationId)
     });
+
 
 
 
@@ -2182,133 +2298,173 @@ export const getDashboardSummary = async (req, res) => {
       }
     ]);
 
+// Step 1: Get job application counts
+const jobApplications = await jobApply.aggregate([
+  {
+    $match: {
+      createdAt: { $gte: startDate, $lte: endDate },
+      jobPostId: { $exists: true },
+      orgainizationId: new ObjectId(orgainizationId),
+    },
+  },
+  {
+    $group: {
+      _id: "$jobPostId",
+      count: { $sum: 1 },
+    },
+  },
+]);
 
-    // Hot posstion //
+const jobApplicationMap = new Map(jobApplications.map(j => [j._id.toString(), j.count]));
 
-    const hotPositions = await jobApply.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          position: { $exists: true, $ne: "" },
-          departmentId: { $ne: null },
-          jobPostId: { $exists: true },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
-      },
-      {
-        $group: {
-          _id: "$jobPostId",
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $lookup: {
-          from: "jobposts", // replace with actual job posts collection
-          localField: "_id",
-          foreignField: "_id",
-          as: "jobPost"
-        }
-      },
-      { $unwind: "$jobPost" },
-      {
-        $lookup: {
-          from: "newdepartments",
-          localField: "jobPost.departmentId",
-          foreignField: "_id",
-          as: "departmentDetails"
-        }
-      },
-      { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          daysSincePosted: {
-            $dateDiff: {
-              startDate: "$jobPost.createdAt",
-              endDate: new Date(),
-              unit: "day"
-            }
-          }
-        }
-      },
-      {
-        $sort: { count: -1 }
-      },
-      { $limit: 5 },
-      {
-        $project: {
-          position: "$jobPost.position",
-          departmentName: "$departmentDetails.name",
-          applications: "$count",
-          daysSincePosted: 1
-        }
-      }
-    ]);
+// Step 2: Sort and separate hot/cold
+const sortedApps = jobApplications.sort((a, b) => b.count - a.count);
+const hotJobPostIds = sortedApps.slice(0, 5).map(j => j._id);
+const coldJobPostIds = sortedApps
+  .filter(j => j.count <= 5 && !hotJobPostIds.includes(j._id))
+  .slice(0, 5)
+  .map(j => j._id);
 
+// Step 3: Get hot position details
+let hotPositions = await jobPostModel.aggregate([
+  {
+    $match: {
+      _id: { $in: hotJobPostIds },
+      organizationId: new ObjectId(orgainizationId),
+    },
+  },
+  {
+    $lookup: {
+      from: "newdepartments",
+      localField: "departmentId",
+      foreignField: "_id",
+      as: "departmentDetails",
+    },
+  },
+  {
+    $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
+  },
+  {
+    $addFields: {
+      daysSincePosted: {
+        $dateDiff: {
+          startDate: "$createdAt",
+          endDate: new Date(),
+          unit: "day",
+        },
+      },
+    },
+  },
+  {
+    $project: {
+      _id: 1,
+      position: 1,
+      departmentName: "$departmentDetails.name",
+      daysSincePosted: 1,
+    },
+  },
+]);
 
-    // Cold positions (less than 5 applications)
-    const coldPositions = await jobApply.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          position: { $exists: true, $ne: "" },
-          departmentId: { $ne: null },
-          jobPostId: { $exists: true },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+hotPositions = hotPositions.map(pos => ({
+  ...pos,
+  applications: jobApplicationMap.get(pos._id.toString()) || 0,
+}));
+
+// Step 4: Get cold position details (≤ 5 apps)
+let coldPositions = await jobPostModel.aggregate([
+  {
+    $match: {
+      _id: { $in: coldJobPostIds },
+      organizationId: new ObjectId(orgainizationId),
+    },
+  },
+  {
+    $lookup: {
+      from: "newdepartments",
+      localField: "departmentId",
+      foreignField: "_id",
+      as: "departmentDetails",
+    },
+  },
+  {
+    $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
+  },
+  {
+    $addFields: {
+      daysSincePosted: {
+        $dateDiff: {
+          startDate: "$createdAt",
+          endDate: new Date(),
+          unit: "day",
+        },
       },
-      {
-        $group: {
-          _id: "$jobPostId",
-          count: { $sum: 1 }
-        }
+    },
+  },
+  {
+    $project: {
+      _id: 1,
+      position: 1,
+      departmentName: "$departmentDetails.name",
+      daysSincePosted: 1,
+    },
+  },
+]);
+
+coldPositions = coldPositions.map(pos => ({
+  ...pos,
+  applications: jobApplicationMap.get(pos._id.toString()) || 0,
+}));
+
+// Step 5: Include 0-application jobs (fill up to 5 cold if needed)
+if (coldPositions.length < 5) {
+  const zeroApplicationPosts = await jobPostModel.aggregate([
+    {
+      $match: {
+        _id: { $nin: [...hotJobPostIds, ...coldJobPostIds] },
+        createdAt: { $lte: endDate },
+        organizationId: new ObjectId(orgainizationId),
+        status: "active",
       },
-      {
-        $lookup: {
-          from: "jobposts",
-          localField: "_id",
-          foreignField: "_id",
-          as: "jobPost"
-        }
+    },
+    {
+      $lookup: {
+        from: "newdepartments",
+        localField: "departmentId",
+        foreignField: "_id",
+        as: "departmentDetails",
       },
-      { $unwind: "$jobPost" },
-      {
-        $lookup: {
-          from: "newdepartments",
-          localField: "jobPost.departmentId",
-          foreignField: "_id",
-          as: "departmentDetails"
-        }
+    },
+    {
+      $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
+    },
+    {
+      $addFields: {
+        applications: 0,
+        daysSincePosted: {
+          $dateDiff: {
+            startDate: "$createdAt",
+            endDate: new Date(),
+            unit: "day",
+          },
+        },
       },
-      { $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          daysSincePosted: {
-            $dateDiff: {
-              startDate: "$jobPost.createdAt",
-              endDate: new Date(),
-              unit: "day"
-            }
-          }
-        }
+    },
+    {
+      $project: {
+        position: 1,
+        departmentName: "$departmentDetails.name",
+        applications: 1,
+        daysSincePosted: 1,
       },
-      {
-        $match: { count: { $lte: 5 } } // cold threshold
-      },
-      {
-        $sort: { count: 1 }
-      },
-      {
-        $limit: 5
-      },
-      {
-        $project: {
-          position: "$jobPost.position",
-          departmentName: "$departmentDetails.name",
-          applications: "$count",
-          daysSincePosted: 1
-        }
-      }
-    ]);
+    },
+    {
+      $limit: 5 - coldPositions.length,
+    },
+  ]);
+
+  coldPositions.push(...zeroApplicationPosts);
+}
+
 
 
 
@@ -2455,43 +2611,58 @@ export const getDashboardMetrics = async (req, res) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     let startDate, endDate;
-    const now = new Date();
+const now = new Date();
 
-    if (period == "7days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 7);
-      endDate = now;
-    }
+// Helpers to set time to UTC start and end of day
+const setStartOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
 
-    else if (period == "all") {
-      startDate = new Date("2000-01-01T00:00:00.000Z");
-      endDate = now;
-    }
+const setEndOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+};
 
-    else if (period == "30days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 30);
-      endDate = now;
-    }
-    else if (period == "1days") {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 1);
-      endDate = now;
-    }
+if (period === "1days") {
+  startDate = setStartOfDayUTC(now);
+  endDate = setEndOfDayUTC(now);
+}
 
-    else if (period == "custom" && customStartDate && customEndDate) {
-      // Custom date range
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
+else if (period === "7days") {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setUTCDate(now.getUTCDate() - 6); // includes today
+  startDate = setStartOfDayUTC(sevenDaysAgo);
+  endDate = setEndOfDayUTC(now);
+}
 
-      endDate.setHours(23, 59, 59, 999);
-    }
-    else {
-      // default: full year
-      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+else if (period === "30days") {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setUTCDate(now.getUTCDate() - 29); // includes today
+  startDate = setStartOfDayUTC(thirtyDaysAgo);
+  endDate = setEndOfDayUTC(now);
+}
 
-    }
+else if (period === "all") {
+  startDate = new Date("2000-01-01T00:00:00.000Z");
+  endDate = new Date(); // current time as default
+}
+
+else if (period === "custom" && customStartDate && customEndDate) {
+  startDate = setStartOfDayUTC(new Date(customStartDate));
+  endDate = setEndOfDayUTC(new Date(customEndDate));
+}
+
+else {
+  // Default full year range
+  startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+  endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+}
+
+console.log("startDate", startDate.toISOString());
+console.log("endDate", endDate.toISOString());
 
 
     // Get applications by month
@@ -3522,36 +3693,67 @@ export const getDashboardOverview = async (req, res) => {
     const { period = '30days', customStartDate, customEndDate, department } = req.query;
     const organizationId = req.employee.organizationId;
 
-    const now = new Date();
-    let startDate, endDate = now;
+const now = new Date();
+let startDate, endDate;
 
-    // Determine date range
-    if (period === 'custom') {
-      if (!customStartDate || !customEndDate) {
-        return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
-      }
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (period === 'all') {
-      startDate = new Date("2000-01-01T00:00:00.000Z");
-    } else {
-      startDate = new Date();
-      switch (period) {
-        case '1days':
-          startDate.setDate(startDate.getDate() - 1);
-          break;
-        case '7days':
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case '90days':
-          startDate.setDate(startDate.getDate() - 90);
-          break;
-        case '30days':
-        default:
-          startDate.setDate(startDate.getDate() - 30);
-      }
+if (period == 'custom') {
+  if (!customStartDate || !customEndDate) {
+    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
+  }
+
+  startDate = new Date(customStartDate);
+  startDate.setUTCHours(0, 0, 0, 0);
+
+  endDate = new Date(customEndDate);
+  endDate.setUTCHours(23, 59, 59, 999);
+
+} else if (period == 'all') {
+  startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0, 0)); // Jan 1, 2000 UTC
+  endDate = new Date(); // current UTC now
+  endDate.setUTCHours(23, 59, 59, 999);
+
+} else {
+  const today = new Date();
+
+  switch (period) {
+  case '1days': {
+  const todayStart = new Date();
+  startDate = new Date(todayStart.setUTCHours(0, 0, 0, 0));
+  endDate = new Date(todayStart.setUTCHours(23, 59, 59, 999));
+  break;
+}
+
+    case '7days': {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setUTCDate(today.getUTCDate() - 7);
+      startDate = new Date(sevenDaysAgo.setUTCHours(0, 0, 0, 0));
+      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+      break;
     }
+
+    case '90days': {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setUTCDate(today.getUTCDate() - 90);
+      startDate = new Date(ninetyDaysAgo.setUTCHours(0, 0, 0, 0));
+      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+      break;
+    }
+
+    case '30days':
+    default: {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
+      startDate = new Date(thirtyDaysAgo.setUTCHours(0, 0, 0, 0));
+      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+      break;
+    }
+  }
+  startDate.setUTCHours(0, 0, 0, 0);
+}
+
+// console.log("startDate", startDate.toISOString());
+// console.log("endDate", endDate.toISOString());
+
 
     // Filter object
     const filter = {
@@ -3559,6 +3761,9 @@ export const getDashboardOverview = async (req, res) => {
       createdAt: { $gte: startDate, $lte: endDate }
     };
     if (department) filter.department = department;
+
+
+    console.log("filter" , filter)
 
     // Dashboard queries
     const [
@@ -3833,37 +4038,77 @@ export const getScreeningAnalytics = async (req, res) => {
     const { department, period = '30days',
       customStartDate,
       customEndDate } = req.query;
-    const now = new Date();
-    let startDate, endDate = now;
 
-    // Handle different period types
-    if (period == 'custom') {
-      if (!customStartDate || !customEndDate) {
-        return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
-      }
-      startDate = new Date(customStartDate);
-      endDate = new Date(customEndDate);
-      endDate.setHours(23, 59, 59, 999);
 
-    } else if (period == 'all') {
-      startDate = new Date("2000-01-01T00:00:00.000Z");
-    } else {
-      startDate = new Date();
-      switch (period) {
-        case '1days':
-          startDate.setDate(startDate.getDate() - 1);
-          break;
-        case '7days':
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case '90days':
-          startDate.setDate(startDate.getDate() - 90);
-          break;
-        case '30days':
-        default:
-          startDate.setDate(startDate.getDate() - 30);
-      }
+   const now = new Date();
+
+// Utility functions
+const setStartOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+};
+
+const setEndOfDayUTC = (date) => {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+};
+
+let startDate, endDate;
+
+if (period === 'custom') {
+  if (!customStartDate || !customEndDate) {
+    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
+  }
+  startDate = setStartOfDayUTC(new Date(customStartDate));
+  endDate = setEndOfDayUTC(new Date(customEndDate));
+}
+
+else if (period === 'all') {
+  startDate = new Date("2000-01-01T00:00:00.000Z");
+  endDate = new Date(); // now
+  endDate = setEndOfDayUTC(endDate);
+}
+
+else {
+  const current = new Date();
+  endDate = setEndOfDayUTC(current);
+
+  switch (period) {
+    case '1days': {
+      const oneDayAgo = new Date();
+      oneDayAgo.setUTCDate(current.getUTCDate());
+      startDate = setStartOfDayUTC(oneDayAgo);
+      break;
     }
+
+    case '7days': {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setUTCDate(current.getUTCDate() - 6); // Include today
+      startDate = setStartOfDayUTC(sevenDaysAgo);
+      break;
+    }
+
+    case '90days': {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setUTCDate(current.getUTCDate() - 89); // Include today
+      startDate = setStartOfDayUTC(ninetyDaysAgo);
+      break;
+    }
+
+    case '30days':
+    default: {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setUTCDate(current.getUTCDate() - 29); // Include today
+      startDate = setStartOfDayUTC(thirtyDaysAgo);
+      break;
+    }
+  }
+}
+
+console.log("startDate:", startDate.toISOString());
+console.log("endDate:", endDate.toISOString());
 
 
     const filter = {
@@ -3934,18 +4179,36 @@ export const getScreeningAnalytics = async (req, res) => {
       ]),
 
       // Weekly trends
-      ScreeningResultModel.aggregate([
-        { $match: filter },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%U", date: "$createdAt" } },
-            applications: { $sum: 1 },
-            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
-            avgScore: { $avg: '$overallScore' }
-          }
-        },
-        { $sort: { _id: 1 } }
-      ]),
+ScreeningResultModel.aggregate([
+  { $match: filter },
+  {
+    $group: {
+      _id: '$position', // Taking position directly from ScreeningResultModel
+      applications: { $sum: 1 },
+      approved: {
+        $sum: {
+          $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0]
+        }
+      },
+      avgScore: { $avg: '$overallScore' },
+      department: { $first: '$department' } // Optional: include department
+    }
+  },
+  {
+    $addFields: {
+      passRate: {
+        $cond: [
+          { $gt: ['$applications', 0] },
+          { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
+          0
+        ]
+      }
+    }
+  },
+  { $sort: { applications: -1 } }
+]),
+
+
 
       // Position Performance Matrix
       ScreeningResultModel.aggregate([
@@ -4437,3 +4700,392 @@ export const convertBranchIdToArray = async (req, res) => {
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+
+// Upload Bulk Resume //
+
+
+// export const bulkJobApplyWithResumeExtraction = async (req, res) => {
+//   try {
+//     const { resumes, jobPostId, branchId } = req.body;
+
+//     if (!jobPostId || !resumes?.length || !branchId?.length) {
+//       return badRequest(res, "Missing required fields: resumes, jobPostId, or branchId.");
+//     }
+
+//     const jobPost = await jobPostModel.findById(jobPostId).lean();
+//     if (!jobPost) return badRequest(res, "Invalid Job Post");
+
+//     const organizationId = jobPost.organizationId;
+//     const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId });
+
+//     const findDesignation = await designationModel.findById(jobPost.designationId).lean();
+//     if (!findDesignation) return badRequest(res, "Designation not found for this job post.");
+
+//     const results = [];
+//     const aiQueue = [];
+//     const fileOpsQueue = [];
+
+//     for (const resumeUrl of resumes) {
+//   const parsedData = await extractCandidateDataFromResume(resumeUrl);
+
+//   if (!parsedData || !parsedData.name || !parsedData.emailId) {
+//     results.push({ resume: resumeUrl, status: "failed", reason: "Resume parsing failed" });
+//     continue;
+//   }
+
+//   try {
+//     // 🚫 Skip if email already exists for this jobPost
+//     const existing = await jobApply.findOne({
+//       emailId: parsedData.emailId.trim(),
+//       jobPostId: jobPostId
+//     }).lean();
+
+//     if (existing) {
+//       results.push({
+//         resume: resumeUrl,
+//         status: "skipped",
+//         reason: "Candidate with this email has already applied"
+//       });
+//       continue;
+//     }
+
+//     const jobPayload = {
+//       name: parsedData.name.trim(),
+//       emailId: parsedData.emailId.trim(),
+//       mobileNumber: parsedData.mobileNumber || '',
+//       resume: resumeUrl,
+//       jobPostId,
+//       branchId,
+//       pincode: parsedData.pincode || '',
+//       orgainizationId: new ObjectId(organizationId),
+//       departmentId: jobPost.departmentId,
+//       subDepartmentId: jobPost.subDepartmentId,
+//       position: findDesignation.name,
+//       JobType: jobPost.JobType || "",
+//       jobFormType: "request",
+//       BulkResume: "true"
+//     };
+
+//     const jobFormInstance = new jobApply(jobPayload);
+//     const jobApplyForm = await jobFormInstance.save();
+
+//     results.push({ resume: resumeUrl, status: "success" });
+
+
+//       // ✅ Queue folder & file save operation
+//         fileOpsQueue.push(
+//           (async () => {
+//             try {
+//               const rootFolderKey = 'akash/job-posts';
+//               const formatFolderName = (name) => {
+//                 return name
+//                   .trim()
+//                   .split(/\s+/)
+//                   .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+//                   .join('_');
+//               };
+
+//               const folderKey = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
+
+//               const parentFolder = await folderSchema.findOne({
+//                 organizationId: new ObjectId(organizationId),
+//                 key: folderKey
+//               }).lean();
+
+//               let parentId;
+//               const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
+//               let candidateFolder = await folderSchema.findOne({
+//                 organizationId: new ObjectId(organizationId),
+//                 key: candidateFolderKey
+//               });
+
+//               if (!candidateFolder) {
+//                 const newRootFolder = new folderSchema({
+//                   organizationId,
+//                   candidateId: null,
+//                   parentId: parentFolder?._id || null,
+//                   name: `${jobApplyForm.candidateUniqueId}`,
+//                   type: 'folder',
+//                   key: candidateFolderKey,
+//                   mimetype: 'application/x-directory',
+//                   status: 'active',
+//                 });
+
+//                 const newCreateRootFolder = await newRootFolder.save();
+//                 parentId = newCreateRootFolder._id;
+//               } else {
+//                 parentId = candidateFolder._id;
+//               }
+
+//               await saveFileFromUrl({
+//                 fileUrl: resumeUrl,
+//                 parentId,
+//                 organizationId,
+//                 candidateId: null
+//               });
+//             } catch (err) {
+//               console.error("File ops error:", resumeUrl, "->", err.message);
+//             }
+//           })()
+//         );
+
+
+//     if (AIdata) {
+//       aiQueue.push(
+//         processAIScreeningForCandidate({
+//           jobPostId,
+//           resume: resumeUrl,
+//           candidateId: jobApplyForm._id,
+//           organizationId,
+//         }).catch(err => {
+//           console.error("AI screening error:", err.message);
+//         })
+//       );
+//     }
+
+//   } catch (err) {
+//     console.error("Error saving job apply for resume:", resumeUrl, "->", err.message);
+//     results.push({
+//       resume: resumeUrl,
+//       status: "failed",
+//       reason: err.message
+//     });
+//   }
+// }
+
+//     // ✅ Immediately respond to client
+//     success(res, "Bulk job apply process completed", results);
+
+//     // 🔁 Continue AI screening in background
+//     await Promise.allSettled(aiQueue);
+
+//   } catch (err) {
+//     console.error("Error in bulk job apply:", err);
+//     return unknownError(res, err);
+//   }
+// };
+
+
+
+export const bulkJobApplyWithResumeExtraction = async (req, res) => {
+  try {
+    const { resumes, jobPostId, branchId } = req.body;
+
+    if (!jobPostId || !resumes?.length || !branchId?.length) {
+      return badRequest(res, "Missing required fields: resumes, jobPostId, or branchId.");
+    }
+
+    const jobPost = await jobPostModel.findById(jobPostId).lean();
+    if (!jobPost) return badRequest(res, "Invalid Job Post");
+
+    const organizationId = jobPost.organizationId;
+    const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId });
+    const findDesignation = await designationModel.findById(jobPost.designationId).lean();
+    if (!findDesignation) return badRequest(res, "Designation not found for this job post.");
+
+    const results = [];
+    const aiQueue = [];
+    const fileOpsQueue = [];
+
+    for (const resumeUrl of resumes) {
+      const parsedData = await extractCandidateDataFromResume(resumeUrl);
+      if (!parsedData || !parsedData.name || !parsedData.emailId) {
+        results.push({ resume: resumeUrl, status: "failed", reason: "Resume parsing failed" });
+        continue;
+      }
+
+      try {
+        const existing = await jobApply.findOne({
+          emailId: parsedData.emailId.trim(),
+          jobPostId
+        }).lean();
+
+        if (existing) {
+          results.push({
+            resume: resumeUrl,
+            status: "skipped",
+            reason: "Candidate with this email has already applied"
+          });
+          continue;
+        }
+
+        const jobPayload = {
+          name: parsedData.name.trim(),
+          emailId: parsedData.emailId.trim(),
+          mobileNumber: parsedData.mobileNumber || '',
+          resume: resumeUrl,
+          jobPostId,
+          branchId,
+          pincode: parsedData.pincode || '',
+          orgainizationId: new ObjectId(organizationId),
+          departmentId: jobPost.departmentId,
+          subDepartmentId: jobPost.subDepartmentId,
+          position: findDesignation.name,
+          JobType: jobPost.JobType || "",
+          jobFormType: "request",
+          BulkResume: "true"
+        };
+
+        const jobFormInstance = new jobApply(jobPayload);
+        const jobApplyForm = await jobFormInstance.save();
+
+        results.push({ resume: resumeUrl, status: "success" });
+
+
+
+        // ✅ Update totalApplicants count
+        await jobPostModel.findByIdAndUpdate(jobPostId, { $inc: { totalApplicants: 1 } });
+
+        const totalApplications = await jobApply.countDocuments({ jobPostId });
+        if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
+          await jobPostModel.findByIdAndUpdate(jobPostId, { status: 'inactive' });
+
+          const budget = await BudgetModel.findOne({
+            organizationId: jobPost.organizationId,
+            desingationId: jobPost.designationId,
+          });
+
+          if (budget) {
+            const budgetImpact = Number(jobPost.budget || 0);
+            const noOfPosition = Number(jobPost.noOfPosition || 0);
+            budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
+            budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+            await budget.save();
+          }
+
+        // ✅ Folder/File Creation in Background
+        fileOpsQueue.push(
+          (async () => {
+            try {
+              // const rootFolderKey = 'akash/job-posts';
+              const rootFolderKey = 'job-posts';
+              const formatFolderName = (name) =>
+                name.trim().split(/\s+/).map(word =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('_');
+              const folderKey = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
+
+              const parentFolder = await folderSchema.findOne({
+                organizationId: new ObjectId(organizationId),
+                key: folderKey
+              }).lean();
+
+              let parentId;
+              const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
+              let candidateFolder = await folderSchema.findOne({
+                organizationId: new ObjectId(organizationId),
+                key: candidateFolderKey
+              });
+
+              if (!candidateFolder) {
+                const newRootFolder = new folderSchema({
+                  organizationId,
+                  candidateId: null,
+                  parentId: parentFolder?._id || null,
+                  name: `${jobApplyForm.candidateUniqueId}`,
+                  type: 'folder',
+                  key: candidateFolderKey,
+                  mimetype: 'application/x-directory',
+                  status: 'active',
+                });
+                const newCreateRootFolder = await newRootFolder.save();
+                parentId = newCreateRootFolder._id;
+              } else {
+                parentId = candidateFolder._id;
+              }
+
+              await saveFileFromUrl({
+                fileUrl: resumeUrl,
+                parentId,
+                organizationId,
+                candidateId: null
+              });
+
+            } catch (err) {
+              console.error("File ops error:", resumeUrl, "->", err.message);
+            }
+          })()
+        );
+
+        // ✅ AI Screening in Background
+        if (AIdata) {
+          aiQueue.push(
+            processAIScreeningForCandidate({
+              jobPostId,
+              resume: resumeUrl,
+              candidateId: jobApplyForm._id,
+              organizationId
+            }).catch(err => console.error("AI screening error:", err.message))
+          );
+        }
+
+      }
+
+      } catch (err) {
+        console.error("Job apply save error:", resumeUrl, "->", err.message);
+        results.push({ resume: resumeUrl, status: "failed", reason: err.message });
+      }
+    }
+
+    // ✅ Send response early
+    success(res, "Bulk job apply process completed", results);
+
+    // 🔁 Background AI + Folder/File Processing
+    await Promise.allSettled(aiQueue);
+    await Promise.allSettled(fileOpsQueue);
+
+
+  } catch (err) {
+    console.error("Error in bulk job apply:", err);
+    return unknownError(res, err);
+  }
+};
+
+
+
+
+
+export const pincodeByLatitudeAndLongitude = async (req, res) => {
+ try {
+    // 1. Get all unique pincodes from jobApply collection
+    const uniquePincodes = await jobApply.distinct("pincode", { pincode: { $ne: null } });
+
+    const savedPincodes = await pincodeLocationModel.find({
+      pincode: { $in: uniquePincodes }
+    }).distinct("pincode");
+
+    // 2. Filter pincodes that are not yet saved
+    const pincodesToSave = uniquePincodes.filter(pc => !savedPincodes.includes(pc));
+
+    const saved = [];
+    const failed = [];
+
+    for (const pincode of pincodesToSave) {
+      const latlng = await getLatLngByPincode(pincode);
+      if (latlng) {
+        await pincodeLocationModel.create({
+          pincode: pincode.toString().trim(),
+          latitude: latlng.latitude,
+          longitude: latlng.longitude,
+          state: latlng.state,
+          district: latlng.district,
+          area:latlng.area,
+        });
+        saved.push(pincode);
+      } else {
+        failed.push(pincode);
+      }
+    }
+
+    return success(res, "Pincode data synced", {
+      totalJobApplyPincodes: uniquePincodes.length,
+      saved: saved.length,
+      failed: failed.length,
+      failedPincodes: failed
+    });
+
+  } catch (error) {
+    console.error("Error syncing pincodes:", error);
+    return unknownError(res, error);
+  }
+}

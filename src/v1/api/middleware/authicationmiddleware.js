@@ -76,7 +76,7 @@ export const verifyEmployeeToken = (req, res, next) => {
         roleId:decoded.roleId,
         organizationId: decoded.organizationId
       };
-  
+      
       next();
     } catch (err) {
       console.error('Token verification failed:', err.message);

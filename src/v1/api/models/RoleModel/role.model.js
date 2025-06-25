@@ -197,10 +197,10 @@ const roleSchema = new Schema(
       type: Boolean,
       default: false
     },
-    linkedinSetUp: {
-      type: Boolean,
-      default: false
-    },
+    // linkedinSetUp: {
+    //   type: Boolean,
+    //   default: false
+    // },
     jobPostDashboard: {
       canViewAll: {
         type: Boolean,
@@ -233,6 +233,9 @@ const roleSchema = new Schema(
       canApproveReject: {
         type: Boolean, default: false
       },
+      candidateMap: {
+        type: Boolean, default: false
+      },
     },
     socialMedia: {
       newPost: {
@@ -249,7 +252,24 @@ const roleSchema = new Schema(
       calendar: {
         type: Boolean, default: false
       },
-    }
+    },
+    linkedin: {
+      setup: {
+        type: Boolean, default: false
+      },
+      dashboard: {
+        type: Boolean, default: false
+      },
+      createPost: {
+        type: Boolean, default: false
+      },
+    },
+    fileManager: {
+      type: Boolean, default: false
+    },
+    notes: {
+      type: Boolean, default: false
+    },
   },
   {
     timestamps: true,

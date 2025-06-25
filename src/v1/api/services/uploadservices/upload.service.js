@@ -92,14 +92,13 @@ export const handleMultipleFileUpload = async (files, folderName = 'uploads') =>
       const contentType = file.mimetype;
       const filePath = `${folderName}/${Date.now()}_${file.originalname}`;
       const fileContent = file.buffer;
-
-      const url = await uploadToSpaces(
-        process.env.PATH_BUCKET,
-        filePath,
-        fileContent,
-        'public-read',
-        contentType
-      );
+  const url = await uploadToSpaces(
+    'finexe',
+    filePath,
+    fileContent,
+    'public-read',
+    contentType
+  );
 
       return url;
     })

@@ -166,9 +166,12 @@ export const generateAIResponseWithImageUrl = async (prompt, fileUrl) => {
 
 
 
+
+
 // Function for AI screening using a document URL
 export const generateAIScreening = async (prompt, fileUrl) => {
   try {
+    console.log("fileUrl" , fileUrl)
     const mimeType = mime.lookup(fileUrl) || "application/octet-stream";
     const base64File = await fetchFileAsBase64(fileUrl);
 
@@ -197,3 +200,50 @@ export const generateAIScreening = async (prompt, fileUrl) => {
     return error;
   }
 };
+
+
+
+// extract resume data // 
+export const extractCandidateDataFromResume = async (resumeUrl) => {
+  try {
+    const prompt = `
+You are an intelligent resume parser.
+
+From the resume provided, extract and return the following fields in JSON format:
+
+- name (full name)
+- emailId (email address)
+- mobileNumber (10-digit mobile number)
+- pincode (if present)
+
+Return response in the EXACT JSON format shown below:
+{
+  "name": "Candidate Name",
+  "emailId": "example@example.com",
+  "mobileNumber": "9876543210",
+  "pincode": "400001"
+}
+`;
+
+    const extractedData = await generateAIScreening(prompt, resumeUrl);
+
+    if (!extractedData?.name || !extractedData?.emailId) {
+      console.warn("Incomplete data extracted:", extractedData);
+      return null;
+    }
+
+    return extractedData;
+
+  } catch (error) {
+    console.error("Resume parsing failed:", error.message);
+    return null;
+  }
+};
+
+
+
+
+
+
+
+

@@ -7,7 +7,8 @@ import {
   advancedSearch,
   getRecentActivities,
   getMostActiveFiles,
-  getFolderDataUsage
+  getFolderDataUsage,
+  streamFileDownload
 } from "../../services/fileShareService/finalFileShare.services.js";
 
 async function getFileSystem(req, res) {
@@ -39,6 +40,7 @@ async function createNewFolder(req, res) {
   }
 }
 
+
 async function uploadSingleFile(req, res) {
   try {
     const { path, candidateId } = req.body;
@@ -68,6 +70,26 @@ async function searchFilesAndFolders(req, res) {
     return unknownError(res, error);
   }
 }
+
+
+async function downloadFile(req, res) {
+    try {
+      const { key } = req.query;
+      
+      if (!key) {
+        return badRequest(res, 'File key is required');
+      }
+      
+      // This function will handle the response directly
+      await streamFileDownload(key, res);
+      
+    } catch (error) {
+      // Only return error if headers haven't been sent
+      if (!res.headersSent) {
+        return unknownError(res, error);
+      }
+    }
+  }
 
 // Advanced search
 // async function advancedFileSearch(req, res) {
@@ -189,6 +211,7 @@ export {
   advancedFileSearch,
   recentFilesController,
   mostActiveFilesController,
-  folderDataUsageController
+  folderDataUsageController,
+  downloadFile
  
 };

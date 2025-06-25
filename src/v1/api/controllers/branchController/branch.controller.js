@@ -21,9 +21,11 @@ import {
     getBranchByJobPost,
   } from "../../services/branchservices/branch.service.js"
   
+  import { ObjectId } from "mongodb"
   import newBranch from "../../models/branchModel/branch.model.js"
   import jobApplyModel from "../../models/jobformModel/jobform.model.js"
   import employeeModel from "../../models/employeemodel/employee.model.js"
+import subDropDownModel from "../../models/masterDropDownModel/masterDropDownValue.model.js";
   
   //----------------------- Add new branch ------------------------------
   
@@ -241,4 +243,171 @@ export const getBranchNamesFromJobApply = async (req, res) => {
     return unknownError(res, error.message);
   }
 };
+
+
+// Upload Multiple branches via excel sheet //
+
+// export const uploadBranches = async (req, res) => {
+//   try {
+//     const { branches } = req.body;
+//     const organizationId = req.employee.organizationId;
+//     const createdBy = req.employee.id;
+
+//     if (!Array.isArray(branches) || branches.length === 0) {
+//       return badRequest(res, "Please provide Branches data");
+//     }
+
+//     const results = [];
+
+//     // Cache branch types
+//     const branchTypesMap = {};
+//     const branchTypes = await subDropDownModel.find({
+//       organizationId,
+//       status: "active"
+//     }).lean();
+
+//     for (const type of branchTypes) {
+//       branchTypesMap[type.name.trim().toLowerCase()] = type._id;
+//     }
+
+//     for (const entry of branches) {
+//       const {
+//         name, address, city, state, pincode,
+//         latitude, longitude, branchType
+//       } = entry;
+
+//       if (!name) {
+//         results.push({
+//           name,
+//           status: "failed",
+//           reason: "Missing required field: name"
+//         });
+//         continue;
+//       }
+
+//       const normalizedBranchType = branchType?.trim()?.toLowerCase() || "";
+//       const matchedBranchTypeId = branchTypesMap[normalizedBranchType] || null;
+
+//       const branchData = {
+//         name: name.trim(),
+//         address: address?.trim() || "",
+//         city: city?.trim() || "",
+//         state: state?.trim() || "",
+//         pincode: pincode?.trim() || "",
+//         organizationId: new ObjectId(organizationId),
+//         createdBy: new ObjectId(createdBy),
+//         branchType: matchedBranchTypeId,
+//         location: {
+//           type: "Point",
+//           coordinates: [
+//             parseFloat(latitude) || 0.0,
+//             parseFloat(longitude) || 0.0
+//           ]
+//         }
+//       };
+
+//       try {
+//         const saved = await newBranch.create(branchData);
+//         results.push({ name, status: "success", _id: saved._id });
+//       } catch (err) {
+//         results.push({ name, status: "failed", reason: err.message });
+//       }
+//     }
+
+//     return success(res, "Branch upload processed", results);
+//   } catch (err) {
+//     return unknownError(res, err);
+//   }
+// };
+
+
+export const uploadBranches = async (req, res) => {
+  try {
+    const { branches } = req.body;
+    const organizationId = req.employee.organizationId;
+    const createdBy = req.employee.id;
+
+    if (!Array.isArray(branches) || branches.length === 0) {
+      return badRequest(res, "Please provide Branches data");
+    }
+
+    const results = [];
+
+    // Cache branch types
+    const branchTypesMap = {};
+    const branchTypes = await subDropDownModel.find({
+      organizationId,
+      status: "active"
+    }).lean();
+
+    for (const type of branchTypes) {
+      branchTypesMap[type.name.trim().toLowerCase()] = type._id;
+    }
+
+    for (const entry of branches) {
+      const {
+        name, address, city, state, pincode,
+        latitude, longitude, branchType
+      } = entry;
+
+      if (!name) {
+        results.push({
+          name,
+          status: "failed",
+          reason: "Missing required field: name"
+        });
+        continue;
+      }
+
+      // Check if branch with same name already exists
+      const existingBranch = await newBranch.findOne({
+        name: name.trim(),
+        organizationId: new ObjectId(organizationId)
+      });
+
+      if (existingBranch) {
+        results.push({
+          name,
+          status: "skipped",
+          reason: `Branch with name '${name}' already exists`
+        });
+        continue;
+      }
+
+      const normalizedBranchType = branchType?.trim()?.toLowerCase() || "";
+      const matchedBranchTypeId = branchTypesMap[normalizedBranchType] || null;
+
+      const branchData = {
+        name: name.trim(),
+        address: address?.trim() || "",
+        city: city?.trim() || "",
+        state: state?.trim() || "",
+        pincode: pincode?.trim() || "",
+        organizationId: new ObjectId(organizationId),
+        createdBy: new ObjectId(createdBy),
+        branchType: matchedBranchTypeId,
+        location: {
+          type: "Point",
+          coordinates: [
+            parseFloat(latitude) || 0.0,
+            parseFloat(longitude) || 0.0
+          ]
+        }
+      };
+
+      try {
+        const saved = await newBranch.create(branchData);
+        results.push({ name, status: "success", _id: saved._id });
+      } catch (err) {
+        results.push({ name, status: "failed", reason: err.message });
+      }
+    }
+
+    return success(res, "Branch upload processed", results);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};
+
+
 

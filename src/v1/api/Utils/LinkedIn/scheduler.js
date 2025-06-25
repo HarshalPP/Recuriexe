@@ -1,148 +1,172 @@
-// utils/scheduler.js
+// utils/LinkedIn/scheduler.js
 import ScheduledPost from '../../models/LinkedIn/ScheduledPost.js';
 import LinkedInOrganization from '../../models/LinkedIn/Organization.js';
 import schedule from 'node-schedule';
 import * as linkedinService from '../../services/Linkedinservice/linkedin.service.js';
 import fs from 'fs/promises';
 
-// Store scheduled jobs in memory
+// In-memory registry of active jobs
 const scheduledJobs = new Map();
 
-// Initialize scheduled jobs on server restart
+/** Helper: pretty-print an invocation time */
+const fmt = (d) => d ? new Date(d).toISOString() : '—';
+
+/** Optional: call this anywhere to see what’s queued */
+export const listScheduledJobs = () => {
+  console.log('📋  Active scheduled jobs:');
+  scheduledJobs.forEach((job, name) =>
+    console.log(`   • ${name} -> next at ${fmt(job.nextInvocation())}`)
+  );
+};
+
+/** Initialise (or re-initialise) jobs – run once after the DB is ready */
 export const initializeScheduledJobs = async () => {
   try {
-    console.log('🔄 Initializing scheduled jobs...');
 
+    // Fetch only future posts that are still ‘scheduled’
     const scheduledPosts = await ScheduledPost.find({
       status: 'scheduled',
-      scheduleTime: { $gt: new Date() },
-    }).populate('orgId');
+      scheduleTime: { $gt: new Date() }
+    })
+      .populate({
+        path: 'orgIds.orgId',
+        select: '+accessToken organizationId' // make sure token & org ref are available
+      });
+
 
     for (const post of scheduledPosts) {
-      try {
-        const postJob = async () => {
-          try {
-            const org = post.orgId;
+      // --- one closure per post -------------
+      const postJob = async () => {
+        console.log(`⏱️  [${post.jobName}] firing at ${fmt(new Date())}`);
 
-            if (!org?.accessToken) {
-              console.error(`❌ No access token for organization ${org._id}`);
-              await ScheduledPost.findByIdAndUpdate(post._id, {
-                status: 'failed',
-                error: 'LinkedIn access token not found',
+        const results = [];
+        let filesToPost = [];
+
+        // Read any stored images (if present)
+        if (post.imageFiles?.length) {
+          for (const fileInfo of post.imageFiles) {
+            try {
+              const buffer = await fs.readFile(fileInfo.path);
+              filesToPost.push({
+                buffer,
+                mimetype: fileInfo.mimetype,
+                originalname: fileInfo.filename
               });
-              return;
+            } catch (err) {
+              console.error(`   ⚠️  could not read ${fileInfo.path}:`, err);
             }
+          }
+        }
 
-            // Load files if any
-            let filesToPost = [];
-            if (post.imageFiles && post.imageFiles.length > 0) {
-              for (const fileInfo of post.imageFiles) {
-                try {
-                  const buffer = await fs.readFile(fileInfo.path);
-                  filesToPost.push({
-                    buffer,
-                    mimetype: fileInfo.mimetype,
-                    originalname: fileInfo.filename,
-                  });
-                } catch (err) {
-                  console.error(`Error reading file ${fileInfo.path}:`, err);
-                }
-              }
-            }
+        // Iterate per-org inside the scheduled post
+        for (const { orgId } of post.orgIds) {
+          if (!orgId) {
+            results.push({ status: 'failed', error: 'orgId missing' });
+            continue;
+          }
 
-            // Post to LinkedIn
+          const linkedInOrg = await LinkedInOrganization.findById(orgId._id);
+          if (!linkedInOrg?.accessToken) {
+            console.error(`   ❌ no token for org ${orgId._id}`);
+            await ScheduledPost.updateOne(
+              { _id: post._id, 'orgIds.orgId': orgId._id },
+              { $set: { 'orgIds.$.status': 'failed', 'orgIds.$.error': 'token missing' } }
+            );
+            results.push({ status: 'failed', orgId: orgId._id, error: 'token missing' });
+            continue;
+          }
+
+          try {
             const result = await linkedinService.postToLinkedInWithFilesUGC(
-              org._id,
+              linkedInOrg,
               post.message,
-              post.imageUrls || [],
+              post.imageUrls ?? [],
               filesToPost
             );
 
-            console.log('✅ Scheduled content posted to LinkedIn:', result);
+            console.log(`   ✅ posted for org ${orgId._id} -> ${result.id}`);
 
-            // Update scheduled post status
-            await ScheduledPost.findByIdAndUpdate(post._id, {
-              status: 'posted',
-              linkedinPostId: result.id,
-              postedAt: new Date(),
-            });
-
-            // Clean up saved files
-            if (post.imageFiles) {
-              for (const fileInfo of post.imageFiles) {
-                try {
-                  await fs.unlink(fileInfo.path);
-                } catch (err) {
-                  console.error('Error deleting file:', err);
+            await ScheduledPost.updateOne(
+              { _id: post._id, 'orgIds.orgId': orgId._id },
+              {
+                $set: {
+                  'orgIds.$.status': 'posted',
+                  'orgIds.$.linkedinPostId': result.id,
+                  'orgIds.$.postedAt': new Date()
                 }
               }
-            }
-
-            // Remove job from memory
-            scheduledJobs.delete(post.jobName);
-          } catch (error) {
-            console.error('❌ Error in scheduled post:', error);
-
-            await ScheduledPost.findByIdAndUpdate(post._id, {
-              status: 'failed',
-              error: error.message,
-            });
-
-            scheduledJobs.delete(post.jobName);
+            );
+            results.push({ status: 'success', orgId: orgId._id, result });
+          } catch (err) {
+            console.error(`   ❌ post failed for org ${orgId._id}:`, err.message);
+            await ScheduledPost.updateOne(
+              { _id: post._id, 'orgIds.orgId': orgId._id },
+              {
+                $set: {
+                  'orgIds.$.status': 'failed',
+                  'orgIds.$.error': err.message ?? 'post failed'
+                }
+              }
+            );
+            results.push({ status: 'failed', orgId: orgId._id, error: err.message });
           }
-        };
-
-        // Schedule the job
-        const job = schedule.scheduleJob(post.jobName, post.scheduleTime, postJob);
-
-        if (job) {
-          scheduledJobs.set(post.jobName, job);
-          console.log(`✅ Scheduled job ${post.jobName} for ${post.scheduleTime}`);
-        } else {
-          console.error(`❌ Failed to schedule job ${post.jobName}`);
-          await ScheduledPost.findByIdAndUpdate(post._id, {
-            status: 'failed',
-            error: 'Failed to reschedule job after server restart',
-          });
         }
-      } catch (error) {
-        console.error(`Error initializing job for post ${post._id}:`, error);
-      }
-    }
 
-    console.log(`✅ Initialized ${scheduledPosts.length} scheduled jobs`);
+        // Clean up temp files (if any)
+        if (post.imageFiles?.length) {
+          await Promise.all(
+            post.imageFiles.map(async (f) => {
+              try {
+                await fs.unlink(f.path);
+                console.log(`   🧹 deleted ${f.filename}`);
+              } catch (err) {
+                console.error(`   ⚠️  could not delete ${f.path}:`, err);
+              }
+            })
+          );
+        }
 
-    // Clean up expired posts
-    const expiredPosts = await ScheduledPost.find({
-      status: 'scheduled',
-      scheduleTime: { $lte: new Date() }
-    });
-
-    if (expiredPosts.length > 0) {
-      console.log(`🧹 Cleaning up ${expiredPosts.length} expired scheduled posts`);
-      
-      for (const expiredPost of expiredPosts) {
-        await ScheduledPost.findByIdAndUpdate(expiredPost._id, {
-          status: 'failed',
-          error: 'Post schedule time expired during server downtime'
+        // Mark overall post status
+        const allOK = results.every((r) => r.status === 'success');
+        const someFail = results.some((r) => r.status === 'failed');
+        await ScheduledPost.findByIdAndUpdate(post._id, {
+          status: allOK ? 'posted' : someFail ? 'failed' : 'posted',
+          lastProcessedAt: new Date()
         });
 
-        if (expiredPost.imageFiles) {
-          for (const fileInfo of expiredPost.imageFiles) {
-            try {
-              await fs.unlink(fileInfo.path);
-            } catch (err) {
-              console.error('Error deleting expired post file:', err);
-            }
-          }
-        }
+        scheduledJobs.delete(post.jobName);
+      };
+      // --- /closure --------------------------
+
+      // Skip if the scheduled time is already passed (failsafe)
+      if (post.scheduleTime <= new Date()) {
+        console.warn(`⚠️  discarding outdated job ${post.jobName}`);
+        await ScheduledPost.findByIdAndUpdate(post._id, {
+          status: 'failed',
+          error: 'schedule time passed before server restart'
+        });
+        continue;
       }
+
+      // (Re)create the cron job
+      const job = schedule.scheduleJob(post.jobName, post.scheduleTime, postJob);
+      if (!job) {
+        console.error(`❌ could not reschedule ${post.jobName}`);
+        await ScheduledPost.findByIdAndUpdate(post._id, {
+          status: 'failed',
+          error: 'reschedule failed'
+        });
+        continue;
+      }
+
+      scheduledJobs.set(post.jobName, job);
     }
 
-  } catch (error) {
-    console.error('❌ Error initializing scheduled jobs:', error);
+    // Final summary
+  } catch (err) {
+    console.error('🚨  initialiseScheduledJobs crashed:', err);
   }
 };
 
-// Export scheduledJobs Map for controller access
+// Export for controller usage
 export { scheduledJobs };

@@ -35,58 +35,15 @@ export const convertToISOFormat = (timeStr, dateStr) => {
 export const addBranch = async (req, bodyData) => {
   try {
     const { branchType, branchMaping } = req.body
-    // const existingBranch = await branchModel.findOne({
-    //   name: bodyData.name,
-    // });
-    // if (existingBranch) {
-    //   return returnFormatter(
-    //     false,
-    //     "Branch with the same name already exists."
-    //   );
-    // }
 
-    // console.log('branchMaping',branchMaping,branchType)
     const company = await companyModel.find();
     // bodyData.companyId = company[0]._id || null;
     bodyData.createdBy = req.Id;
     bodyData.organizationId = req.employee.organizationId;
 
-    // if (bodyData.regional === "false" || bodyData.regional === false) {
-    //   if (!bodyData.regionalBranchId) {
-    //     return returnFormatter(
-    //       false,
-    //       "RegionalBranch Id is required when regional is false."
-    //     );
-    //   }
-    // }
-
-    // const { punchInTime, punchOutTime } = req.body;
-    // if (!punchInTime || !punchOutTime) {
-    //   return returnFormatter(
-    //     false,
-    //     "Both punchInTime and punchOutTime are required."
-    //   );
-    // }
-
-    // const currentDateISO = new Date().toISOString(); // Current date in ISO format, e.g., "2024-12-11T12:00:00.000Z"
-
-
     if (!branchType) {
       return returnFormatter(false, "branch Type are required.");
     }
-
-    // const branchFind = await subDropDownModel.findById(branchType)
-    // if (!branchFind) {
-      // return returnFormatter(false, "branch Type Not Found.");
-    // }
-
-    //    if (!branchMaping) {
-    //   return returnFormatter(false, "branch Maping is required.");
-    // }
-
-    // if (!Array.isArray(branchMaping) || branchMaping.length === 0) {
-    //   return returnFormatter(false, "branchMaping must be a non-empty array.");
-    // }
 
     const validMappedBranches = await branchModel.find({
       _id: { $in: branchMaping }
@@ -99,6 +56,35 @@ export const addBranch = async (req, bodyData) => {
     }
 
 
+  if (bodyData.location && Array.isArray(bodyData.location.coordinates)) {
+  const [lng, lat] = bodyData.location.coordinates;
+
+  // Convert strings to numbers safely
+  const longitude = parseFloat(lng);
+  const latitude = parseFloat(lat);
+
+  if (!isNaN(longitude) && !isNaN(latitude)) {
+    bodyData.location = {
+      type: "Point",
+      coordinates: [latitude , longitude], // Correct format
+    };
+  } else {
+    // Use default location if invalid
+    bodyData.location = {
+      type: "Point",
+      coordinates: [0.0, 0.0],
+    };
+  }
+} else {
+  // No coordinates provided, use fallback
+  bodyData.location = {
+    type: "Point",
+    coordinates: [0.0, 0.0],
+  };
+}
+
+
+
 
 
     // bodyData.punchInTime = convertToISOFormat(punchInTime, currentDateISO);
@@ -108,16 +94,6 @@ export const addBranch = async (req, bodyData) => {
     // console.log(formattedData);
 
     const saveData = await branchModel.create(formattedData);
-    // let reginalBranchName;
-    // if (formattedData.regional) {
-    //   reginalBranchName = "N/A";
-    // } else {
-    //   const regionalBranch = await branchModel.findById(saveData.regionalBranchId);
-    //   reginalBranchName = regionalBranch.name;
-    // }
-
-    // const sheetData = { ...saveData._doc, regionalBranch: reginalBranchName };
-    // await newBranchGoogleSheet(sheetData);
 
     return returnFormatter(true, "Branch created", saveData);
   } catch (error) {

@@ -55,6 +55,7 @@ const ScreeningResultSchema = new Schema({
   recommendation: { type: String, required: false },
   improvementSuggestions: { type: [String], required: false },
   riskFactors: { type: [RiskFactorSchema], required: false },
+  CandidateAIExperince:{type:Number , default:0}
 
 }, { timestamps: true });
 

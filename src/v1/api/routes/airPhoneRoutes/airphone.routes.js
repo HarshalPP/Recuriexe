@@ -1,0 +1,52 @@
+import express from 'express';
+
+import * as airphoneController from '../../controllers/airphoneController/airphone.controller.js';
+import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
+
+const router = express.Router();
+import multer from 'multer';
+const upload = multer();
+
+
+//call log api
+router.post('/call-log', airphoneController.recordCallLog);
+
+//live event APIs
+router.post('/live-event/before-connect', airphoneController.beforeCallConnect);
+router.post('/live-event/after-connect', airphoneController.afterCallConnect);
+
+//initiate C2C call API
+router.post('/initiate-c2c', airphoneController.initiateC2C);
+
+//add C2C agent API
+router.post('/add-agent',verifyEmployeeToken, airphoneController.addAgent);
+
+//update agent status API
+router.post('/update-agent-status', airphoneController.updateAgentStatus);
+
+//get agent status API
+router.post('/get-agent-status',upload.none(), airphoneController.getAgentStatus);
+
+//dial call API
+router.post('/dial-call',upload.none(), airphoneController.initiateDirectCall);
+
+//get agent number API
+router.get('/get-agent-number', airphoneController.getAgentNumber);
+
+//get agent number by ID API
+router.post('/get-extension-status/:extension', airphoneController.getSingleExtensionStatus);
+
+//get multiple agent numbers API
+router.post('/get-extension-status-multiple/:extensions', airphoneController.getMultipleExtensionStatus);
+
+
+//get all saved agents API
+router.get('/saved-agents',verifyEmployeeToken, airphoneController.getAllSavedAgents);
+
+//get all c2c calls API
+router.get('/saved-c2c-calls', airphoneController.getAllSavedC2CCalls);
+
+//receive call log aPI
+router.post('/receive-call-log', upload.none(), airphoneController.receiveCallLog);
+
+export default router;

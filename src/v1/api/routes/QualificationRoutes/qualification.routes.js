@@ -10,6 +10,7 @@ router.post("/createQualification" ,verifyEmployeeToken ,  createQualification)
 router.get("/getAllQualifications" ,verifyEmployeeToken,  getAllQualifications)
 router.post("/updateQualification/:id" , updateQualification)
 router.post("/deleteQualification/:id" , deleteQualification)
+
 router.get("/jobApplyUsedQualification",jobApplyUsedQualification)
 
 export default router;

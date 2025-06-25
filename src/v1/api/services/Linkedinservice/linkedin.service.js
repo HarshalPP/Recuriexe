@@ -102,6 +102,7 @@ export const exchangeCodeForToken = async (org, code) => {
     // throw new ApiError(500, 'Failed to exchange authorization code for token');
   }
 };
+
 export const uploadImageToLinkedIn = async (accessToken, authorUrn, imageUrl) => {
   try {
     // Step 1: Initialize upload
@@ -404,6 +405,8 @@ export const postToLinkedInWithFilesUGC = async (org, message, imageUrls = [], i
     
     const author = `urn:li:person:${org.memberId}`; // Author URN for the authenticated user
 
+    console.log("author:--",author);
+    
     // Build the base post body for UGC API
     const postBody = {
       author: author,
@@ -496,8 +499,8 @@ export const postToLinkedInWithFilesUGC = async (org, message, imageUrls = [], i
     return response.data; // Return the LinkedIn response
   } catch (error) {
     console.error("Error posting to LinkedIn UGC:", error.response?.data || error.message);
-    return unknownError(res , "Failed to post content to LinkedIn")
-    // throw new ApiError(500, "Failed to post content to LinkedIn");
+    // return unknownError(res , "Failed to post content to LinkedIn")
+    throw new ApiError(500, "Failed to post content to LinkedIn");
   }
 };
 
@@ -898,7 +901,7 @@ export const generateLinkedInPost = async (positions, jobData) => {
   const department = safeAccess(jobData, 'department', 'name') || "Admin";
   const subDepartment = safeAccess(jobData, 'subDepartment', 'name') || "Office Management";
   const employmentType = safeAccess(jobData, 'employmentType', 'title') || "On-site";
-  const location = jobData.Worklocation?.name || "Remote";
+  const location = jobData.Worklocation?.name || "";
   const experience = jobData.experience || "Not specified";
 const qualifications = Array.isArray(jobData.qualificationId)
   ? jobData.qualificationId
@@ -930,26 +933,30 @@ const qualifications = Array.isArray(jobData.qualificationId)
       positions.map((pos, index) => `• Position ${index + 1}: ${pos}`).join('\n');
   }
 
+  console.log("carrierlink-----",carrierlink);
+  
   // Build prompt
-const prompt = `
-Generate a LinkedIn job post using the following job data. 
-Return the response **only as a string** of LinkedIn-friendly post content. 
+    const prompt = `
+    Generate a LinkedIn job post using the following job data. 
+    Return the response **only as a string** of LinkedIn-friendly post content. 
 
-Job Data:
-Company: ${organizationName}
-Position(s): ${positions.join(', ')}
-Location: ${location}
-Experience Required: ${experience}
-Employment Type: ${employmentType}
-Department: ${department}
-Careers Link: ${carrierlink || organizationWebsite}
+    Job Data:
+    Company: ${organizationName}
+    Position(s): ${positions.join(', ')}
+    Location: ${location}
+    Experience Required: ${experience}
+    Employment Type: ${employmentType}
+    Department: ${department}
+    Careers Link: ${carrierlink }
 
-Key Skills:
-${keySkills.slice(0, 8).map(skill => `• ${skill}`).join('\n')}
+    Key Skills:
+    ${keySkills.slice(0, 8).map(skill => `• ${skill}`).join('\n')}
 
-Return only the LinkedIn post string. Do not return any JSON object.
-`;
+    Return only the LinkedIn post string. Do not return any JSON object.
+    `;
 
+  console.log(prompt);
+  
 
 let postText = "Failed to generate post.";
 

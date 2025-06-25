@@ -241,3 +241,51 @@ export async function deleteEmployeeType(req, res) {
     unknownError(res, error);
   }
 }
+
+
+
+
+export const uploadEmployeetype = async (req, res) => {
+  try {
+    const { employeeTypes } = req.body;
+    const organizationId = req.employee.organizationId;
+
+    if (!Array.isArray(employeeTypes) || employeeTypes.length === 0) {
+      return badRequest(res, "Please provide employment types.");
+    }
+
+    const results = [];
+
+    for (const entry of employeeTypes) {
+      const { title } = entry;
+
+      if (!title || !title.trim()) {
+        results.push({ title, status: "failed", reason: "Title is required" });
+        continue;
+      }
+
+      const existing = await employeTypeModel.findOne({
+        title: title.trim(),
+        organizationId,
+      });
+
+      if (existing) {
+        results.push({ title, status: "skipped", reason: "Already exists" });
+        continue;
+      }
+
+      const data = new employeTypeModel({
+        title: title.trim(),
+        organizationId: new mongoose.Types.ObjectId(organizationId),
+      });
+
+      await data.save();
+      results.push({ title, status: "success", _id: data._id });
+    }
+
+    return success(res, "Employee types processed", results);
+  } catch (error) {
+    console.error("uploadEmploymentTypes error:", error.message);
+    return unknownError(res, error.message);
+  }
+};

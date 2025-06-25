@@ -553,6 +553,8 @@ export async function generateUploadUrl(fileName, contentType, destinationPath =
  */
 export async function createFolder(folderPath, parentId = null, createdBy = null) {
   try {
+
+    console.log("folder run ")
     if (!folderPath) {
       return returnFormatter(false, "Folder path is required");
     }

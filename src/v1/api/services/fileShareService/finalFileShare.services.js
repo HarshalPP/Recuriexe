@@ -106,6 +106,24 @@ function getSpacesClient() {
 //   }
 // }
 
+async function trackOpenActivity(items, req) {
+  const organizationId = req.employee.organizationId;
+  const candidateId = req.employee._id;
+  if (!items || !items.length) return;
+  const now = new Date();
+
+  // Bulk insert FileHistory
+  await RecentActivity.insertMany(
+    items.map(i => ({
+      fileId: i._id,
+      organizationId,
+      candidateId,
+      action: 'open',
+      at: now
+    }))
+  );
+}
+
 export async function fileShare(req, parentId) {
   try {
     const organizationId = req.employee.organizationId;
@@ -125,6 +143,9 @@ export async function fileShare(req, parentId) {
 
     // Files
     const filesRaw = await Folder.find({ ...folderFilter, type: 'file' }).lean();
+
+    await trackOpenActivity(folders, req);
+    await trackOpenActivity(filesRaw, req);
 
     // Subfolder count for each folder
     const folderData = await Promise.all(
@@ -247,7 +268,7 @@ export async function fileShare(req, parentId) {
 export async function createFolder(folderPath, req) {
   try {
     const organizationId = req.employee.organizationId;
-    const candidateId = req.body.candidateId;
+    const candidateId = req.body.candidateId || null;
     const parentId = req.body.parentId || null;
     if (!organizationId ) {
       return { status: false, message: "organizationId is required" };
@@ -474,7 +495,7 @@ export async function createFolder(folderPath, req) {
 //   }
 // }
 
-export async function uploadFile(file, destinationPath = '', req) {
+export async function uploadFile(file, destinationPath = '', req , ) {
   try {
     const organizationId = req.employee?.organizationId;
     const candidateId = req.body.candidateId;
@@ -489,7 +510,7 @@ export async function uploadFile(file, destinationPath = '', req) {
     }
 
     // const bucket = process.env.PATH_BUCKET;
-    const bucket = "finexe"
+    const bucket = "finexe";
     if (!bucket) {
       return { status: false, message: "No Bucket Found" };
     }
@@ -561,6 +582,151 @@ export async function uploadFile(file, destinationPath = '', req) {
   }
 }
 
+// export async function uploadDirectFile(file, parentId , organizationId ,location ="https://cdn.fincooper.in/STAGE/HRMS/IMAGE/1749308795532_Nikit Resume.pdf") {
+//   try {
+
+//     if (!organizationId) {
+//       return { status: false, message: "organizationId is required" };
+//     }
+
+//     if (!file) {
+//       return { status: false, message: "File is required" };
+//     }
+
+//     // const 
+//     // const bucket = "finexe";
+//     // if (!bucket) {
+//     //   return { status: false, message: "No Bucket Found" };
+//     // }
+
+//     // const client = getSpacesClient();
+//     // const originalName = file.originalname;
+//     // const extension = path.extname(originalName);
+//     // const fileName = path.basename(originalName, extension);
+//     // const timestamp = Date.now();
+
+//     // let key = destinationPath;
+//     // if (key && !key.endsWith('/')) key += '/';
+//     // key += `${fileName}_${timestamp}${extension}`;
+
+//     // const upload = new Upload({
+//     //   client,
+//     //   params: {
+//     //     Bucket: bucket,
+//     //     Key: key,
+//     //     Body: file.buffer,
+//     //     ContentType: file.mimetype,
+//     //     ACL: 'public-read', // <-- Change this if public URL is expected
+//     //   },
+//     // });
+
+//     // const result = await upload.done();
+//     // console.log("Upload result:", result);
+
+//     const fileDoc = new Folder({
+//       organizationId,
+//       parentId,
+//       name: originalName,
+//       type: 'file',
+//       key: key,
+//       location: location, // or result.Location
+//       size: file.size,
+//       mimetype: file.mimetype,
+//       extension: extension,
+//       openedAt: null
+//     });
+
+//     await fileDoc.save();
+
+//     await RecentActivity.create({
+//       fileId: fileDoc._id,
+//       organizationId,
+//       candidateId,
+//       action: 'upload',
+//       at: new Date()
+//     });
+
+//     return {
+//       status: true,
+//       message: "File uploaded successfully",
+//       data: {
+//         key: result.Key,
+//         location: fileDoc.location,
+//         etag: result.ETag,
+//         size: file.size,
+//         mimetype: file.mimetype,
+//         originalName: file.originalname
+//       }
+//     };
+
+//   } catch (error) {
+//     console.error("Upload error:", error);
+//     return { status: false, message: error.message };
+//   }
+// }
+
+
+import axios from 'axios';
+import mime from 'mime-types'; // npm install mime-types
+
+export async function saveFileFromUrl({ fileUrl, parentId, organizationId, candidateId = null }) {
+  try {
+    if (!fileUrl || !organizationId || !parentId) {
+      return { status: false, message: "fileUrl, organizationId, and parentId are required" };
+    }
+
+    // Get file metadata and buffer
+    const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data);
+
+    const parsedUrl = new URL(fileUrl);
+    const originalName = decodeURIComponent(path.basename(parsedUrl.pathname));
+    const extension = path.extname(originalName);
+    const mimetype = mime.lookup(extension) || 'application/octet-stream';
+    const size = buffer.length;
+
+    const key = parsedUrl.pathname.replace(/^\/+/, ''); // remove starting slash if any
+
+    const fileDoc = new Folder({
+      organizationId,
+      candidateId,
+      parentId,
+      name: originalName,
+      type: 'file',
+      key: key,
+      location: fileUrl,
+      size: size,
+      mimetype: mimetype,
+      extension: extension,
+      openedAt: null
+    });
+
+    await fileDoc.save();
+
+    await RecentActivity.create({
+      fileId: fileDoc._id,
+      organizationId,
+      candidateId,
+      action: 'upload',
+      at: new Date()
+    });
+
+    return {
+      status: true,
+      message: "File saved from URL successfully",
+      data: {
+        key,
+        location: fileUrl,
+        size,
+        mimetype,
+        originalName
+      }
+    };
+  } catch (error) {
+    console.error("saveFileFromUrl error:", error);
+    return { status: false, message: error.message || "Failed to save file from URL" };
+  }
+}
 
 export async function getFolderOrFile(key, req) {
   try {
@@ -1871,6 +2037,42 @@ export async function getFolderDataUsage(req) {
   } catch (err) {
     console.error('getFolderDataUsage error →', err);
     return returnFormatter(false, err.message);
+  }
+}
+
+export async function streamFileDownload(key, res) {
+  try {
+    if (!key) {
+      return res.status(400).json(returnFormatter(false, "File key is required"));
+    }
+
+    const bucket = process.env.SPACES_BUCKET;
+    if (!bucket) {
+      return res.status(500).json(returnFormatter(false, "No Bucket Found"));
+    }
+
+    const client = getSpacesClient();
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key
+    });
+
+    try {
+      const { Body, ContentType, ContentLength, LastModified } = await client.send(command);
+      const filename = key.split('/').pop();
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', ContentType || 'application/octet-stream');
+      if (ContentLength) res.setHeader('Content-Length', ContentLength);
+      Body.pipe(res);
+    } catch (error) {
+      if (error.name === 'NoSuchKey') {
+        return res.status(404).json(returnFormatter(false, "File not found"));
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error streaming file:', error);
+    return res.status(500).json(returnFormatter(false, error.message));
   }
 }
 

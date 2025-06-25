@@ -23,7 +23,7 @@ const branchModelSchema = new Schema(
     branchMaping : [{type :ObjectId, ref: "newbranch", default: null}],
     location: {
       type: { type: String, default: "Point" },
-      coordinates: { type: [Number], required: true },
+      coordinates: { type: [Number], required: false },
     },
     isActive: {
       type: Boolean,

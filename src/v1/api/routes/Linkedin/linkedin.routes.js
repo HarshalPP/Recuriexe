@@ -18,6 +18,7 @@ import {
   postSingleContentWithFilesUGC,
   editDraftPost,
   postSingleDraftToAllOrgs,
+  generateLinkedotherInPost,
   deleteDraft
 } from '../../controllers/LinkedIn/linkedin.controller.js';
 import {verifyEmployeeToken } from "../../middleware/authicationmiddleware.js"
@@ -41,7 +42,7 @@ router.get("/scheduled-posts", verifyEmployeeToken,getAllScheduledPosts);
 router.get("/post-linkedinAccount", getAllPostByorgId);
 
 router.delete("/scheduled-posts/:scheduledPostId", cancelScheduledPost);
-router.put("/scheduled-posts/:scheduledPostId/reschedule", reschedulePost);
+router.put("/reschedule/:scheduledPostId", reschedulePost);
 
 // Delete posts
 router.delete("/posts/:postId", deleteLinkedInPost);
@@ -50,7 +51,7 @@ router.delete("/posts/:postId", deleteLinkedInPost);
 router.get("/analytics/:organizationId", getLinkedInAnalytics);
 
 // Save a draft post
-router.post("/save-posts", saveDraftPost);
+router.post("/save-posts",verifyEmployeeToken, saveDraftPost);
 
 // Get all draft posts
 router.get("/posts/drafts",verifyEmployeeToken, getDraftPosts);
@@ -65,6 +66,8 @@ router.delete("/draft/delete/:draftId", deleteDraft);
 
 //
 router.get('/generate-post/:jobIds', generatePostText);
+
+router.get("/other/post",verifyEmployeeToken, generateLinkedotherInPost);
 
 
 router.get('/status/:id', getPostGenStatus);

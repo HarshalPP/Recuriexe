@@ -1779,9 +1779,9 @@ export const budgetVerify = async (req, res) => {
 
     const { subDepartmentId, desingationId } = req.query
 
-    if (!subDepartmentId) {
-      return badRequest(res, "sub Department Id Is Required");
-    }
+    // if (!subDepartmentId) {
+    //   return badRequest(res, "sub Department Id Is Required");
+    // }
 
     if (!desingationId) {
       return badRequest(res, "desingation Id Is Required");
@@ -1815,6 +1815,7 @@ const desingationFind  = await designationModel.findById(desingationId)
           organizationId: new ObjectId(organizationId),
           designationId: new ObjectId(desingationId),
           // subDepartmentId: new ObjectId(subDepartmentId),
+          status:"active",
         }
       },
       {

@@ -215,6 +215,12 @@ const jobApplyModelSchema = new Schema(
      type: String,
     },
 
+
+    BulkResume:{
+      type:String,
+      default:"false",
+    },
+
     // AI Result //
 
     AI_Result: {

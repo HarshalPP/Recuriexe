@@ -1,4 +1,5 @@
 import { handleSingleFileUpload, handleMultipleFileUpload } from "../../services/uploadservices/upload.service.js"
+import { success , badRequest, unknownError} from "../../formatters/globalResponse.js";
 
 export const uploadImageOrPdf = async (req, res) => {
   try {
@@ -27,9 +28,8 @@ export const uploadMultipleImages = async (req, res) => {
       return res.status(400).json({ message: 'No files uploaded' });
 
     const urls = await handleMultipleFileUpload(req.files, req.body.folder || 'uploads');
-    res.status(200).json({ urls });
+    return success(res , "Upload Successfully" , urls)
   } catch (error) {
-    console.error('Multiple upload error:', error);
-    res.status(500).json({ message: 'Multiple upload failed' });
+    return unknownError(res , error)
   }
 };

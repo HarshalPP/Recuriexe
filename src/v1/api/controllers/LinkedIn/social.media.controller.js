@@ -12,40 +12,80 @@ import path from 'path';
 import { scheduledJobs } from '../../Utils/LinkedIn/scheduler.js';;
 import {PostContent} from '../../models/LinkedIn/social.media.js';
 import { success, unknownError, serverValidation, badRequest, notFound } from "../../formatters/globalResponse.js"
-
+import mongoose from 'mongoose';
+import { ObjectId } from 'mongodb';
 
 // saveDraft
 export const saveDraft = asyncHandler(async (req, res) => {
-  const { message, imageUrls = [] } =  req.body;
+  const { message, imageUrls = [] ,orgs} = req.body;
   const imageFiles = req.files || [];
-  console.log("req.body:", req.body);
-console.log("req.message:", req.body);
+  const organizationId = req.employee.organizationId;
 
   // Ensure imageUrls is always an array
   const imageUrlsArray = Array.isArray(imageUrls) ? imageUrls : (imageUrls ? [imageUrls] : []);
 
-  if (!message && imageUrlsArray.length === 0) {
-    // throw new ApiError(400, 'Message or image files are required');
-    return badRequest(res, "Message or image files are required")
+  // Input validation
+  if (!message && imageUrlsArray.length === 0 && imageFiles.length === 0) {
+    return badRequest(res, "Message or image files are required");
   }
 
-  const organizationId = req.employee.organizationId;
+  if (!Array.isArray(orgs) || orgs.length === 0) {
+    return badRequest(res, "At least one organization must be provided");
+  }
 
-  const draftPost = await PostContent.create({
-    message,
-    imageUrls: imageUrlsArray,
-    imageFiles: imageFiles.map(file => file.filename),
-    organizationId,
-    status: 'draft',
-  });
+  const results = [];
 
-  // res.status(201).json(new ApiResponse(201, draftPost, 'Draft post saved successfully'));
-  return success(res , "Draft post saved successfully", draftPost)
+  // Process each organization
+  await Promise.all(
+    orgs.map(async ({ orgId }) => {
+      if (!orgId) {
+        results.push({
+          status: 'failed',
+          error: 'Organization ID is required'
+        });
+        return;
+      }
+
+      try {
+        const draftPost = await PostContent.create({
+          message,
+          imageUrls: imageUrlsArray,
+          imageFiles: imageFiles.map(file => ({
+            filename: file.filename,
+            path: file.path,
+            mimetype: file.mimetype,
+            size: file.size
+          })),
+          organizationId: organizationId,
+          orgIds : [{ orgId }],
+          status: 'draft'
+        });
+
+        results.push({
+          status: 'success',
+          orgId,
+          draftPostId: draftPost._id
+        });
+      } catch (error) {
+        console.error(`❌ Error saving draft for orgId ${orgId}:`, error);
+        results.push({
+          status: 'failed',
+          orgId,
+          error: error.message || 'Failed to save draft'
+        });
+      }
+    })
+  );
+
+  return success(res, "Draft posts saved successfully", results);
 });
 
 //getDraftPosts
 export const getDraftPosts = asyncHandler(async (req, res) => {
-  const draftPosts = await PostContent.find({ status: 'draft' }).sort({ createdAt: -1 });
+  const organizationId = req.employee.organizationId;
+
+  const draftPosts = await PostContent.find({ status: 'draft',
+  organizationId : new ObjectId(organizationId)}).sort({ createdAt: -1 });
 
   // return res.status(200).json(
   //   new ApiResponse(200, draftPosts, " Draft posts fetched successfully")
@@ -67,6 +107,8 @@ export const editDraftPost = asyncHandler(async (req, res) => {
     notFound(res, "Draft post not found or already published")
   }
 
+  console.log("message:--", message);
+  
   // Update fields
   if (message !== undefined) draft.message = message;
   if (imageUrls !== undefined) draft.imageUrls = imageUrls;
@@ -90,51 +132,96 @@ export const editDraftPost = asyncHandler(async (req, res) => {
   
 });
 
+//delete the draft
+
+export const deleteDraft = asyncHandler(async (req, res) => {
+  const { draftId } = req.params;
+
+  if (!draftId) {
+    return badRequest(res, "Draft ID is required");
+  }
+
+  // Find and delete the draft by ID and status 'draft'
+  const deletedDraft = await PostContent.findOneAndDelete({
+    _id: draftId,
+    status: 'draft'
+  });
+
+  if (!deletedDraft) {
+    return badRequest(res, "Draft not found or already published");
+  }
+
+  return success(res, "  Draft deleted successfully", deletedDraft);
+});
+
+
 // post on linkedin without jobID dependency
+
 export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => {
   const { postIds, orgs, scheduleTimes, message: directMessage, imageUrls: directImageUrls } = req.body;
   const imageFiles = req.files || [];
 
-  console.log("orgs",orgs);
-  
-
-  // Validate input
-  if (!Array.isArray(orgs) || !orgs.length) {
-    // throw new ApiError(400, "At least one organization must be provided");
-    badRequest(res, "At least one organization must be provided")
-  }
-
   let drafts = [];
   let combinedMessage = directMessage;
   let combinedImages = [...(directImageUrls || [])];
+  let combinedMediaFiles = [];
 
-  // If postIds exist, use draft data
+  // Validate input based on mode
   if (Array.isArray(postIds) && postIds.length > 0) {
+    // MODE 1: Use Draft Data
     drafts = await PostContent.find({
       _id: { $in: postIds },
       status: 'draft'
-    });
+    }).populate('orgIds.orgId'); // ✅ Correct populate path
 
     if (!drafts.length) {
-      // throw new ApiError(404, "No drafts found for the given IDs");
-      badRequest(res, "No drafts found for the given IDs")
-
+      return badRequest(res, "No drafts found for the given IDs");
     }
 
-    // Use first draft's message and imageUrls if not provided directly
-    combinedMessage = directMessage || drafts[0].message;
-    combinedImages = directImageUrls || [...drafts[0].imageUrls];
-  } else if (!directMessage || !Array.isArray(directImageUrls)) {
-    // throw new ApiError(400, "Either valid postIds or message + imageUrls must be provided");
-    badRequest(res, "Either valid postIds or message + imageUrls must be provided")
-   
+    // Extract orgIds from drafts
+    const draftOrgIds = [
+      ...new Set(
+        drafts
+          .filter(d => d.orgIds?.length > 0)
+          .map(d => d.orgIds[0]?.orgId?._id?.toString()) // ✅ Access nested orgId
+      )
+    ];
+
+    if (draftOrgIds.length === 0) {
+      return badRequest(res, "Draft does not contain any orgId");
+    }
+
+    if (draftOrgIds.length > 1) {
+      return badRequest(res, "All drafts must belong to the same organization");
+    }
+
+    // Override orgs with draft's orgId
+    const draftOrgId = draftOrgIds[0];
+    req.body.orgs = [{ orgId: draftOrgId }];
+
+    // Use first draft's content
+    combinedMessage = drafts[0].message;
+    combinedImages = [...(drafts[0].imageUrls || [])];
+
+    if (drafts[0]?.mediaFiles?.length) {
+      combinedMediaFiles = drafts[0].mediaFiles;
+    }
+  } else {
+    // MODE 2: Direct Input Mode
+    if (!Array.isArray(orgs) || !orgs.length) {
+      return badRequest(res, "At least one organization must be provided");
+    }
+
+    if (!directMessage || !Array.isArray(directImageUrls)) {
+      return badRequest(res, "Either valid postIds or message + imageUrls must be provided");
+    }
   }
 
   const results = [];
 
   // Process each organization
   await Promise.all(
-    orgs.map(async ({ orgId, scheduleTimes }) => {
+    req.body.orgs.map(async ({ orgId, scheduleTimes }) => {
       const linkedInOrg = await LinkedInOrganization.findById(orgId);
       if (!linkedInOrg || !linkedInOrg.accessToken) {
         results.push({
@@ -154,10 +241,10 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
           .filter(date => !isNaN(date.getTime()));
       }
 
-      // Prepare media files from request
+      // Prepare file info
       const savedFileInfo = imageFiles.map(file => ({
         filename: `${uuidv4()}-${file.originalname}`,
-        path: file.path || path.join('uploads', 'scheduled', `${uuidv4()}-${file.originalname}`),
+        path: path.join('uploads', 'scheduled', `${uuidv4()}-${file.originalname}`),
         mimetype: file.mimetype,
         buffer: file.buffer
       }));
@@ -188,6 +275,14 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
                 }))
               );
             }
+          } else if (combinedMediaFiles.length) {
+            filesToPost = await Promise.all(
+              combinedMediaFiles.map(async (fileInfo) => ({
+                buffer: await fs.readFile(fileInfo.path),
+                mimetype: fileInfo.mimetype,
+                originalname: fileInfo.filename
+              }))
+            );
           } else {
             filesToPost = [...imageFiles];
           }
@@ -199,7 +294,7 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
             filesToPost
           );
 
-          console.log(" Content posted to LinkedIn", result);
+          console.log("✅ Content posted to LinkedIn", result);
 
           // Update draft status if it exists
           if (drafts.length) {
@@ -327,11 +422,8 @@ export const postMultipleContentWithFilesUGC = asyncHandler(async (req, res) => 
     })
   );
 
-  // return res.status(200).json(new ApiResponse(200, results, " Posts processed successfully"));
-
-  return success(res, "Posts processed successfully" ,results )
+  return success(res, "Posts processed successfully", results);
 });
-
 // get all schedule post by Organisation id
 export const getScheduledPostsByOrganization = asyncHandler(async (req, res) => {
   const { organizationId } = req.params;

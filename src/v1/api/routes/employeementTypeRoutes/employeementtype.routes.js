@@ -10,6 +10,7 @@ import {
   employmentTypeActiveOrInactive,
   deleteEmploymentType,
   getAllEmploymentTypeFromJobPost,
+  uploadEmploymentTypes
 } from "../../controllers/employeementTypeController/employeementtype.controller.js"
 import { verifyEmployeeToken } from "../../middleware/authicationmiddleware.js";
 
@@ -20,6 +21,7 @@ router.get("/getAllEmploymentType/jobPost", getAllEmploymentTypeFromJobPost);
 router.get("/getAllListEmploymentType",verifyEmployeeToken, getAllListEmploymentType);
 router.get("/getAllEmploymentTypeSheet", getAllEmploymentTypeSheet);
 router.post("/activeOrInactive", verifyEmployeeToken ,employmentTypeActiveOrInactive);
+router.post("/uploadEmploymentTypes" , verifyEmployeeToken , uploadEmploymentTypes)
 // Uncomment if you want to use delete route
 // router.delete("/deleteEmploymentType", deleteEmploymentType);
 
