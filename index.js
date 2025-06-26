@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import app from "./app.js";
 import connectDB from "./src/v1/api/config/db.js";
 import swaggerDocs from './src/v1/api/Utils/swagger.js';
-import { initializeScheduledJobs } from "./src/v1/api/Utils/LinkedIn/scheduler.js"; // named export
+import { startCallScheduler } from './src/v1/api/worker/callSheduler.js';
 
 dotenv.config();
 
@@ -21,7 +21,7 @@ connectDB().then(async () => {
   console.log("✅ MongoDB connected");
 
   // Now it's safe to initialize scheduler
-  await initializeScheduledJobs();
+   await startCallScheduler();
 
   // Start the server
   server.listen(PORT, () => {

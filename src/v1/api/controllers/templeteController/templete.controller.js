@@ -89,20 +89,20 @@ function getSchemaPlaceholders() {
 
   const jobPostPaths = jobPostModel.schema.paths;
   for (const [field, path] of Object.entries(jobPostPaths)) {
-   
+
     if (
       ['String', 'Number', 'Boolean'].includes(path.instance) &&
-      !['_id', '__v', 'createdByHrId'].includes(field) 
+      !['_id', '__v', 'createdByHrId'].includes(field)
     ) {
       placeholders.jobPost[field] = `{{${field}}}`;
     }
   }
 
 
-  placeholders.jobPost.companyName = '{{companyName}}'; 
-  placeholders.jobPost.department = '{{department}}'; 
+  placeholders.jobPost.companyName = '{{companyName}}';
+  placeholders.jobPost.department = '{{department}}';
   placeholders.jobPost.designation = '{{designation}}';
-  placeholders.jobPost.location = '{{location}}'; 
+  placeholders.jobPost.location = '{{location}}';
 
 
   const jobDescriptionPaths = JobDescriptionModel.schema.paths;
@@ -126,7 +126,7 @@ function getSchemaPlaceholders() {
 
 // Helper function to validate placeholders
 function validateTemplateContent(content, placeholders) {
-    console.log("placeHoler" , placeholders)
+  console.log("placeHoler", placeholders)
   const validPlaceholders = [
     ...Object.values(placeholders.jobPost),
     ...Object.values(placeholders.jobDescription)
@@ -143,13 +143,13 @@ export async function createTemplate(req, res) {
   try {
     const { title, content } = req.body;
     if (!title || !content) {
-     return badRequest(res , "Please provide the title and content")
+      return badRequest(res, "Please provide the title and content")
     }
 
     const placeholders = getSchemaPlaceholders();
     const invalidPlaceholders = validateTemplateContent(content, placeholders);
     if (invalidPlaceholders) {
-      return badRequest(res ,  `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
+      return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
     }
 
 
@@ -158,13 +158,13 @@ export async function createTemplate(req, res) {
       title,
       content: content,
       createdBy: req.employee.id,
-      organizationId:req.employee.organizationId
+      organizationId: req.employee.organizationId
     });
 
     await template.save();
-    return success(res , "Templete Create Successfully" , template)
+    return success(res, "Templete Create Successfully", template)
   } catch (error) {
-    return unknownError(res , error)
+    return unknownError(res, error)
   }
 }
 
@@ -172,7 +172,7 @@ export async function createTemplate(req, res) {
 
 // ✅ List all templates for a user
 export async function listTemplates(req, res) {
-    const orgainizationId=req.employee.organizationId;
+  const orgainizationId = req.employee.organizationId;
   try {
     const templates = await Template.find({ organizationId: orgainizationId }).sort({ createdAt: -1 });
     return success(res, "Templates retrieved successfully", templates);
@@ -286,16 +286,16 @@ function extractPlaceholdersFromSchema(model, options = {}) {
 
 export async function getAvailablePlaceholders(req, res) {
   try {
-    const { type } = req.query; 
+    const { type } = req.query;
     let placeholders = {};
 
-    if(!type){
+    if (!type) {
       return badRequest(res, "Model Type Required")
     }
-    
+
     if (!type || type === "jobPost") {
-   placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId'],
+      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType'],
         customFields: {
           companyName: 'companyName',
           department: 'department',
@@ -307,19 +307,44 @@ export async function getAvailablePlaceholders(req, res) {
       // Extract jobDescription fields, nested under jobDescription
       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
         ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-        prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+        // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
         customFields: {
           jobSummary: 'jobSummary',
           rolesAndResponsibilities: 'rolesAndResponsibilities',
           keySkills: 'keySkills'
         }
       });
-    }else if(!type || type === "jobApplyForm") {
+    } else if (!type || type === "jobApply") {
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status','Remark','immediatejoiner']
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
       });
-    }else{
-      return badRequest(res , "Model Type Invalid")
+    } else if (!type || type === "jobPostAndApply") {
+      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType'],
+        customFields: {
+          companyName: 'companyName',
+          department: 'department',
+          designation: 'designation',
+          location: 'location'
+        }
+      });
+
+      // Extract jobDescription fields, nested under jobDescription
+      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+        customFields: {
+          jobSummary: 'jobSummary',
+          rolesAndResponsibilities: 'rolesAndResponsibilities',
+          keySkills: 'keySkills'
+        }
+      });
+
+      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+      });
+    } else {
+      return badRequest(res, "Model Type Invalid")
     }
 
     return success(res, 'Available placeholders retrieved successfully', placeholders);
@@ -333,12 +358,12 @@ export async function generateLinkedInPostAndPdf(req, res) {
   try {
     const { templateId, jobId, generatePdf = false } = req.body;
 
-    if(!templateId){
-        return badRequest(res , "Please select the templete")
+    if (!templateId) {
+      return badRequest(res, "Please select the templete")
     }
 
-    if(!jobId){
-        return badRequest(res , "Please provide the JobId")
+    if (!jobId) {
+      return badRequest(res, "Please provide the JobId")
     }
 
     const template = await Template.findById(templateId);
@@ -371,7 +396,7 @@ export async function generateLinkedInPostAndPdf(req, res) {
 
     const responseData = {
       userId: req.employee.id,
-    //   htmlContent: postContent,
+      //   htmlContent: postContent,
       timestamp: new Date()
     };
 
@@ -391,7 +416,7 @@ export async function generateLinkedInPostAndPdf(req, res) {
 
       const fileName = `${Date.now()}_job_post.pdf`;
       const filePathInBucket = `${process.env.PATH_BUCKET}/HRMS/PDF/${fileName}`;
-      console.log("filePathInBucket" , filePathInBucket)
+      console.log("filePathInBucket", filePathInBucket)
 
       const pdfUrl = await uploadToSpaces(
         'finexe',

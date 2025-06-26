@@ -715,7 +715,7 @@ const budgetData = await BugedModel.findOne({
         description: "Current CTC exceeds per-employee budget for this role",
         weight: 100,
         score: 0,
-        reason: `Candidate expected CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
+        reason: `Candidate Current CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
       }],
       acceptReason: [],
       rejectReason: [
@@ -736,7 +736,7 @@ const budgetData = await BugedModel.findOne({
         {
           factor: "Budget Breach Risk",
           level: "Critical",
-          description: "CurrentCTC CTC exceeds available per-head allocation",
+          description: "Current CTC exceeds available per-head allocation",
           mitigation: "Negotiate or increase allocated budget"
         }
       ],
@@ -1239,7 +1239,6 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
 
     };
 
-    console.log("updateData" , updateData)
 
         
     success(res,  "AI_Screening" , updateData);

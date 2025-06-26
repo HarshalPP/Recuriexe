@@ -4,6 +4,7 @@ import { badRequest } from "../../formatters/globalResponse.js"
 import fs, { readFileSync, writeFileSync } from "fs";
 import path from "node:path";
 import mime from "mime-types";
+import mammoth from "mammoth";
 
 // Function to generate AI response based on prompt
 export const generateAIResponse = async (prompt) => {
@@ -169,13 +170,58 @@ export const generateAIResponseWithImageUrl = async (prompt, fileUrl) => {
 
 
 // Function for AI screening using a document URL
+// export const generateAIScreening = async (prompt, fileUrl) => {
+//   try {
+//     // console.log("fileUrl" , fileUrl)
+//     console.log("prompt" , prompt)
+//     const mimeType = mime.lookup(fileUrl) || "application/octet-stream";
+//     const base64File = await fetchFileAsBase64(fileUrl);
+
+//     const result = await geminiModel.generateContent([
+//       {
+//         inlineData: {
+//           mimeType,
+//           data: base64File,
+//         },
+//       },
+//       prompt,
+//     ]);
+
+//     if (!result || !result.response) {
+//       throw new Error("No response available.");
+//     }
+
+//     let responseText = result.response.text?.() || "{}";
+//     responseText = responseText.replace(/```json|```/g, "").trim();
+
+//     const jsonResponse = JSON.parse(responseText);
+//     // console.log("AI Screening Response:", jsonResponse);
+
+//     return jsonResponse;
+//   } catch (error) {
+//     return error;
+//   }
+// };
+
+
 export const generateAIScreening = async (prompt, fileUrl) => {
   try {
-    // console.log("fileUrl" , fileUrl)
-    console.log("prompt" , prompt)
     const mimeType = mime.lookup(fileUrl) || "application/octet-stream";
-    const base64File = await fetchFileAsBase64(fileUrl);
 
+    if (mimeType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      // Convert docx to plain text
+      const response = await axios.get(fileUrl, { responseType: 'arraybuffer' });
+      const { value: plainText } = await mammoth.extractRawText({ buffer: response.data });
+
+      const result = await geminiModel.generateContent([prompt + `\n\nResume Content:\n` + plainText]);
+      const responseText = result.response.text?.() || "{}";
+
+      const jsonResponse = JSON.parse(responseText.replace(/```json|```/g, "").trim());
+      return jsonResponse;
+    }
+
+    // Default flow for PDF or plain text
+    const base64File = await fetchFileAsBase64(fileUrl);
     const result = await geminiModel.generateContent([
       {
         inlineData: {
@@ -186,19 +232,13 @@ export const generateAIScreening = async (prompt, fileUrl) => {
       prompt,
     ]);
 
-    if (!result || !result.response) {
-      throw new Error("No response available.");
-    }
-
-    let responseText = result.response.text?.() || "{}";
-    responseText = responseText.replace(/```json|```/g, "").trim();
-
-    const jsonResponse = JSON.parse(responseText);
-    // console.log("AI Screening Response:", jsonResponse);
-
+    const responseText = result.response.text?.() || "{}";
+    const jsonResponse = JSON.parse(responseText.replace(/```json|```/g, "").trim());
     return jsonResponse;
+
   } catch (error) {
-    return error;
+    console.error("AI Screening Error:", error);
+    return { error: error.message || "Unexpected error" };
   }
 };
 

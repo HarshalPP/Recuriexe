@@ -3750,8 +3750,8 @@ if (period == 'custom') {
   startDate.setUTCHours(0, 0, 0, 0);
 }
 
-// console.log("startDate", startDate.toISOString());
-// console.log("endDate", endDate.toISOString());
+console.log("startDate", startDate);
+console.log("endDate", endDate);
 
 
     // Filter object

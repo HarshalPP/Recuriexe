@@ -8,6 +8,9 @@ import fs from 'fs/promises';
 // In-memory registry of active jobs
 const scheduledJobs = new Map();
 
+// Singleton flag
+let jobsInitialized = false;
+
 /** Helper: pretty-print an invocation time */
 const fmt = (d) => d ? new Date(d).toISOString() : '—';
 
@@ -21,8 +24,12 @@ export const listScheduledJobs = () => {
 
 /** Initialise (or re-initialise) jobs – run once after the DB is ready */
 export const initializeScheduledJobs = async () => {
-  try {
+  if (jobsInitialized) {
+    console.log("⚠️ Jobs already initialized. Skipping duplicate initialization.");
+    return;
+  }
 
+  try {
     // Fetch only future posts that are still ‘scheduled’
     const scheduledPosts = await ScheduledPost.find({
       status: 'scheduled',
@@ -32,7 +39,6 @@ export const initializeScheduledJobs = async () => {
         path: 'orgIds.orgId',
         select: '+accessToken organizationId' // make sure token & org ref are available
       });
-
 
     for (const post of scheduledPosts) {
       // --- one closure per post -------------
@@ -162,9 +168,13 @@ export const initializeScheduledJobs = async () => {
       scheduledJobs.set(post.jobName, job);
     }
 
-    // Final summary
+    // Set singleton flag
+    jobsInitialized = true;
+    console.log("✅ Scheduled jobs initialized successfully.");
+
   } catch (err) {
     console.error('🚨  initialiseScheduledJobs crashed:', err);
+    jobsInitialized = false; // reset in case of failure
   }
 };
 

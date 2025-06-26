@@ -14,6 +14,12 @@ const planSchema = new Schema({
         type: String,
         required: [true, "Plan Name is required"],
     },
+    planId:{
+    type: Schema.Types.ObjectId,
+    ref: "Plan",
+    required:false,
+    default:null,
+    },
     planDescription: {
         type: String,
         default: "",

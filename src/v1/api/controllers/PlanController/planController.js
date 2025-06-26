@@ -159,6 +159,7 @@ export const assignPlanToOrganization = async (req, res) => {
     const planPayload = {
       organizationId,
       planName: plan.planName,
+      planId: plan.id || null,
       planDescription: plan.planDescription,
       planPrice: plan.planPrice,
       planDurationInDays: plan.planDurationInDays,

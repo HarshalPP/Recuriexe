@@ -1,11 +1,15 @@
 import axios from 'axios';
 import FormData from "form-data";
+import mongoose from 'mongoose';
+import { ObjectId } from 'mongodb';
 // import AIRPHONE_API_CONFIG from '../config/airson.config.js'; // 
 import { AIRPHONE_API_CONFIG } from '../../config/airson.config.js';
 import Agent from '../../models/airPhoneModels/agent.model.js'; // 
 import C2CCall from '../../models/airPhoneModels/c2cCall.model.js'; // 
 import CallLog from "../../models/airPhoneModels/calllog.model.js";
 import CallConnect from '../../models/airPhoneModels/callconnect.model.js'; //
+import Employee from '../../models/employeemodel/employee.model.js'; //
+import CallSchedule from "../../models/airPhoneModels/callschedule.model.js";
 
 
 import { badRequest,unknownError,success } from '../../formatters/globalResponse.js';
@@ -277,6 +281,11 @@ export const initiateC2C = async (req, res) => {
   try {
     const { vnm, agent, caller } = req.body;
     console.log("vnm", vnm);
+     const organizationId = req.employee.organizationId;
+
+        if (!organizationId) {
+            return badRequest(res, 'Missing organizationId in token');
+        }
 
     if (!vnm || !agent || !caller) {
       return badRequest(res, "vnm, agent, and caller are required.");
@@ -306,12 +315,14 @@ export const initiateC2C = async (req, res) => {
 
     // 👉 Only save in DB if response is success and unique_id is present
     if (status === 'success' && unique_id) {
-      const newC2CCall = new C2CCall({
+      const newC2CCall = new CallSchedule({
+        organizationId,
         vnm,
         agent,
         caller,
-        callToken: token,
-        uniqueId: unique_id,
+        result:apiResponse.data,
+        status: 'done', // Set initial status
+        // uniqueId: unique_id,
       });
 
       const savedC2CCall = await newC2CCall.save();
@@ -752,4 +763,93 @@ export const getAgentByMobileParam = async (req, res) => {
     }
 };
 
+export const getAgentByTokenEmployeeId = async (req, res) => {
+    try {
+        const organizationId = req.employee.organizationId;
+        console.log("Organization ID from token:", organizationId);
+        const employeeId = new ObjectId(req.employee.id);
+        console.log("Employee ID from token:", employeeId);
 
+        if (!organizationId || !employeeId) {
+            return badRequest(res, 'Missing organizationId or employeeId in token');
+        }
+
+        // Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(employeeId)) {
+            return badRequest(res, 'Invalid employeeId');
+        }
+
+        // 1. Get mobile number from employee
+        const employee = await Employee.findOne({ _id: employeeId });
+        if (!employee || !employee.mobileNo) {
+            return badRequest(res, 'Mobile number not found for this employee');
+        }
+
+        console.log("Employee mobile number:", employee.mobileNo);
+        // 2. Search agent with same mobile & organizationId
+        const agent = await Agent.findOne({
+            organizationId,
+            mobile: employee.mobileNo
+        });
+
+        if (!agent) {
+            return badRequest(res, 'Agent not found');
+        }
+
+        return success(res, 'Agent found', agent);
+    } catch (err) {
+        console.error("Error in getAgentByTokenEmployeeId:", err);
+        return unknownError(res, err);
+    }
+};
+
+// export const scheduleC2CCalls = async (req, res) => {
+//   try {
+//     const { agent, callers, vnm, scheduleAt } = req.body; // callers: array of numbers
+//     if (!agent || !Array.isArray(callers) || !callers.length || !vnm || !scheduleAt) {
+//       return badRequest(res, "agent, callers[], vnm, scheduleAt required");
+//     }
+//     const schedules = await CallSchedule.insertMany(
+//       callers.map(caller => ({
+//         agent,
+//         caller,
+//         vnm,
+//         scheduleAt: new Date(scheduleAt),
+//       }))
+//     );
+//     return success(res, "Calls scheduled", schedules);
+//   } catch (err) {
+//     return unknownError(res, err);
+//   }
+// };
+
+
+export const scheduleC2CCalls = async (req, res) => {
+  try {
+    const { agent, callers, vnm, scheduleAt, gapInMinutes = 2 } = req.body;
+    const organizationId = req.employee.organizationId;
+
+        if (!organizationId) {
+            return badRequest(res, 'Missing organizationId in token');
+        }
+
+    if (!agent || !Array.isArray(callers) || !callers.length || !vnm || !scheduleAt) {
+      return badRequest(res, "agent, callers[], vnm, scheduleAt required");
+    }
+
+    const baseTime = new Date(scheduleAt);
+    const schedules = await CallSchedule.insertMany(
+      callers.map((caller, index) => ({
+        agent,
+        caller,
+        vnm,
+        scheduleAt: new Date(baseTime.getTime() + index * gapInMinutes * 60000),
+        gapInMinutes  // ✅ store in model
+      }))
+    );
+
+    return success(res, "Calls scheduled with individual gap", schedules);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};

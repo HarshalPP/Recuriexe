@@ -6,7 +6,7 @@ import { IsAuthenticated , verifyEmployeeToken } from "../../middleware/authicat
 import {newEmployeeLogin , updateEmployee , updateEmployeeById , getAllJoiningEmployee , getAllEmploye  , 
         getEmployeeById , getAllEmployeeInfo , getEmployeeCount , employeeTreeHierarchy ,allEmployeDetail, 
          SuperAdminRegister ,  SuperAdminUpdate , createNewEmployee , getAllEmployeeInfodata , 
-         employeeActiveInactive , addNewEmployee , updateEmployeePassword,forgotPasswordForEmployee,resetEmployeePassword , adminByUpdateEmployeeId } from "../../controllers/authController/newEmployeeLogin.js"
+         employeeActiveInactive , addNewEmployee , updateEmployeePassword,forgotPasswordForEmployee,resetEmployeePassword , adminByUpdateEmployeeId , planCreditRemaining } from "../../controllers/authController/newEmployeeLogin.js"
 
 import {registerSuperAdmin , loginSuperAdmin} from "../../controllers/authController/superAdmin.controller.js"
 import { registerUser } from "../../controllers/authController/user.controller.js"
@@ -53,6 +53,11 @@ router.post("/superAdminUpdate/:id" , SuperAdminUpdate)
 
 //add user
 router.post("/user/register" , registerUser)
+
+// remaining plan details
+
+router.get("/plancreditremaining",verifyEmployeeToken , planCreditRemaining)
+
 
 
 

@@ -2140,3 +2140,92 @@ export const resetEmployeePassword = async (req, res) => {
     return unknownError(res, error || "Something went wrong.");
   }
 };
+
+
+// plan detials left credits
+
+export const planCreditRemaining = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not found");
+    }
+
+    if (!ObjectId.isValid(organizationId)) {
+      return badRequest(res, "Invalid Organization ID");
+    }
+
+    // Step 1: Get current plan details for the organization
+    const planDetails = await organizationPlanModel.findOne({
+      organizationId: new ObjectId(organizationId)
+    });
+
+    if (!planDetails) {
+      return badRequest(res, "Plan details not found for the organization");
+    }
+
+    const planId = planDetails.planId;
+
+    if (!planId || !ObjectId.isValid(planId)) {
+      return badRequest(res, "Invalid or missing Plan ID in plan details");
+    }
+
+    // Step 2: Get main plan (template) by planId
+    const mainplandetails = await PlanModel.findOne({
+      _id: new ObjectId(planId)
+    });
+
+    if (!mainplandetails) {
+      return badRequest(res, "Main plan template not found");
+    }
+
+    // Step 3: Extract values
+    const currentJobs = planDetails.NumberOfJobPosts || 0;
+    const maxJobs = mainplandetails.NumberOfJobPosts || 0;
+
+    const currentUsers = planDetails.NumberOfUsers || 0;
+    const maxUsers = mainplandetails.NumberOfUsers || 0;
+
+    const currentAnalyzers = planDetails.NumberofAnalizers || 0;
+    const maxAnalyizers = mainplandetails.NumberofAnalizers || 0;
+
+    // Step 4: Calculate used values and percentages
+    const jobPostUsed = maxJobs - currentJobs;
+    const jobPostPerc = maxJobs > 0 ? ((jobPostUsed / maxJobs) * 100).toFixed(2) : 0;
+
+    const userUsed = maxUsers - currentUsers;
+    const userPerc = maxUsers > 0 ? ((userUsed / maxUsers) * 100).toFixed(2) : 0;
+
+    const analyzerUsed = maxAnalyizers - currentAnalyzers;
+    const analyzerPerc = maxAnalyizers > 0 ? ((analyzerUsed / maxAnalyizers) * 100).toFixed(2) : 0;
+
+    // Step 5: Build response object with correct usage strings
+    const usageSummary = {
+      planDetails: {
+        planName: mainplandetails.planName,
+        planDescription: mainplandetails.planDescription,
+        planPrice: mainplandetails.planPrice,
+        planDurationInDays: mainplandetails.planDurationInDays,
+        isActive: mainplandetails.isActive,
+      },
+      usage: {
+        jobPostUsage: `${jobPostUsed}/${maxJobs}`,
+        jobPostUsagePercentage: `${jobPostPerc}%`,
+        userUsage: `${userUsed}/${maxUsers}`,
+        userUsagePercentage: `${userPerc}%`,
+        analyzerUsage: `${analyzerUsed}/${maxAnalyizers}`,
+        analyzerUsagePercentage: `${analyzerPerc}%`
+      }
+    };
+
+    console.log('Usage Summary:', usageSummary);
+
+    // ✅ Send success response using your helper
+    return success(res, "Plan usage calculated successfully", usageSummary);
+
+  } catch (error) {
+    console.error("Error calculating plan usage:", error);
+    return badRequest(res, "Internal server error occurred");
+  }
+};

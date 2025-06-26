@@ -15,7 +15,7 @@ router.post('/live-event/before-connect', airphoneController.beforeCallConnect);
 router.post('/live-event/after-connect', airphoneController.afterCallConnect);
 
 //initiate C2C call API
-router.post('/initiate-c2c', airphoneController.initiateC2C);
+router.post('/initiate-c2c',verifyEmployeeToken, airphoneController.initiateC2C);
 
 //add C2C agent API
 router.post('/add-agent',verifyEmployeeToken, airphoneController.addAgent);
@@ -43,6 +43,8 @@ router.post('/get-extension-status-multiple/:extensions', airphoneController.get
 router.get('/saved-agents',verifyEmployeeToken, airphoneController.getAllSavedAgents);
 
 router.get('/callLog',verifyEmployeeToken, airphoneController.getAgentCallLogs);
+router.get('/get/data',verifyEmployeeToken, airphoneController.getAgentByTokenEmployeeId);
+
 
 
 //get agent by employee ID API
@@ -57,6 +59,7 @@ router.post('/receive-call-log', upload.none(), airphoneController.receiveCallLo
 //get agent by mobile number API
 router.get('/get/:mobile',verifyEmployeeToken, airphoneController.getAgentByMobileParam);
 
-//get call log using organization ID API
+//get agent by employeeId
+router.post('/schedule-c2c-calls', verifyEmployeeToken, airphoneController.scheduleC2CCalls);
 
 export default router;
