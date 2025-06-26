@@ -25,6 +25,7 @@ import PortalsetUp from "./routes/portalsetUpRoutes/portalsetUp.routes.js"
 import formStagesetUP from "./routes/formStageRoutes/formstage.routes.js"
 import templete from "./routes/templeteRoutes/templete.routes.js"
 import userConfig from "./routes/userConfigRoutes/userConfig.routes.js"
+import Bookdemo from "./routes/bookRoutes/book.routes.js"
 
 
 // Budged //
@@ -148,6 +149,7 @@ router.use("/expenseRole",expenseRoleRoute)
 router.use("/userExpense",userExpenseRoute)
 router.use('/favorite',favoriteRouter)
 router.use("/templete" , templete)
+router.use("/demo" , Bookdemo)
 
 
 // Add API routes here for REGISTER //

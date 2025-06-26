@@ -8,23 +8,23 @@ const AIRPHONE_TOKEN = "DqazlkMZ6Rk3nHLyyDDHLqLUh9vSav7DadnLmzx5z76FWYYDQRtY1fso
 // Run every minute
 // cron.schedule("* * * * *", async () => {
   export function startCallScheduler() {
-  console.log("CallSheduler worker started!");
+  // console.log("CallSheduler worker started!");
   cron.schedule("*/10 * * * * *", async () => {
-  console.log("Running scheduled call check...");
+  // console.log("Running scheduled call check...");
   // Find next pending call whose scheduleAt <= now and not running
   const nextCall = await CallSchedule.findOneAndUpdate(
     { status: "pending",
        scheduleAt: { $lte: new Date() }
-     }
-    // { status: "running" }
+     },
+    { status: "running" }
   );
-  console.log("Next call to process:", nextCall);
+  // console.log("Next call to process:", nextCall);
   if (nextCall) {
     try {
       // Prepare form data
       const formData = new URLSearchParams();
       formData.append('vnm', nextCall.vnm);
-      console.log("Processing call for VNM:", nextCall.vnm);
+      // console.log("Processing call for VNM:", nextCall.vnm);
       formData.append('agent', nextCall.agent);
       formData.append('caller', nextCall.caller);
       formData.append('token', AIRPHONE_TOKEN);

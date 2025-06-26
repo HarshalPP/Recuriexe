@@ -853,3 +853,175 @@ export const scheduleC2CCalls = async (req, res) => {
     return unknownError(res, err);
   }
 };
+
+
+export const getCallDashboardStats11 = async (req, res) => {
+  try {
+    const organizationId =req.employee.organizationId;
+    if (!organizationId) return badRequest(res, "organizationId is required in headers.");
+
+    // Step 1: Get all scheduled calls
+    const scheduledCalls = await CallSchedule.find({ organizationId });
+
+    const uniqueIds = scheduledCalls
+      .map(s => s.result?.unique_id)
+      .filter(Boolean);
+
+    if (uniqueIds.length === 0) {
+      return success(res, "No call logs found", {
+        totalCalls: 0,
+        agentAnswered: 0,
+        callerNoAnswer: 0,
+        failed: 0,
+        agentNoAnswer: 0,
+        callerAnswered: 0,
+        callMissed: 0,
+        logs: [],
+      });
+    }
+
+    // Step 2: Fetch all call logs
+    const callLogs = await CallLog.find({ unique_id: { $in: uniqueIds } });
+
+    // Step 3: Prepare dashboard stats
+    const stats = {
+      totalCalls: callLogs.length,
+      agentAnswered: 0,
+      callerNoAnswer: 0,
+      failed: 0,
+      agentNoAnswer: 0,
+      callerAnswered: 0,
+      callMissed: 0,
+    };
+
+    for (const log of callLogs) {
+      const status = log.call_status?.toLowerCase();
+      const type = log.call_type?.toLowerCase();
+
+      if (status === "answered") {
+        if (type === "incoming") {
+          stats.callerAnswered += 1;
+        } else if (type === "outgoing") {
+          stats.agentAnswered += 1;
+        }
+      } else if (status === "caller_no_answer") {
+        stats.callerNoAnswer += 1;
+      } else if (status === "agent_no_answer") {
+        stats.agentNoAnswer += 1;
+      } else if (status === "call missed") {
+        stats.callMissed += 1;
+      } else {
+        stats.failed += 1;
+      }
+    }
+
+    return success(res, "Dashboard stats fetched", {
+      ...stats,
+      logs: callLogs
+    });
+
+  } catch (err) {
+    console.error("Error in getCallDashboardStats:", err);
+    return unknownError(res, err.message);
+  }
+};
+
+
+export const getCallDashboardStats = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    if (!organizationId) return badRequest(res, "organizationId is required in headers.");
+
+    // ✅ Extract filters
+    const {
+      search = "",
+      startDate,
+      endDate,
+      agent,
+      status,
+      minDuration,
+      maxDuration
+    } = req.query;
+
+    // Step 1: Get CallSchedules for the org
+    const schedules = await CallSchedule.find({ organizationId });
+    const uniqueIds = schedules.map(s => s.result?.unique_id).filter(Boolean);
+
+    // Step 2: Build filter conditions
+    const filter = {
+      unique_id: { $in: uniqueIds }
+    };
+
+    if (search) {
+      filter.$or = [
+        { caller_id: { $regex: search, $options: "i" } },
+        { agent: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (agent) {
+      filter.received_id = agent; // or agent field from your system
+    }
+
+    if (status) {
+      filter.call_status = status;
+    }
+
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (minDuration || maxDuration) {
+      filter.duration = {};
+      if (minDuration) filter.duration.$gte = minDuration;
+      if (maxDuration) filter.duration.$lte = maxDuration;
+    }
+
+    // Step 3: Fetch filtered logs
+    const callLogs = await CallLog.find(filter);
+
+    // Step 4: Process statistics same as before
+    const stats = {
+      totalCalls: callLogs.length,
+      agentAnswered: 0,
+      callerNoAnswer: 0,
+      failed: 0,
+      agentNoAnswer: 0,
+      callerAnswered: 0,
+      callMissed: 0,
+    };
+
+    for (const log of callLogs) {
+      const status = log.call_status?.toLowerCase();
+      const type = log.call_type?.toLowerCase();
+
+      if (status === "answered") {
+        if (type === "incoming") {
+          stats.callerAnswered += 1;
+        } else if (type === "outgoing") {
+          stats.agentAnswered += 1;
+        }
+      } else if (status === "caller_no_answer") {
+        stats.callerNoAnswer += 1;
+      } else if (status === "agent_no_answer") {
+        stats.agentNoAnswer += 1;
+      } else if (status === "call missed") {
+        stats.callMissed += 1;
+      } else {
+        stats.failed += 1;
+      }
+    }
+
+    return success(res, "Dashboard data with filters", {
+      ...stats,
+      logs: callLogs
+    });
+
+  } catch (err) {
+    console.error("Error in getCallDashboardStats:", err);
+    return unknownError(res, err.message);
+  }
+};

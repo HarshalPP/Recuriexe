@@ -43,6 +43,9 @@ router.post('/get-extension-status-multiple/:extensions', airphoneController.get
 router.get('/saved-agents',verifyEmployeeToken, airphoneController.getAllSavedAgents);
 
 router.get('/callLog',verifyEmployeeToken, airphoneController.getAgentCallLogs);
+router.get('/DashBoard',verifyEmployeeToken, airphoneController.getCallDashboardStats);
+
+
 router.get('/get/data',verifyEmployeeToken, airphoneController.getAgentByTokenEmployeeId);
 
 
