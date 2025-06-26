@@ -320,13 +320,20 @@ export async function getAllRole(req, res) {
       });
     }
     const { id,  organizationId } = req.employee;
+ const notShowRole = ["productowner"].map(r => r.trim().toLowerCase());
 
-    const roleDetail = await roleModel
+
+    let roleDetail = await roleModel
       .find({ organizationId })
       .collation({ locale: "en", strength: 3 })
       .sort({ roleName: 1 })
       .populate("permissions")
       .populate("organizationId","name");
+      
+       roleDetail = roleDetail.filter(role => {
+      const normalizedRole = role.roleName?.trim().toLowerCase();
+      return !notShowRole.includes(normalizedRole);
+    });
     success(res, "All Roles", roleDetail);
   } catch (error) {
     console.log(error);
@@ -427,8 +434,26 @@ export async function roleDetail(req, res) {
     if(!roleId){
       return badRequest(res , "role Id required")
     }
-    const roleDetail = await roleModel.findById(roleId)
-    
+   const roleDetail = await roleModel
+      .findById(roleId)
+      .populate("permissions") 
+      .lean(); 
+
+    if (!roleDetail) {
+      return badRequest(res, "Role Not Found");
+    }
+
+    const normalizedRoleName = roleDetail.roleName?.trim().toLowerCase();
+
+    if (normalizedRoleName === "productowner") {
+      if (roleDetail.permissions && typeof roleDetail.permissions === "object") {
+        for (const key in roleDetail.permissions) {
+          if (Object.hasOwn(roleDetail.permissions, key)) {
+            roleDetail.permissions[key] = true;
+          }
+        }
+      }
+    }
    return success(res, `Role Detail`, roleDetail);
   } catch (error) {
     // console.log(error);

@@ -1,11 +1,12 @@
-import vacancyRequestModel from "../../models/vacencyModel/vacancyRequest.model.js"
+import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
+import jobApply from "../../models/jobformModel/jobform.model.js"
+import vacancyRequestModel from "../../models/vacencyModel/vacancyRequest.model.js"
 import jobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js"
 import employmentTypeModel from "../../models/employeementTypemodel/employeementtype.model.js"
 import departmentModel from "../../models/deparmentModel/deparment.model.js"
 import branchModel from "../../models/branchModel/branch.model.js"
 import employeModel from "../../models/employeemodel/employee.model.js"
-import jobApply from "../../models/jobformModel/jobform.model.js"
 import designationModel from "../../models/designationModel/designation.model.js"
 import DepartmentBudget from "../../models/budgedModel/budged.model.js"
 import BudgetModel from "../../models/budgedModel/budged.model.js"
@@ -14,13 +15,15 @@ import jobPostingsetting from "../../models/settingModel/jobPostsetting.model.js
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import mongoose from "mongoose"
 const ObjectId = mongoose.Types.ObjectId;
-import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import PlanModel from "../../models/PlanModel/Plan.model.js"
 import { generateJobPostExcelAndUpload } from "../../Utils/excelUploader.js"
-import { createFolder } from "../../services/fileShareService/finalFileShare.services.js"
+import { createFolder, saveFileFromUrl } from "../../services/fileShareService/finalFileShare.services.js"
 import portalSetUp from "../../models/PortalSetUp/portalsetup.js"
 import folderSchema from "../../models/fileShare.model.js/folder.model.js"
 import axios from 'axios';
+import organizationModel from "../../models/organizationModel/organization.model.js";
+import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
+
 
 // Helper function to convert package string to budget amount
 const convertPackageToBudget = (packageString) => {
@@ -284,8 +287,7 @@ export const jobPostAddDirect = async (req, res) => {
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join('_');
     };
-    // const rootFolderKey = 'akash/job-posts';
-        const rootFolderKey = 'job-posts';
+    const rootFolderKey = 'job-posts';
     let parentId;
 
     // Step 1: Check if root folder exists
@@ -3155,12 +3157,12 @@ export const getLatLngByPincode = async (pincode) => {
         'x-rapidapi-key': '19f2bb1fe8msh6e05099924533f9p1f7e4ajsn1ab4ed5f6cfb', // Use your key securely
       },
     });
-    console.log("response",response)
+    // console.log("response",response)
     if (response.status === 200 && Array.isArray(response.data) && response.data.length > 0) {
-      const { lat, lng, district, state ,area} = response.data[0];
-      return { latitude: lat, longitude: lng, district, state ,area};
+      const { lat, lng, district, state, area } = response.data[0];
+      return { latitude: lat, longitude: lng, district, state, area };
     } else {
-      console.log("No location found for pincode.");
+      // console.log("No location found for pincode.");
       return null;
     }
   } catch (error) {
@@ -3173,18 +3175,43 @@ export const getLatLngByPincode = async (pincode) => {
 
 
 
-import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
 
 export const getApplicantsLocationByJob = async (req, res) => {
   try {
 
     const { jobPostId, AI_Screeing_Status, resumeShortlisted, position, branchIds } = req.query;
-    if (!jobPostId) return badRequest(res, "jobPostId is required");
-
     const matchStage = {
-      jobPostId: new ObjectId(jobPostId)
+      orgainizationId: new ObjectId(req.employee.organizationId)
     };
 
+
+    // if (jobPostId && jobPostId !== 'all') {
+    //   if (!jobPostId) return badRequest(res, "jobPostId is required");
+    //   const jobPostIdArray = Array.isArray(jobPostId) ? jobPostId : jobPostId.split(",");
+    //   matchStage.jobPostId = { $in: jobPostIdArray.map(id => new ObjectId(id)) };
+    // }
+
+if(jobPostId && jobPostId !== 'all'){
+    let parsedJobPostId = jobPostId;
+
+    if (typeof jobPostId === 'string') {
+      try {
+        parsedJobPostId = JSON.parse(jobPostId);
+      } catch (err) {
+        parsedJobPostId = jobPostId.split(',');
+      }
+    }
+
+    const jobPostIdArray = Array.isArray(parsedJobPostId) ? parsedJobPostId : [parsedJobPostId];
+
+    const validObjectIds = jobPostIdArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+    if (!validObjectIds.length) {
+      return badRequest(res, "No valid jobPostId(s) provided.");
+    }
+
+    matchStage.jobPostId = { $in: validObjectIds.map(id => new mongoose.Types.ObjectId(id)) };
+  }
 
     if (AI_Screeing_Status !== undefined) {
       const AIScreeing = AI_Screeing_Status.split(',').map(val => val.trim());
@@ -3202,9 +3229,25 @@ export const getApplicantsLocationByJob = async (req, res) => {
     }
 
     if (branchIds) {
-      const branchArray = Array.isArray(branchIds) ? branchIds : branchIds.split(",");
-      matchStage.branchId = { $in: branchArray.map(id => new ObjectId(id)) };
+      let parsedBranchIds = branchIds;
+
+      if (typeof branchIds === 'string') {
+        try {
+          parsedBranchIds = JSON.parse(branchIds); // handles '["..."]' format
+        } catch (e) {
+          parsedBranchIds = branchIds.split(',');  // fallback for comma-separated values
+        }
+      }
+
+      const branchArray = Array.isArray(parsedBranchIds) ? parsedBranchIds : [parsedBranchIds];
+
+      const validBranchIds = branchArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+      if (validBranchIds.length > 0) {
+        matchStage.branchId = { $in: validBranchIds.map(id => new ObjectId(id)) };
+      }
     }
+
 
     const jobApplies = await jobApply.aggregate([
       { $match: matchStage },
@@ -3234,7 +3277,7 @@ export const getApplicantsLocationByJob = async (req, res) => {
           createdAt: 1,
           position: 1, // 🟢 Add this if your model has it
           branchNames: "$branchDetails.name",
-           branches: {
+          branches: {
             $map: {
               input: "$branchDetails",
               as: "branch",
@@ -3262,7 +3305,7 @@ export const getApplicantsLocationByJob = async (req, res) => {
       if (!pinLocation) {
         const latlng = await getLatLngByPincode(pincode);
         if (!latlng) {
-          console.log('pin code found for', pincode)
+          // console.log('pin code found for', pincode)
         }
         if (!latlng) continue;
 
@@ -3274,7 +3317,7 @@ export const getApplicantsLocationByJob = async (req, res) => {
               longitude: latlng.longitude,
               district: latlng.district,
               state: latlng.state,
-              area:latlng.area,
+              area: latlng.area,
             }
           },
           {
@@ -3295,13 +3338,13 @@ export const getApplicantsLocationByJob = async (req, res) => {
         longitude: pinLocation.longitude,
         district: pinLocation.district,
         state: pinLocation.state,
-        area:pinLocation.area,
+        area: pinLocation.area,
         position: apply.position || "N/A",
         appliedAt: apply.createdAt,
         branchNames: apply.branchNames || [],
         resumeShortlisted: apply.resumeShortlisted,
         AI_Screeing_Status: apply.AI_Screeing_Status,
-        branches:apply.branches,
+        branches: apply.branches,
 
       });
     }
@@ -3399,6 +3442,121 @@ export const getAllJobPostForLocation = async (req, res) => {
     return success(res, "Job Post List", getJobPosts);
   } catch (error) {
     console.error("Error in getAllJobPostForLocation:", error);
+    return unknownError(res, error);
+  }
+};
+
+export const filemanagerOldData = async (req, res) => {
+  try {
+    const organizations = await organizationModel.find({}, '_id');
+
+    for (const org of organizations) {
+      const organizationId = org._id;
+      const rootFolderKey = 'job-posts';
+
+      // Step 1: Check or create root folder for organization
+      let rootFolder = await folderSchema.findOne({
+        organizationId,
+        key: rootFolderKey
+      });
+
+      if (!rootFolder) {
+        const newRootFolder = new folderSchema({
+          organizationId,
+          candidateId: null,
+          parentId: null,
+          name: 'job-posts',
+          type: 'folder',
+          key: rootFolderKey,
+          mimetype: 'application/x-directory',
+          status: 'active',
+        });
+        rootFolder = await newRootFolder.save();
+      }
+
+      // Step 2: Fetch all job posts for the organization
+      const jobPosts = await jobPostModel.find({ organizationId });
+
+      for (const jobPost of jobPosts) {
+        const findDesignation = await designationModel.findById(jobPost.designationId);
+        if (!findDesignation) continue;
+
+        const formatFolderName = (name) => {
+          return name
+            .trim()
+            .split(/\s+/)
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join('_');
+        };
+
+        const jobPostFolderKey = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
+
+        // Step 3: Check or create job post folder
+        let jobPostFolder = await folderSchema.findOne({
+          organizationId,
+          key: jobPostFolderKey
+        });
+
+        if (!jobPostFolder) {
+          const newJobPostFolder = new folderSchema({
+            organizationId,
+            candidateId: null,
+            parentId: rootFolder._id,
+            name: `${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}`,
+            type: 'folder',
+            key: jobPostFolderKey,
+            mimetype: 'application/x-directory',
+            status: 'active',
+          });
+          jobPostFolder = await newJobPostFolder.save();
+        }
+
+        // Step 4: Find all applicants to this job post
+        const applicants = await jobApply.find({ jobPostId: jobPost._id });
+
+        for (const applicant of applicants) {
+          const candidateFolderKey = `${jobPostFolderKey}${applicant.candidateUniqueId}/`;
+
+          // Step 5: Check or create candidate folder
+          let candidateFolder = await folderSchema.findOne({
+            organizationId,
+            key: candidateFolderKey
+          });
+
+          if (!candidateFolder) {
+            const newCandidateFolder = new folderSchema({
+              organizationId,
+              candidateId: null,
+              parentId: jobPostFolder._id,
+              name: applicant.candidateUniqueId,
+              type: 'folder',
+              key: candidateFolderKey,
+              mimetype: 'application/x-directory',
+              status: 'active',
+            });
+            candidateFolder = await newCandidateFolder.save();
+          }
+
+          // Step 6: Save resume file inside candidate folder
+          if (applicant.resume) {
+            const saveResumeResult = await saveFileFromUrl({
+              fileUrl: applicant.resume,
+              parentId: candidateFolder._id,
+              organizationId,
+              candidateId: null
+            });
+
+            if (!saveResumeResult.status) {
+              console.warn(`Resume save failed for ${applicant._id}:`, saveResumeResult.message);
+            }
+          }
+        }
+      }
+    }
+
+    return success(res, "File manager structure synced successfully");
+  } catch (error) {
+    console.error(" error:", error);
     return unknownError(res, error);
   }
 };

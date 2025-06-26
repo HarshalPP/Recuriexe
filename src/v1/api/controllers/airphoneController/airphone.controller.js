@@ -26,29 +26,6 @@ const handleApiError = (res, error, message) => {
     }
 };
 
-export const recordCallLog = async (req, res) => {
-    try {
-        const authToken = process.env.AIRPHONE_AUTH_TOKEN;
-        if (!authToken) {
-            return res.status(401).json({ message: 'Authentication token is missing. Please set AIRPHONE_AUTH_TOKEN in .env' });
-        }
-
-        const callLogData = req.body;
-
-        const response = await axios.post(
-            `${AIRPHONE_API_CONFIG.clientUrl}/api`,
-            new URLSearchParams(callLogData).toString(),
-            {
-                headers: getAuthHeaders(authToken),
-                timeout: AIRPHONE_API_CONFIG.timeout
-            }
-        );
-        res.status(response.status).json(response.data);
-    } catch (error) {
-        handleApiError(res, error, 'Error recording call log:');
-    }
-};
-
 // export const beforeCallConnect = async (req, res) => {
 //     try {
 //         const beforeConnectData = req.body;
@@ -367,7 +344,7 @@ export const initiateC2C = async (req, res) => {
 
 export const addAgent = async (req, res) => {
     try {
-        const { name, mobile, status, virtual_number, product } = req.body;
+        const { name, mobile, status, virtual_number, product,employeeId } = req.body;
     const organizationId = req.employee.organizationId;
 
         if (!organizationId) {
@@ -407,13 +384,14 @@ export const addAgent = async (req, res) => {
             mobile,
             status,
             virtual_number,
-            organizationId
+            organizationId,
+            employeeId
         });
 
         const savedAgent = await newAgent.save();
 
         return success(res, "Agent added and data saved successfully.", {
-            airphoneApiResponse: apiData,
+            // airphoneApiResponse: apiData,
             _id: savedAgent._id
         });
     } catch (error) {
@@ -620,7 +598,7 @@ export const getAllSavedAgents = async (req, res) => {
 
         const agents = await Agent.find({ organizationId }).select('-auth_token');
 
-        return success(res, "Agents fetched successfully", { agents });
+        return success(res, "Agents fetched successfully",  agents );
     } catch (error) {
         console.error('Error getting all saved agents from MongoDB:', error.message);
         return unknownError(res, error);
@@ -677,4 +655,101 @@ export const receiveCallLog = async (req, res) => {
     return unknownError(res, "Internal server error", error.message);
   }
 };
+
+export const getAgentsByToken = async (req, res) => {
+    try {
+        // const { organizationId, employeeId } = req.user;
+        const organizationId = req.employee.organizationId;
+        const {employeeId} = req.params;
+
+        // if (!organizationId || !employeeId) {
+        //     return res.status(400).json({ message: "organizationId or employeeId missing in token" });
+        // }
+        if (!organizationId) {
+            return badRequest(res, 'Missing organizationId in token');
+        }
+        if (!employeeId) {
+            return badRequest(res, 'Missing employeeId in token');
+        }
+
+        const agents = await Agent.find({
+            organizationId,
+            employeeId
+        });
+
+        // return res.status(200).json({
+        //     success: true,
+        //     count: agents.length,
+        //     data: agents
+        // });
+        return success(res, "Agents fetched successfully", agents);
+    } catch (err) {
+        console.error("Error in getAgentsByToken:", err);
+        return unknownError(res, err);
+    }
+};
+
+
+export const getAgentCallLogs = async (req, res) => {
+  try {
+    console.log("Fetching call logs for organizationId:", req.employee.organizationId);
+        const organizationId = req.employee.organizationId;
+
+    const agents = await Agent.find({ organizationId })
+                              .select('mobile');
+                              console.log("Agents found:", agents);
+
+    if (!agents.length)
+      return success(res, 'No agents found for this organization', { callLogs: [] });
+
+    const mobiles = agents.map(a => a.mobile);
+
+    // 3️ Call logs where received_id == agent mobile
+    const callLogs = await CallLog.find({ received_id: { $in: mobiles } });
+    console.log("Call logs found:", callLogs);
+
+    // 4️ Agent detail attach — optional
+    const logsWithAgent = callLogs.map(log => {
+      const agent = agents.find(a => a.mobile === log.received_id);
+      return {
+        ...log.toObject(),
+        agentId: agent?._id,
+        agentName: agent?.name,
+        agentStatus: agent?.status,
+      };
+    });
+
+    return success(res, 'Call logs fetched successfully', { callLogs: logsWithAgent });
+  } catch (err) {
+    console.error(err);
+    return unknownError(res, 'Something went wrong while fetching call logs');
+  }
+};
+
+
+export const getAgentByMobileParam = async (req, res) => {
+    try {
+        const organizationId = req.employee.organizationId;
+        const { mobile } = req.params;
+
+        if (!organizationId || !mobile) {
+            return badRequest(res, 'organizationId or mobile is missing');
+        }
+
+        const agent = await Agent.findOne({
+            organizationId,
+            mobile: mobile.trim()
+        });
+
+        if (!agent) {
+            return badRequest(res, 'Agent not found');
+        }
+
+        return success(res, 'Agent found', agent);
+    } catch (err) {
+        console.error("Error in getAgentByMobileParam:", err);
+        return unknownError(res, err);
+    }
+};
+
 

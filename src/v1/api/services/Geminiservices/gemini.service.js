@@ -171,7 +171,8 @@ export const generateAIResponseWithImageUrl = async (prompt, fileUrl) => {
 // Function for AI screening using a document URL
 export const generateAIScreening = async (prompt, fileUrl) => {
   try {
-    console.log("fileUrl" , fileUrl)
+    // console.log("fileUrl" , fileUrl)
+    console.log("prompt" , prompt)
     const mimeType = mime.lookup(fileUrl) || "application/octet-stream";
     const base64File = await fetchFileAsBase64(fileUrl);
 

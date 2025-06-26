@@ -286,64 +286,52 @@ export async function getAllVarible(requestsObject) {
 
 // --------------------------------------------- updated according to sir ----------------------------------------
 
+
+
+// Utility to extract all top-level keys
+function extractKeys(obj) {
+  return obj ? Object.keys(obj) : [];
+}
+
 export async function addVariableAuto(requestsObject) {
   try {
     const organizationId = new ObjectId(requestsObject.employee.organizationId);
 
-    // Step 1: Get all initial fields
-    const initData = await getAllInitFields(requestsObject);
+    // ✅ Step 1: Get top-level keys from models
+    const jobPostDetail = await jobPostModel.findOne({ organizationId }).lean();
+    const employeeDetail = await employeeModel.findOne({ organizationId }).lean();
+    const jobApplyDetail = await jobApply.findOne({ organizationId }).lean();
 
-    if (!initData.data.length) {
-      return returnFormatter(true, "No init data found", []);
-    }
+    const jobPostKeys = extractKeys(jobPostDetail);
+    const employeeKeys = extractKeys(employeeDetail);
+    const jobApplyKeys = extractKeys(jobApplyDetail);
 
-    // Step 2: Find the company (you might use this later, so I kept it)
-    const jobPostDetail = await jobPostModel.findOne({ organizationId: new ObjectId(organizationId) }).lean();
-    const employeeDetail = await employeeModel.findOne({ organizationId: new ObjectId(organizationId) }).lean();
-    const jobApplyDetail = await jobApply.findOne({ organizationId: new ObjectId(organizationId) }).lean();
-
-    
-
-    // Step 5: Extract all field names
-    let allFieldNames = [];
-    requestData.forEach(data => {
-      const productForms = data.productForm || [];
-      productForms.forEach(form => {
-        [].forEach(section => {
-          const fields = form?.[section]?.fields || [];
-          fields.forEach(field => {
-            if (field.fieldName) allFieldNames.push(field.fieldName);
-          });
-        });
-      });
-    });
-
-    // Remove duplicates
-    allFieldNames = [...new Set(allFieldNames)];
-
-    // Step 6: Combine with default field names
-    const defaultFieldNames = [
-
+    // ✅ Step 2: Combine all keys and remove duplicates
+    const combinedFieldNames = [
+      ...new Set([
+        ...jobPostKeys,
+        ...employeeKeys,
+        ...jobApplyKeys
+      ])
     ];
 
-    const combinedFieldNames = [...new Set([...allFieldNames, ...defaultFieldNames])];
-
-    // Format as {variableName}
+    // ✅ Step 3: Format variable names
     const variableNames = combinedFieldNames.map(name => `{${name}}`);
 
-    // Step 7: Get existing variables
+    // ✅ Step 4: Get already existing variables
     const existingVariables = await variableModel.find({
-      organizationId: requestsObject.user.organizationId
+      organizationId: requestsObject.employee.organizationId
     });
+
     const existingVariableNames = existingVariables.map(v => v.variableName);
 
-    // Step 8: Filter out already existing variables
+    // ✅ Step 5: Filter out already existing ones
     const newVariablesToCreate = variableNames.filter(varName => !existingVariableNames.includes(varName));
 
-    // Step 9: Insert new variables
+    // ✅ Step 6: Insert only new variables
     if (newVariablesToCreate.length > 0) {
       const variablesToInsert = newVariablesToCreate.map(variableName => ({
-        organizationId: requestsObject.employee.organizationId,
+        organizationId,
         variableName
       }));
 
@@ -359,3 +347,4 @@ export async function addVariableAuto(requestsObject) {
     return returnFormatter(false, error.message || "Unexpected error occurred");
   }
 }
+

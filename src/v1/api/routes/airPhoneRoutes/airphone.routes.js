@@ -8,8 +8,7 @@ import multer from 'multer';
 const upload = multer();
 
 
-//call log api
-router.post('/call-log', airphoneController.recordCallLog);
+
 
 //live event APIs
 router.post('/live-event/before-connect', airphoneController.beforeCallConnect);
@@ -43,10 +42,21 @@ router.post('/get-extension-status-multiple/:extensions', airphoneController.get
 //get all saved agents API
 router.get('/saved-agents',verifyEmployeeToken, airphoneController.getAllSavedAgents);
 
+router.get('/callLog',verifyEmployeeToken, airphoneController.getAgentCallLogs);
+
+
+//get agent by employee ID API
+router.get('/:employeeId',verifyEmployeeToken, airphoneController.getAgentsByToken);
+
 //get all c2c calls API
 router.get('/saved-c2c-calls', airphoneController.getAllSavedC2CCalls);
 
 //receive call log aPI
 router.post('/receive-call-log', upload.none(), airphoneController.receiveCallLog);
+
+//get agent by mobile number API
+router.get('/get/:mobile',verifyEmployeeToken, airphoneController.getAgentByMobileParam);
+
+//get call log using organization ID API
 
 export default router;

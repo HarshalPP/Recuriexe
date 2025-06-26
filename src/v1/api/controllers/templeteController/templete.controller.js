@@ -2,7 +2,7 @@ import Template from "../../models/templeteModel/templete.model.js"
 
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js"
-
+import jobApplyModel from "../../models/jobformModel/jobform.model.js"
 
 import puppeteer from 'puppeteer';
 import fs from 'fs';
@@ -245,17 +245,89 @@ export async function updateTemplate(req, res) {
 
 
 
+// export async function getAvailablePlaceholders(req, res) {
+//   try {
+//     const placeholders = getSchemaPlaceholders();
+//     return success(res, 'Available placeholders retrieved successfully', placeholders);
+//   } catch (error) {
+//     console.error('Placeholder retrieval error:', error);
+//     return unknownError(res , error)
+//   }
+// }
+
+function extractPlaceholdersFromSchema(model, options = {}) {
+  const {
+    ignoreFields = [],
+    prefix = '', // Optional prefix for nested naming
+    customFields = {}
+  } = options;
+
+  const placeholders = {};
+  const schemaPaths = model.schema.paths;
+
+  for (const [field, path] of Object.entries(schemaPaths)) {
+    if (
+      ['String', 'Number', 'Boolean'].includes(path.instance) &&
+      !ignoreFields.includes(field)
+    ) {
+      const key = prefix ? `${prefix}.${field}` : field;
+      placeholders[field] = `{{${key}}}`;
+    }
+  }
+
+  return {
+    ...placeholders,
+    ...Object.entries(customFields).reduce((acc, [field, key]) => {
+      acc[field] = `{{${prefix ? `${prefix}.${key}` : key}}}`;
+      return acc;
+    }, {})
+  };
+}
+
 export async function getAvailablePlaceholders(req, res) {
   try {
-    const placeholders = getSchemaPlaceholders();
+    const { type } = req.query; 
+    let placeholders = {};
+
+    if(!type){
+      return badRequest(res, "Model Type Required")
+    }
+    
+    if (!type || type === "jobPost") {
+   placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+        ignoreFields: ['_id', '__v', 'createdByHrId'],
+        customFields: {
+          companyName: 'companyName',
+          department: 'department',
+          designation: 'designation',
+          location: 'location'
+        }
+      });
+
+      // Extract jobDescription fields, nested under jobDescription
+      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+        customFields: {
+          jobSummary: 'jobSummary',
+          rolesAndResponsibilities: 'rolesAndResponsibilities',
+          keySkills: 'keySkills'
+        }
+      });
+    }else if(!type || type === "jobApplyForm") {
+      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status','Remark','immediatejoiner']
+      });
+    }else{
+      return badRequest(res , "Model Type Invalid")
+    }
+
     return success(res, 'Available placeholders retrieved successfully', placeholders);
   } catch (error) {
     console.error('Placeholder retrieval error:', error);
-    return unknownError(res , error)
+    return unknownError(res, error);
   }
 }
-
-
 
 export async function generateLinkedInPostAndPdf(req, res) {
   try {

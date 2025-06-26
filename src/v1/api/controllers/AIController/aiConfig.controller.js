@@ -667,7 +667,7 @@ if (!designation) return badRequest(res, "Designation not found");
 if (!department) return badRequest(res, "Department not found");
 
 
-  const expectedCTCString = candidate.expectedCTC?.toString().replace(/,/g, '');
+  const expectedCTCString = candidate.currentCTC?.toString().replace(/,/g, '');
 const expectedCTC = Number(expectedCTCString);
 console.log("expectedCTC" , expectedCTC)
 
@@ -695,6 +695,7 @@ const budgetData = await BugedModel.findOne({
       AI_Processing_Speed: 1,
       Accuracy: 100,
       qualificationThreshold: 0,
+      CandidateAIExperince:0, // Extract experience in number of years from resume
       confidenceThreshold: 0,
       overallScore: 0,
       decision: "Rejected",
@@ -711,22 +712,22 @@ const budgetData = await BugedModel.findOne({
       },
       criteria: [{
         criteria: "CTC Validation",
-        description: "Expected CTC exceeds per-employee budget for this role",
+        description: "Current CTC exceeds per-employee budget for this role",
         weight: 100,
         score: 0,
-        reason: `Candidate expected CTC: ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`
+        reason: `Candidate expected CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
       }],
       acceptReason: [],
       rejectReason: [
         {
           point: "CTC Expectation Too High",
-          description: `Candidate expected ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+          description: `Candidate currrent CTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
           percentage: "0%",
           weight: "Critical",
           impact: "High"
         }
       ],
-      recommendation: "Candidate's expected salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+      recommendation: "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
       improvementSuggestions: [
         "Reassess salary expectations",
         "Ensure alignment with job market benchmarks and internal ranges"
@@ -735,7 +736,7 @@ const budgetData = await BugedModel.findOne({
         {
           factor: "Budget Breach Risk",
           level: "Critical",
-          description: "Expected CTC exceeds available per-head allocation",
+          description: "CurrentCTC CTC exceeds available per-head allocation",
           mitigation: "Negotiate or increase allocated budget"
         }
       ],
@@ -999,10 +1000,16 @@ console.log("criteriaArrayString" , criteriaArrayString)
 
     const prompt = `
 You are an intelligent AI screening system.
-
 Analyze the following job and resume information. Provide detailed analysis of:
 
-Each criteria should be scored from 0 to 100.
+- Each criterion has a "weight" (importance percentage from 0 to 100) — this reflects how critical the criterion is to this job.
+- DO NOT treat all criteria equally — criteria with higher weight must influence the scoring more strongly.
+- Score each criterion (0–100) based on the resume content AND its importance (weight).
+- For example:
+   - If a criterion has weight 30 and resume content is weak, the score should be significantly penalized.
+   - If a criterion has weight 10 and resume content is moderately matched, score can still be above average.
+- Do not assign high scores to high-weight criteria unless the evidence is **strong and complete** in the resume.
+- Avoid "safe" scores like 70/80 unless truly justified with content.
 
 
 "criteria": [
@@ -1323,7 +1330,7 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
       jobApply.findById(candidateId).lean(),
     ]);
 
-  const expectedCTCString = candidate.expectedCTC?.toString().replace(/,/g, '');
+  const expectedCTCString = candidate.currentCTC?.toString().replace(/,/g, '');
 const expectedCTC = Number(expectedCTCString);
 console.log("expectedCTC" , expectedCTC)
 
@@ -1363,6 +1370,7 @@ if (expectedCTC && designation?._id) {
       Accuracy: 100,
       qualificationThreshold: 0,
       confidenceThreshold: 0,
+      CandidateAIExperince:0,
       overallScore: 0,
       decision: "Rejected",
       breakdown: {
@@ -1378,22 +1386,22 @@ if (expectedCTC && designation?._id) {
       },
       criteria: [{
         criteria: "CTC Validation",
-        description: "Expected CTC exceeds per-employee budget for this role",
+        description: "Current CTC exceeds per-employee budget for this role",
         weight: 100,
         score: 0,
-        reason: `Candidate expected CTC: ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`
+        reason: `Candidate currentCTC CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
       }],
       acceptReason: [],
       rejectReason: [
         {
           point: "CTC Expectation Too High",
-          description: `Candidate expected ₹${candidate.expectedCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+          description: `Candidate currentCTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
           percentage: "0%",
           weight: "Critical",
           impact: "High"
         }
       ],
-      recommendation: "Candidate's expected salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+      recommendation: "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
       improvementSuggestions: [
         "Reassess salary expectations",
         "Ensure alignment with job market benchmarks and internal ranges"
@@ -1415,8 +1423,7 @@ if (expectedCTC && designation?._id) {
         AI_Screeing_Result: "Rejected",
         AI_Screeing_Status: "Completed",
         AI_Score: 0,
-        AI_Confidence: 90,
-        lastOrganization: "CTC Validation Failed"
+        AI_Confidence: 90
       },
       { new: true }
     );
@@ -1719,7 +1726,15 @@ You are an intelligent AI screening system.
 
 Analyze the following job and resume information. Provide detailed analysis of:
 
-Each criteria should be scored from 0 to 100.
+- Each criterion has a "weight" (importance percentage from 0 to 100) — this reflects how critical the criterion is to this job.
+- DO NOT treat all criteria equally — criteria with higher weight must influence the scoring more strongly.
+- Score each criterion (0–100) based on the resume content AND its importance (weight).
+- For example:
+   - If a criterion has weight 30 and resume content is weak, the score should be significantly penalized.
+   - If a criterion has weight 10 and resume content is moderately matched, score can still be above average.
+- Do not assign high scores to high-weight criteria unless the evidence is **strong and complete** in the resume.
+- Avoid "safe" scores like 70/80 unless truly justified with content.
+
 
 
 "criteria": [

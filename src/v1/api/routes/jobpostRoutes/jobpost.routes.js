@@ -12,6 +12,7 @@ import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken ,
       getJobPostDetail,
       getApplicantsLocationByJob,
       getAllJobPostForLocation,
+      filemanagerOldData,
      } from "../../controllers/jobpostController/jobpost.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
@@ -33,4 +34,5 @@ router.get('/getApplicantsLocationByJobPost',verifyEmployeeToken , getApplicants
 router.get("/qualificationDataUpdate", qualificationDataUpdate )
 router.get("/getAllJobPostForLocation",verifyEmployeeToken , getAllJobPostForLocation)
 
+router.get("/filemanagerOldData", filemanagerOldData)
 export default router;   

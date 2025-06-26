@@ -393,7 +393,6 @@ export const jobApplyFormAdd = async (req, res) => {
     // create job folder with condidate id and resume
     
     const rootFolderKey = 'job-posts';
-    // const rootFolderKey = 'akash/job-posts';
     const formatFolderName = (name) => {
       return name
         .trim()
@@ -4777,7 +4776,7 @@ export const convertBranchIdToArray = async (req, res) => {
 //         fileOpsQueue.push(
 //           (async () => {
 //             try {
-//               const rootFolderKey = 'akash/job-posts';
+//               const rootFolderKey = 'job-posts';
 //               const formatFolderName = (name) => {
 //                 return name
 //                   .trim()
@@ -4881,15 +4880,17 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
 
     const organizationId = jobPost.organizationId;
     const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId });
+
     const findDesignation = await designationModel.findById(jobPost.designationId).lean();
     if (!findDesignation) return badRequest(res, "Designation not found for this job post.");
 
     const results = [];
-    const aiQueue = [];
     const fileOpsQueue = [];
+    const aiProcessingList = [];
 
     for (const resumeUrl of resumes) {
       const parsedData = await extractCandidateDataFromResume(resumeUrl);
+
       if (!parsedData || !parsedData.name || !parsedData.emailId) {
         results.push({ resume: resumeUrl, status: "failed", reason: "Resume parsing failed" });
         continue;
@@ -4898,7 +4899,7 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
       try {
         const existing = await jobApply.findOne({
           emailId: parsedData.emailId.trim(),
-          jobPostId
+          jobPostId: jobPostId
         }).lean();
 
         if (existing) {
@@ -4929,14 +4930,12 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
 
         const jobFormInstance = new jobApply(jobPayload);
         const jobApplyForm = await jobFormInstance.save();
-
         results.push({ resume: resumeUrl, status: "success" });
-
-
 
         // ✅ Update totalApplicants count
         await jobPostModel.findByIdAndUpdate(jobPostId, { $inc: { totalApplicants: 1 } });
 
+        // ✅ Check and deactivate job post if limit reached
         const totalApplications = await jobApply.countDocuments({ jobPostId });
         if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
           await jobPostModel.findByIdAndUpdate(jobPostId, { status: 'inactive' });
@@ -4949,20 +4948,21 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
           if (budget) {
             const budgetImpact = Number(jobPost.budget || 0);
             const noOfPosition = Number(jobPost.noOfPosition || 0);
+
             budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
             budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
             await budget.save();
           }
+        }
 
-        // ✅ Folder/File Creation in Background
+        // ✅ Queue resume file save operation
         fileOpsQueue.push(
           (async () => {
             try {
-              // const rootFolderKey = 'akash/job-posts';
               const rootFolderKey = 'job-posts';
               const formatFolderName = (name) =>
-                name.trim().split(/\s+/).map(word =>
-                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('_');
+                name.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('_');
+
               const folderKey = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
 
               const parentFolder = await folderSchema.findOne({
@@ -4972,6 +4972,7 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
 
               let parentId;
               const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
+
               let candidateFolder = await folderSchema.findOne({
                 organizationId: new ObjectId(organizationId),
                 key: candidateFolderKey
@@ -4988,6 +4989,7 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
                   mimetype: 'application/x-directory',
                   status: 'active',
                 });
+
                 const newCreateRootFolder = await newRootFolder.save();
                 parentId = newCreateRootFolder._id;
               } else {
@@ -5000,40 +5002,46 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
                 organizationId,
                 candidateId: null
               });
-
             } catch (err) {
               console.error("File ops error:", resumeUrl, "->", err.message);
             }
           })()
         );
 
-        // ✅ AI Screening in Background
+        // ✅ Add to AI processing list (we'll trigger later)
         if (AIdata) {
-          aiQueue.push(
-            processAIScreeningForCandidate({
-              jobPostId,
-              resume: resumeUrl,
-              candidateId: jobApplyForm._id,
-              organizationId
-            }).catch(err => console.error("AI screening error:", err.message))
-          );
+          aiProcessingList.push({
+            jobPostId,
+            resume: resumeUrl,
+            candidateId: jobApplyForm._id,
+            organizationId
+          });
         }
 
-      }
-
       } catch (err) {
-        console.error("Job apply save error:", resumeUrl, "->", err.message);
+        console.error("Error saving job apply for resume:", resumeUrl, "->", err.message);
         results.push({ resume: resumeUrl, status: "failed", reason: err.message });
       }
     }
 
-    // ✅ Send response early
+    // ✅ Respond to client
     success(res, "Bulk job apply process completed", results);
 
-    // 🔁 Background AI + Folder/File Processing
-    await Promise.allSettled(aiQueue);
-    await Promise.allSettled(fileOpsQueue);
+    // 🔁 Resume uploads (non-blocking, background)
+    Promise.allSettled(fileOpsQueue).catch(console.error);
 
+    // 🔁 Background AI screening after response
+    if (AIdata && aiProcessingList.length) {
+      setImmediate(() => {
+        aiProcessingList.forEach(async (item) => {
+          try {
+            await processAIScreeningForCandidate(item);
+          } catch (err) {
+            console.error("AI screening error:", item.resume, "->", err.message);
+          }
+        });
+      });
+    }
 
   } catch (err) {
     console.error("Error in bulk job apply:", err);

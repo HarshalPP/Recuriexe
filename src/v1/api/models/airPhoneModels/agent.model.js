@@ -6,6 +6,11 @@ const agentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true
     },
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'employee',
+      default: null,
+    },
     name: {
         type: String,
         required: true,

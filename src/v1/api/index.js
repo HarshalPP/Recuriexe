@@ -24,6 +24,7 @@ import Qualification from "./routes/QualificationRoutes/qualification.routes.js"
 import PortalsetUp from "./routes/portalsetUpRoutes/portalsetUp.routes.js"
 import formStagesetUP from "./routes/formStageRoutes/formstage.routes.js"
 import templete from "./routes/templeteRoutes/templete.routes.js"
+import userConfig from "./routes/userConfigRoutes/userConfig.routes.js"
 
 
 // Budged //
@@ -178,6 +179,7 @@ router.use("/PortalsetUp" , PortalsetUp)
 router.use("/pinCode" , pinCodeRouter)
 router.use("/formStageset" , formStagesetUP)
 router.use("/masterPlan", PlanRouter)
+router.use("/userConfig" , userConfig)
 
 // --------- Tracking Routes ----------- //
 router.use("/tracking" ,tracking)
