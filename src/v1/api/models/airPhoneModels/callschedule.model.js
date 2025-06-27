@@ -31,7 +31,7 @@ const resultSchema = new Schema(
     status: {
       type: String,
       // enum: ["success", "failed", "no-answer"], // add/remove statuses as needed
-      required: true,
+      // required: true,
       default: "",
     },
     message: {
@@ -69,7 +69,7 @@ const callScheduleSchema = new Schema(
     scheduleAt: {
       type: Date,
       // required: true,
-      default: null,   
+      // default: null,   
     },                       // call time (UTC)
     status: {
       type: String,
@@ -82,6 +82,7 @@ const callScheduleSchema = new Schema(
     },
     result: {
       type: resultSchema,    // 👉 strongly-typed sub-document
+      default: {},           // default to empty object if not provided
     },
   },
   { timestamps: true }

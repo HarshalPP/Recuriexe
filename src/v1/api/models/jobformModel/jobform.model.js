@@ -36,24 +36,24 @@ const jobApplyModelSchema = new Schema(
     departmentId: { type: ObjectId, ref: "newdepartment", default: null },
     knewaboutJobPostFrom: { type: String },
     currentDesignation: { type: String, default: "" },
-     lastOrganization: {
-  type: [String],
-  default: []
-},
+    lastOrganization: {
+      type: [String],
+      default: []
+    },
 
     startDate: { type: Date },
     endDate: { type: Date },
     reasonLeaving: { type: String, default: "" },
     totalExperience: { type: Number, default: null },
     currentCTC: { type: String, default: null },
-    expectedCTC : { type: String, default: null },
+    expectedCTC: { type: String, default: null },
     currentLocation: { type: String, default: "" },
     preferredLocation: { type: String, default: "" },
     gapIfAny: { type: String, default: "" },
     employeUniqueId: { type: String, ref: "employee", default: null },
     managerID: { type: ObjectId, ref: "employee", default: null },
     workLocationId: { type: ObjectId, ref: "newworklocation", default: null },
-    jobPostId: { type: ObjectId, ref: "jobPosts", default: null },
+    jobPostId: { type: ObjectId, ref: "jobPost", default: null },
     vacancyRequestId: { type: ObjectId, ref: "vacancyRequest", default: null },
     hrInterviewDetailsId: {
       type: ObjectId,
@@ -69,9 +69,9 @@ const jobApplyModelSchema = new Schema(
     jobFormType: {
       type: String,
       enum: ["recommended", "request"],
-      default:'request'
+      default: 'request'
     },
-    branchId: [{ type: ObjectId, ref: "newbranch" , default:[] }],
+    branchId: [{ type: ObjectId, ref: "newbranch", default: [] }],
     positionWebsite: { type: String, default: "" },
     departmentWebsite: { type: String, default: "" },
     salary: { type: Number, default: null },
@@ -205,20 +205,20 @@ const jobApplyModelSchema = new Schema(
     },
 
 
-    Remark:{
+    Remark: {
       type: String,
       default: ""
     },
 
 
-     JobType:{
-     type: String,
+    JobType: {
+      type: String,
     },
 
 
-    BulkResume:{
-      type:String,
-      default:"false",
+    BulkResume: {
+      type: String,
+      default: "false",
     },
 
     // AI Result //
@@ -229,7 +229,7 @@ const jobApplyModelSchema = new Schema(
 
     AI_Screeing_Result: {
       type: String,
-      default:"Pending"
+      default: "Pending"
     },
 
     // not still analize ( open button for analize )
@@ -238,16 +238,22 @@ const jobApplyModelSchema = new Schema(
       default: "Pending"  // Completed
     },
 
-    AI_Score:{
-     type:Number
+    AI_Score: {
+      type: Number
     },
 
-    AI_Confidence:{
-      type:Number
+    AI_Confidence: {
+      type: Number
+    },
+    
+    clientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Agency",
+      default: null
     },
 
     immediatejoiner: { type: Boolean, default: false },
-     agreePrivacyPolicy : {type : Boolean , default : false },
+    agreePrivacyPolicy: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

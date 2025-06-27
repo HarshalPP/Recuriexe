@@ -13,7 +13,6 @@ organizationId: { type: ObjectId, ref: "Organization", default: null },
     type: String,
     required: true,
     trim: true,
-    unique: true
   },
   content: {
     type: String,
@@ -24,6 +23,9 @@ organizationId: { type: ObjectId, ref: "Organization", default: null },
     type: Schema.Types.ObjectId,
     ref: 'employee',
     required: true
+  },
+  modelType: {
+    type: String,
   },
   createdAt: {
     type: Date,

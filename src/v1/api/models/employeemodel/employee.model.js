@@ -68,6 +68,7 @@ const employeSchema = new Schema(
   },
 
     organizationId: { type: ObjectId, default: null, ref:"Organization" },
+    OrganizationModule:{type:String , default:"Company"},
     currentDesignation: { type: String, default: "" },
     startDate: { type: Date, default: "" },
     endDate: { type: Date, default: "" },

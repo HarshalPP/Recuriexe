@@ -2,16 +2,21 @@ import express from 'express'
 const router = express.Router();
 
 
-import {getAvailablePlaceholders , createTemplate , listTemplates , getTemplate , generateLinkedInPostAndPdf} from "../../controllers/templeteController/templete.controller.js"
+import {getAvailablePlaceholders , createTemplate , listTemplates , getTemplate , generateLinkedInPostAndPdf ,
+     generateLinkedInPostAndPdfDynamic , createTemplateTest , updateTemplate} from "../../controllers/templeteController/templete.controller.js"
 import { verifyEmployeeToken } from '../../middleware/authicationmiddleware.js';
 
 
 
 router.get("/getAvailablePlaceholders" , getAvailablePlaceholders)
-router.post("/create" , verifyEmployeeToken , createTemplate)
+router.post("/create" , verifyEmployeeToken , createTemplateTest)
 router.get("/listTemplates" , verifyEmployeeToken , listTemplates)
 router.get("/getTemplete/:templateId" ,verifyEmployeeToken , getTemplate)
-router.post("/generateLinkedInPostAndPdf" , verifyEmployeeToken , generateLinkedInPostAndPdf )
+router.post('/update',verifyEmployeeToken , updateTemplate)
+router.post("/generateLinkedInPostAndPdf" , verifyEmployeeToken , generateLinkedInPostAndPdfDynamic )
+
+// router.post("/createtest" , verifyEmployeeToken , createTemplateTest)
+// router.post("/generateLinkedInPostAndPdfDynamic" , verifyEmployeeToken , generateLinkedInPostAndPdfDynamic )
 
 
 export default router;

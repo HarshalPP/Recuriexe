@@ -28,6 +28,11 @@ import userConfig from "./routes/userConfigRoutes/userConfig.routes.js"
 import Bookdemo from "./routes/bookRoutes/book.routes.js"
 
 
+// Agency //
+
+import Agency from "./routes/AgencyRoutes/agency.routes.js"
+
+
 // Budged //
 import Budged from "./routes/budgedRoutes/budged.routes.js"
 
@@ -133,6 +138,10 @@ import variableRouter from "./routes/pdfTemplateRoutes/variableSetUp.router.js"
 //expense
 //airphone
 import airphoneRouter from "./routes/airPhoneRoutes/airphone.routes.js"
+
+
+// Agency SetUp Routes //
+router.use("/Agency" , Agency)
 
 router.use("/expenseCategory",expenseCategoryRouter)
 router.use("/expenseType",expenseTypeRouter)

@@ -19,7 +19,8 @@ export const createBookDemo = async (req, res) => {
       numberOfEmployees,
       preferredDemoTimeSlot,
       howDidYouHearAboutUs,
-      consent
+      consent,
+      OtherIndustry
     } = req.body;
 
     const demo = await BookDemo.create({

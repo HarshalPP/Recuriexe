@@ -85,6 +85,7 @@ export const newEmployeeLogin = async (req, res) => {
       employeePhoto: employee.employeePhoto || null,
       token,
       trackingMode: 'active',
+      OrganizationModule:employee.OrganizationModule || "Company"
     };
 
     return success(res, 'Employee Logged in successfully', data);
@@ -112,6 +113,7 @@ export const SuperAdminRegister = async (req, res) => {
       email,
       password,
       UserType,
+      OrganizationModule,
       allocatedModule = []  // Expecting multiple ObjectIds
     } = req.body;
 
@@ -143,6 +145,7 @@ export const SuperAdminRegister = async (req, res) => {
       contactPerson: "Owner",
       contactNumber: "",
       contactEmail: email,
+      OrganizationModule:OrganizationModule,
       allocatedModule: allocatedModule, // Store allocated modules
     });
 
@@ -183,7 +186,8 @@ export const SuperAdminRegister = async (req, res) => {
       roleId:adminRole._id,
       // roleId: roleIds,
       status: 'active',
-      organizationId: newOrganization._id
+      organizationId: newOrganization._id,
+      OrganizationModule:OrganizationModule
     });
 
     await newEmployee.save();
@@ -2219,7 +2223,6 @@ export const planCreditRemaining = async (req, res) => {
       }
     };
 
-    console.log('Usage Summary:', usageSummary);
 
     // ✅ Send success response using your helper
     return success(res, "Plan usage calculated successfully", usageSummary);
@@ -2229,3 +2232,4 @@ export const planCreditRemaining = async (req, res) => {
     return badRequest(res, "Internal server error occurred");
   }
 };
+

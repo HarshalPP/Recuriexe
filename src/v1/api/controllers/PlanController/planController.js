@@ -91,10 +91,6 @@ export const updatefreetrail = async (req, res) => {
 };
 
 
-
-
-
-
 export const deletePlan = async (req, res) => {
   try {
     const plan = await planModel.findByIdAndDelete(req.params.id);
@@ -104,8 +100,6 @@ export const deletePlan = async (req, res) => {
     return unknownError(res, err.message);
   }
 };
-
-
 
 
 // export const expirePlansScheduler = () => {

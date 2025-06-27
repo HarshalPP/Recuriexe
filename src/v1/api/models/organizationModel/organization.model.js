@@ -14,6 +14,12 @@ const organizationSchema = new mongoose.Schema(
     }],
 
 
+    OrganizationModule:{
+      type:String,
+      default:"Company"
+    },
+
+
     PlanId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Plan",

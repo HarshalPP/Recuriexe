@@ -838,13 +838,18 @@ export const scheduleC2CCalls = async (req, res) => {
     }
 
     const baseTime = new Date(scheduleAt);
+    if (isNaN(baseTime.getTime())) {
+  return badRequest(res, "Invalid scheduleAt date");
+}
     const schedules = await CallSchedule.insertMany(
       callers.map((caller, index) => ({
         agent,
         caller,
         vnm,
         scheduleAt: new Date(baseTime.getTime() + index * gapInMinutes * 60000),
-        gapInMinutes  // ✅ store in model
+        organizationId,
+        gapInMinutes,
+        status:'pending'  // ✅ store in model
       }))
     );
 
@@ -952,25 +957,33 @@ export const getCallDashboardStats = async (req, res) => {
       unique_id: { $in: uniqueIds }
     };
 
+    if (status) {
+  filter.call_status = new RegExp("^" + status + "$", "i");  // case-insensitive
+}
+
+if (agent) {
+  filter.received_id = agent; // OR use correct field from your DB
+}
+
+
     if (search) {
       filter.$or = [
         { caller_id: { $regex: search, $options: "i" } },
-        { agent: { $regex: search, $options: "i" } },
-      ];
-    }
+        { received_id: { $regex: search, $options: "i" } },
+        { ivr_number: { $regex: search, $options: "i" } },
+        { call_type: { $regex: search, $options: "i" } },
+        { call_status: { $regex: search, $options: "i" } },
+        { unique_id: { $regex: search, $options: "i" } },
+        {call_status: { $regex: search, $options: "i" } }
 
-    if (agent) {
-      filter.received_id = agent; // or agent field from your system
-    }
-
-    if (status) {
-      filter.call_status = status;
+      ]; 
     }
 
     if (startDate && endDate) {
       filter.createdAt = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        // $lte: new Date(endDate)
+          $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
       };
     }
 
@@ -1023,5 +1036,129 @@ export const getCallDashboardStats = async (req, res) => {
   } catch (err) {
     console.error("Error in getCallDashboardStats:", err);
     return unknownError(res, err.message);
+  }
+};
+
+export const getPendingScheduledCalls = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) return badRequest(res, "Missing organizationId in token");
+
+    const records = await CallSchedule.find({
+      organizationId,
+      status: "pending"
+    }).sort({ scheduleAt: 1 });
+
+    return success(res, "Pending scheduled calls", records);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};
+
+
+export const deleteOneCallSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) return badRequest(res, "Missing organizationId in token");
+
+    const result = await CallSchedule.deleteOne({
+      _id: id,
+      organizationId
+    });
+
+    return success(res, "Record deleted", result);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};
+
+export const updateOnePendingCallSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { scheduleAt, caller } = req.body;
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) return badRequest(res, "Missing organizationId in token");
+    if (!scheduleAt || !caller) return badRequest(res, "scheduleAt and caller required");
+
+    const date = new Date(scheduleAt);
+    if (isNaN(date.getTime())) return badRequest(res, "Invalid scheduleAt date");
+
+    const result = await CallSchedule.updateOne(
+      {
+        _id: id,
+        organizationId,
+        status: "pending"
+      },
+      {
+        $set: { scheduleAt: date, caller }
+      }
+    );
+
+    return success(res, "Record updated", result);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};
+
+export const deleteManyCallSchedules = async (req, res) => {
+  try {
+    const { ids } = req.body; // Array of _id
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) return badRequest(res, "Missing organizationId in token");
+    if (!Array.isArray(ids) || !ids.length) return badRequest(res, "ids[] required");
+
+    const result = await CallSchedule.deleteMany({
+      _id: { $in: ids },
+      organizationId
+    });
+
+    return success(res, "Deleted records", result);
+  } catch (err) {
+    return unknownError(res, err);
+  }
+};
+
+
+export const updateManyPendingCallSchedules = async (req, res) => {
+  try {
+    const { updates } = req.body; // Array of { _id, scheduleAt, caller }
+    const organizationId = req.employee.organizationId;
+
+    if (!organizationId) return badRequest(res, "Missing organizationId in token");
+    if (!Array.isArray(updates) || !updates.length) return badRequest(res, "Updates array required");
+
+    const bulkOps = [];
+
+    for (const { _id, scheduleAt, caller } of updates) {
+      if (!_id || !scheduleAt || !caller) continue;
+
+      const date = new Date(scheduleAt);
+      if (isNaN(date.getTime())) continue;
+
+      bulkOps.push({
+        updateOne: {
+          filter: {
+            _id,
+            organizationId,
+            status: "pending",
+          },
+          update: {
+            $set: { scheduleAt: date, caller }
+          }
+        }
+      });
+    }
+
+    if (!bulkOps.length) return badRequest(res, "No valid update operations");
+
+    const result = await CallSchedule.bulkWrite(bulkOps);
+    return success(res, "Bulk update completed", result);
+  } catch (err) {
+    return unknownError(res, err);
   }
 };
