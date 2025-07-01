@@ -5,6 +5,7 @@ import {createAgencyClient , getAllAgencyClients , getAgencyClientById , updateA
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 
+
 router.post("/createAgencyClient" , verifyEmployeeToken , createAgencyClient)
 router.get("/getAllAgencyClients" ,  verifyEmployeeToken , getAllAgencyClients)
 router.get("/getAgencyClientById/:id" , verifyEmployeeToken , getAgencyClientById)

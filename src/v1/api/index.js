@@ -28,11 +28,6 @@ import userConfig from "./routes/userConfigRoutes/userConfig.routes.js"
 import Bookdemo from "./routes/bookRoutes/book.routes.js"
 
 
-// Agency //
-
-import Agency from "./routes/AgencyRoutes/agency.routes.js"
-
-
 // Budged //
 import Budged from "./routes/budgedRoutes/budged.routes.js"
 
@@ -92,6 +87,8 @@ import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
 import favoriteRouter from "./routes/dashboardFavoritRoutes/favorite.router.js"
 
+import Agency from "./routes/AgencyRoutes/agency.routes.js"
+
 
 
 const router = Router();
@@ -119,7 +116,7 @@ import postRoutes from "./routes/Linkedin/post.routes.js"
 import linkedinRoutes from "./routes/Linkedin/linkedin.routes.js"
 import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 import socialMedia from "./routes/Linkedin/social.media.routes.js"
-
+import serviceCommonRouter from "./routes/serviceRoutes/common.router.js"
 
 // gmail send Routes 
 
@@ -135,13 +132,10 @@ import formRouter from "./routes/dynamicCarrer/form.route.js";
 import inputRouter from "./routes/dynamicCarrer/input.route.js";
 import templateRouter from "./routes/pdfTemplateRoutes/template.routes.js"
 import variableRouter from "./routes/pdfTemplateRoutes/variableSetUp.router.js"
+import interviewRouter from "./routes/interviewRoutes/interview.routes.js"
 //expense
 //airphone
 import airphoneRouter from "./routes/airPhoneRoutes/airphone.routes.js"
-
-
-// Agency SetUp Routes //
-router.use("/Agency" , Agency)
 
 router.use("/expenseCategory",expenseCategoryRouter)
 router.use("/expenseType",expenseTypeRouter)
@@ -159,6 +153,7 @@ router.use("/userExpense",userExpenseRoute)
 router.use('/favorite',favoriteRouter)
 router.use("/templete" , templete)
 router.use("/demo" , Bookdemo)
+router.use("/Agency" , Agency)
 
 
 // Add API routes here for REGISTER //
@@ -198,6 +193,8 @@ router.use("/mail" ,  mailSwitchRouter)
 router.use("/masterDropDown",masterDropDownRouter)
 router.use('/template',templateRouter)
 router.use('/variable',variableRouter)
+router.use('/service',serviceCommonRouter)
+router.use('/interview', interviewRouter)
 
 // Job description setUp //
 

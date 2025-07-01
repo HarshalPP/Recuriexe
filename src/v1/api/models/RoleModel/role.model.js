@@ -270,6 +270,12 @@ const roleSchema = new Schema(
     notes: {
       type: Boolean, default: false
     },
+    agencySetup:{
+      type: Boolean, default: false
+    },
+    CustomPdfTemplate:{
+      type: Boolean, default: false
+    },
   },
   {
     timestamps: true,

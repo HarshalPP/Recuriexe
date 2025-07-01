@@ -8,6 +8,7 @@ import { validationResult } from "express-validator";
 import mongoose from "mongoose";
 import roleModel from "../../models/RoleModel/role.model.js";
 import employeeModel from "../../models/employeemodel/employee.model.js";
+import organizationModel from "../../models/organizationModel/organization.model.js"
 // import { roleGoogleSheet } from "./masterGoogleSheet.controller.js";
 
 const ObjectId = mongoose.Types.ObjectId;
@@ -427,25 +428,127 @@ export async function getCollectionRoleEmploye(req, res) {
 }
 
 
+// export async function roleDetail(req, res) {
+//   try {
+
+//     const { roleId } = req.query;
+//     if(!roleId){
+//       return badRequest(res , "role Id required")
+//     }
+//    const roleDetail = await roleModel
+//       .findById(roleId)
+//       // .populate("permissions") 
+//       .lean(); 
+
+//     if (!roleDetail) {
+//       return badRequest(res, "Role Not Found");
+//     }
+
+//     const normalizedRoleName = roleDetail.roleName?.trim().toLowerCase();
+
+//     if (normalizedRoleName === "productowner") {
+//       if (roleDetail.permissions && typeof roleDetail.permissions === "object") {
+//         for (const key in roleDetail.permissions) {
+//           if (Object.hasOwn(roleDetail.permissions, key)) {
+//             roleDetail.permissions[key] = true;
+//           }
+//         }
+//       }
+//     }
+//       const organizationId = roleDetail.organizationId;
+//     if (!organizationId) return badRequest(res, "Organization ID not found in role");
+
+//     const organization = await organizationModel.findById(organizationId).lean();
+//     if (!organization) return badRequest(res, "Organization not found");
+
+//     const orgPermissions = organization.permission || {}; // assuming this field
+
+//     // console.log('orgPermissions',orgPermissions)
+//     // Merge permissions (role overrides org by default)
+//     const finalPermissions = {
+//       ...orgPermissions,
+//       ...roleDetail.permissions
+//     };
+
+//     // Attach to response
+//     roleDetail.permissions = finalPermissions;
+
+//    return success(res, `Role Detail`, roleDetail);
+//   } catch (error) {
+//     // console.log(error);
+//    return unknownError(res, error);
+//   }
+// }
+
+
+
+/*─────────────────────────────────────────────
+  Map each top‑level permission to its children
+─────────────────────────────────────────────*/
+const DEPENDENCIES = {
+  EmployeeManagement: [
+    "designationSetup",
+    "employeeTypeSetup",
+    "workModeSetup",
+    "roleAssignment",
+    "idSetup",
+    "roleSetup"
+  ],
+  RecruitmentHiring: [
+    "hiringFlowSetup",
+    "candidateProfileSetup",
+    "budgetSetup",
+    "jobDescriptionSetup",
+    "aiSetup",
+    "careerPageSetting",
+    "qualificationSetup",
+     "jobPostDashboard" ,
+        "jobApplications"   
+  ],
+  AdditionalFeatures: [
+    "fileManager",
+    "notes"
+  ],
+  SystemConfiguration: [
+    "masterDropdownSetup"
+  ],
+  LinkedInPostManagement: [
+    "linkedin",              // whole object
+    "linkedinSetUp",
+    "linkedinPostApprove"
+  ],
+  CustomPdf :[
+    "CustomPdfTemplate"
+  ],
+  Leadexe:[
+
+  ],
+  Commandexe : [
+
+  ],
+};
+
+/* Helper – recursively set every boolean in an object to `false` */
+function deepFalse(obj) {
+  if (obj && typeof obj === "object") {
+    Object.keys(obj).forEach(k => {
+      if (typeof obj[k] === "object") deepFalse(obj[k]);
+      else                            obj[k] = false;
+    });
+  }
+}
+
 export async function roleDetail(req, res) {
   try {
-
+    /* 1️⃣  Basic checks & lookup */
     const { roleId } = req.query;
-    if(!roleId){
-      return badRequest(res , "role Id required")
-    }
-   const roleDetail = await roleModel
-      .findById(roleId)
-      .populate("permissions") 
-      .lean(); 
+    if (!roleId) return badRequest(res, "role Id required");
 
-    if (!roleDetail) {
-      return badRequest(res, "Role Not Found");
-    }
+    const roleDetail = await roleModel.findById(roleId).lean();
+    if (!roleDetail) return badRequest(res, "Role Not Found");
 
-    const normalizedRoleName = roleDetail.roleName?.trim().toLowerCase();
-
-    if (normalizedRoleName === "productowner") {
+    /* 2️⃣  “ProductOwner” gets every flag = true */
+    if (roleDetail.roleName?.trim().toLowerCase() === "productowner") {
       if (roleDetail.permissions && typeof roleDetail.permissions === "object") {
         for (const key in roleDetail.permissions) {
           if (Object.hasOwn(roleDetail.permissions, key)) {
@@ -454,10 +557,33 @@ export async function roleDetail(req, res) {
         }
       }
     }
-   return success(res, `Role Detail`, roleDetail);
-  } catch (error) {
-    // console.log(error);
-   return unknownError(res, error);
+
+    /* 3️⃣  Merge with org‑level defaults (role overrides org) */
+    const org = await organizationModel
+      .findById(roleDetail.organizationId)
+      .lean();
+    if (!org) return badRequest(res, "Organization not found");
+
+    const orgPerm = org.permission || {};
+    roleDetail.permissions = { ...orgPerm, ...roleDetail.permissions };
+
+    /* 4️⃣  Apply dependency rules: flip children → false when parent flag is false */
+    for (const [parentFlag, children] of Object.entries(DEPENDENCIES)) {
+      const parentValue = roleDetail.permissions?.[parentFlag];
+      if (parentValue === false) {
+        children.forEach(childKey => {
+          if (typeof roleDetail[childKey] === "object") {
+            deepFalse(roleDetail[childKey]);      // nested object
+          } else {
+            roleDetail[childKey] = false;         // simple boolean
+          }
+        });
+      }
+    }
+
+    return success(res, "Role Detail", roleDetail);
+  } catch (err) {
+    return unknownError(res, err);
   }
 }
 

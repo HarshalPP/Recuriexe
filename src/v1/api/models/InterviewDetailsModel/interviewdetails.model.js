@@ -1,90 +1,54 @@
 import mongoose from "mongoose";
+const { Schema, model, Types: { ObjectId } } = mongoose;
 
-const { Schema, model } = mongoose;
+const CriteriaScoreSchema = new Schema({
+  criteria: { type: String, required: true },
+  score: { type: Number, min: 0, max: 5, default: 0 },
+}, { _id: false });
+
+//telephony status and id
+const resultSchema = new Schema(
+  {
+    unique_id: {
+      type: String,
+      default: "", // default to null if not provided
+      trim: true,
+    },
+    status: {
+      type: String,
+      // enum: ["success", "failed", "no-answer"], // add/remove statuses as needed
+      // required: true,
+      default: "",
+    }
+  },
+  { _id: false }            // don’t create a separate _id for this sub-doc
+);
 
 const interviewSchema = new Schema({
-  jobApplyFormId: {
-    type: Schema.Types.ObjectId,
-    ref: "JobApplyForm",
-    required: true,
-  },
-  interviewerId: {
-    type: Schema.Types.ObjectId,
-    ref: "employee",
-    default:null
-  },
+  organizationId: { type: ObjectId, ref: "Organization", required: true },
+  interviewModel: { type: String, enum: ["AI", "HUMAN"], default: "HUMAN" },
+  interviewType: { type: String, enum: ["Online", "Walk-In", "Call"], default: "Online" },
+  candidateId: { type: ObjectId, ref: "jobApplyForm", required: true },
+  interviewerId: { type: ObjectId, ref: "employee", required: true },
 
-  managerId:{
-    type: Schema.Types.ObjectId,
-    ref: "employee",
-    default:null
-  },
-
-
-  interviewBy: {
-    type: String,
-    enum: ["hr", "manager"],
-    required: true,
-  },
-
-  interviewer:{
-    type:String,
-    default:""
-  },
-  interviewDate: String,
-  interviewTime: String,
-  mode: {
-    type: String,
-    enum: ["online", "offline", "call"],
-  },
-  location: String,
-  googleLink: String,
-  availability: {
-    type: String,
-    default: "available",
-  },
+  roundName: { type: String, default: "" },
+  roundNumber: { type: Number, default: 1 },
+  durationMinutes: { type: Number, default: "" },
+  scheduleDate: { type: Date, default: null },
   status: {
     type: String,
-    enum: ["scheduled", "completed", "rescheduled", "cancelled"],
-    default: "scheduled",
+    enum: ["pending", "schedule","running","reSchedule", "cancel", "complete"],
+    default: "pending"
   },
-  interviewRound: {
-    type: Number,
-    default: 1,
+  scheduleLink: { type: String, default: "" },
+  feedback: { type: String, default: "" },
+  skillsFeedback: [CriteriaScoreSchema],
+  callResult: {
+    type: resultSchema,    
   },
-
-interviewEventCreated: String,
-
-
-// Feedback //
-
-feedbackBy:{ 
-    type: String,
-    enum: ["hr", "interviewer"],
-    default: "interviewer",
-  },
-
-  interviewTaken:{ 
-    type: String,
-    enum: ["yes", "no", "notSelected"],
-    default: "no",
-  },
-
-  furtherProcessProfile: {
-    type: String,
-    enum: ["yes", "no","active"],
-    default: "active",
-
-  },
-  remark: { type: String, default: "" },
-  candidateReview: { type: String, default: "" },
-  skillReview: { type: String, default: "" },
-  hireCandidate: { type: String, default: "pending" },
-  note: { type: String, default: "" },
-
 
 }, { timestamps: true });
 
 const InterviewDetail = model("interviewDetails", interviewSchema);
 
-export default InterviewDetail;
+export default InterviewDetail

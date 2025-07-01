@@ -7,9 +7,6 @@ const router = express.Router();
 import multer from 'multer';
 const upload = multer();
 
-
-
-
 //live event APIs
 router.post('/live-event/before-connect', airphoneController.beforeCallConnect);
 router.post('/live-event/after-connect', airphoneController.afterCallConnect);
@@ -47,9 +44,7 @@ router.get('/DashBoard',verifyEmployeeToken, airphoneController.getCallDashboard
 
 
 router.get('/get/data',verifyEmployeeToken, airphoneController.getAgentByTokenEmployeeId);
-
-
-
+router.get('/getScheduledCalls', verifyEmployeeToken, airphoneController.getPendingScheduledCalls);
 //get agent by employee ID API
 router.get('/:employeeId',verifyEmployeeToken, airphoneController.getAgentsByToken);
 
@@ -62,7 +57,12 @@ router.post('/receive-call-log', upload.none(), airphoneController.receiveCallLo
 //get agent by mobile number API
 router.get('/get/:mobile',verifyEmployeeToken, airphoneController.getAgentByMobileParam);
 
+
 //get agent by employeeId
 router.post('/schedule-c2c-calls', verifyEmployeeToken, airphoneController.scheduleC2CCalls);
+
+//updateManyPendingCallSchedules
+router.post('/reSheduleCall', verifyEmployeeToken, airphoneController.updateManyPendingCallSchedules);
+router.post('/cancelManyCallSchedules', verifyEmployeeToken, airphoneController.cancelManyCallSchedules);
 
 export default router;

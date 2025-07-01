@@ -21,6 +21,7 @@ import employeModel from "../../models/employeemodel/employee.model.js";
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import JobApplyModel from "../../models/jobformModel/jobform.model.js";
 import DepartmentBudget from "../../models/budgedModel/budged.model.js";
+import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 // Import Gemini //
 
@@ -232,6 +233,11 @@ export const DeparmentGemini = async (req, res) => {
   try {
     const orgainizationId = req.employee.organizationId;
 
+    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
+        if(!activePlan){
+          return badRequest(res, "no active plan found for this Analizer.");
+        }
+
     const findOrganization = await OrganizationModel.findById(orgainizationId)
       .populate({ path: 'typeOfIndustry', select: 'name' })
       .populate({ path: 'typeOfSector', select: 'name' })
@@ -268,7 +274,32 @@ Based on this context, generate a structured list of major departments and their
       return badRequest(res, "Invalid or empty department structure received from AI.");
     }
 
-    return success(res, "Department structure generated successfully", aiResult);
+
+
+    success(res, "Department structure generated successfully", aiResult);
+
+
+            // Update candidate with AI screening result
+        if(activePlan.NumberofAnalizers > 0){
+          const Updateservice = await oganizationPlan.findOneAndUpdate(
+            { organizationId: orgainizationId },
+            { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+            { new: true }
+          );
+        }
+    
+        // If main is 0, try to decrement from addNumberOfAnalizers
+      else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { addNumberOfAnalizers: -1 } },
+        { new: true }
+      );
+     } 
+    
+    else {
+      return badRequest(res , "AI limit reached for this organization. Please upgrade your plan.");
+    }
 
   } catch (error) {
     console.error("❌ DeparmentGemini Error:", error.message);
@@ -287,6 +318,7 @@ export const addDepartmentsBulk = async (req, res) => {
     if (!Array.isArray(departments) || departments.length === 0) {
       return badRequest(res, "No department data provided.");
     }
+
 
     const createdBy = req.employee?.id;
     const results = [];
@@ -345,7 +377,9 @@ export const addDepartmentsBulk = async (req, res) => {
       }
     }
 
-    return success(res, "Departments processed successfully", results);
+      success(res, "Departments processed successfully", results);
+
+
   } catch (error) {
     console.error("Bulk Create/Update Error:", error);
     return unknownError(res, error.message);
@@ -570,6 +604,8 @@ export const deleteSubdepartment = async (req, res) => {
 export const deleteDepartmentOrSubdepartment = async (req, res) => {
   try {
     const { departmentIds, subDepartmentId } = req.body;
+    const orgainizationId=req.employee.organizationId
+
 
     if (!Array.isArray(departmentIds) || departmentIds.length === 0) {
       return badRequest(res, "Please provide valid departmentIds as an array.");

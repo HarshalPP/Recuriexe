@@ -7,16 +7,16 @@ const organizationSchema = new mongoose.Schema(
       default: null
     },
 
-    allocatedModule:[{
+    allocatedModule: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "Allocated",
       default: null
     }],
 
 
-    OrganizationModule:{
-      type:String,
-      default:"Company"
+    OrganizationModule: {
+      type: String,
+      default: "Company"
     },
 
 
@@ -26,21 +26,21 @@ const organizationSchema = new mongoose.Schema(
       default: null
     },
 
-    name: { type: String ,default: "" },
-    logo: { type: String, default: ""  },
-    website: { type: String, default: ""  },
+    name: { type: String, default: "" },
+    logo: { type: String, default: "" },
+    website: { type: String, default: "" },
     carrierlink: { type: String, default: "" },
     typeOfOrganization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "subDropDown",
-            default: null,
+      default: null,
       // required: true,
     },
 
     typeOfSector: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "subDropDown",
-            default: null,
+      default: null,
       // required: true,
     },
 
@@ -51,20 +51,20 @@ const organizationSchema = new mongoose.Schema(
       // required: true,
     },
 
-    contactPerson: { type: String, default: ""  },
-    contactNumber: { type: String, default: ""  },
-    contactEmail: { type: String, default: ""  },
+    contactPerson: { type: String, default: "" },
+    contactNumber: { type: String, default: "" },
+    contactEmail: { type: String, default: "" },
 
-    addressLine1: { type: String, default: ""  },
-    addressLine2: { type: String, default: ""  },
-    city: { type: String, default: ""  },
-    state: { type: String, default: ""  },
+    addressLine1: { type: String, default: "" },
+    addressLine2: { type: String, default: "" },
+    city: { type: String, default: "" },
+    state: { type: String, default: "" },
     country: { type: String, default: "India" },
-    zipCode: { type: String ,default: "" },
+    zipCode: { type: String, default: "" },
 
-        abbreviation: { type: String, default: "" }, // NEW
+    abbreviation: { type: String, default: "" }, // NEW
     domain: { type: String, default: "" }, // NEW
-    defaultCurreny: {    type: mongoose.Schema.Types.ObjectId, default: null , ref :"currency"}, // NEW
+    defaultCurreny: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "currency" }, // NEW
     registeredAddress: { type: String, default: "" }, // NEW
     haveGSTIN: { type: Boolean, default: false }, // NEW
     GSTNumber: { type: String, default: "" }, // NEW
@@ -85,7 +85,7 @@ const organizationSchema = new mongoose.Schema(
       aadharNumber: { type: String, default: '' },
       panCardNumber: { type: String, default: '' },
       yearsOfExperience: { type: Number, default: 0 },
-      qualificationId: { type:  mongoose.Schema.Types.ObjectId, ref: "subDropDown", default: null },
+      qualificationId: { type: mongoose.Schema.Types.ObjectId, ref: "subDropDown", default: null },
       photo: { type: String, default: '' },
       aadharCard: { type: String, default: '' },
       panCard: { type: String, default: '' }
@@ -103,12 +103,24 @@ const organizationSchema = new mongoose.Schema(
       aadharNumber: { type: String, default: '' },
       panCardNumber: { type: String, default: '' },
       yearsOfExperience: { type: Number, default: 0 },
-      qualificationId: { type:  mongoose.Schema.Types.ObjectId, ref: "subDropDown", default: null },
+      qualificationId: { type: mongoose.Schema.Types.ObjectId, ref: "subDropDown", default: null },
       photo: { type: String, default: '' },
       aadharCard: { type: String, default: '' },
       panCard: { type: String, default: '' }
-    }
+    },
     // Add other fields as needed
+
+    permission: {
+      EmployeeManagement: { type: Boolean, default: false },
+      RecruitmentHiring: { type: Boolean, default: false },
+      AdditionalFeatures: { type: Boolean, default: false },
+      SystemConfiguration: { type: Boolean, default: false },
+      LinkedInPostManagement: { type: Boolean, default: false },
+      InterviewManagement: { type: Boolean, default: false },
+      CustomPdf: { type: Boolean, default: false },
+      Commandexe: { type: Boolean, default: false },
+      Leadexe :{ type: Boolean, default: false },
+    }
   },
   {
     timestamps: true,

@@ -100,3 +100,31 @@ export const updateJobPostSettings = async (req, res) => {
   }
 };
 
+
+
+  // 
+ // GET /api/ClientSetting //
+export const getClientSettings = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+    const settings = await settingService.getClientSetting(organizationId);
+    return success(res, "Fetched job post settings", settings);
+  } catch (error) {
+    console.error("Error in getJobPostSettings:", error);
+    return UnknownError(res, "Internal server error");
+  }
+};
+
+// PATCH /api/Client_setting //
+export const updateClientSettings = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+    const updated = await settingService.updateClientSetting(req.body, organizationId);
+    return success(res, "Updated job post settings successfully", updated);
+  } catch (error) {
+    console.error("Error in updateJobPostSettings:", error);
+    return UnknownError(res, "Internal server error");
+  }
+};
+
+

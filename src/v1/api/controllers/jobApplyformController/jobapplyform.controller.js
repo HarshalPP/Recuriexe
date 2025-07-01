@@ -472,14 +472,14 @@ export const jobApplyFormAdd = async (req, res) => {
         console.warn(`Lat/Lng not found for pincode: ${pincode}`);
       }
     }
-    // const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
-    // if (
-    //   jobApplyMailSwitch?.masterMailStatus &&
-    //   jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
-    //   jobApplyMailSwitch?.hrmsMail?.jobApplyMail
-    // ) {
-    //   await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
-    // }
+    const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
+    if (
+      jobApplyMailSwitch?.masterMailStatus &&
+      jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
+      jobApplyMailSwitch?.hrmsMail?.jobApplyMail
+    ) {
+      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
+    }
 
 
     // job apply google sheete data save 
@@ -649,6 +649,18 @@ if (qualificationId) {
           preserveNullAndEmptyArrays: true,
         },
       },
+        {
+    $lookup: {
+      from: "interviewdetails",
+      let: { candidateId: "$_id" },
+      pipeline: [
+        { $match: { $expr: { $eq: ["$candidateId", "$$candidateId"] } } },
+        { $sort: { createdAt: -1 } },        // newest first
+        { $project: { _id: 0, status: 1, roundNumber: 1, roundName:1, scheduleDate:1, } }
+      ],
+      as: "interviewScheduleDetail"                 // array of every round
+    }
+  },
       {
         $lookup: {
           from: "newbranches",
@@ -886,6 +898,7 @@ if (qualificationId) {
 
       {
         $addFields: {
+            interviewCount: { $size: "$interviewDetails" },
           subDepartment: {
             $arrayElemAt: [
               {
@@ -928,6 +941,7 @@ if (qualificationId) {
           position: 1,
           createdAt: 1,
           department: 1,
+          interviewScheduleDetail:1,
           qualificationDetails: 1,
           designationDetail: {
             _id: 1,

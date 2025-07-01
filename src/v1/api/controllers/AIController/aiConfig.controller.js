@@ -601,7 +601,7 @@ export const screenCandidateAIProfile = async (req, res) => {
     }
 
 
-    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId}).lean();
+    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
 
     if (!activePlan) {
      return badRequest(res, "no active plan found for this Analizer.");
@@ -622,9 +622,9 @@ export const screenCandidateAIProfile = async (req, res) => {
     // check AI screeing Usages //
     
     const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: orgainizationId });
-    if (currentAICount >= activePlan.NumberofAnalizers) {
-      return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
-    }
+    // if (currentAICount >= activePlan.NumberofAnalizers) {
+    //   return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
+    // }
 
 
 
@@ -1146,6 +1146,7 @@ ${resume}
 
     const aiResult = await generateAIScreening(prompt, resume);
 
+
     if (!aiResult || aiResult.error) {
       return badRequest(res, "AI screening failed");
     }
@@ -1252,6 +1253,19 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       );
     }
 
+    // If main is 0, try to decrement from addNumberOfAnalizers
+  else if (activePlan.addNumberOfAnalizers > 0) {
+  await oganizationPlan.findOneAndUpdate(
+    { organizationId: orgainizationId },
+    { $inc: { addNumberOfAnalizers: -1 } },
+    { new: true }
+  );
+ } 
+
+else {
+  return badRequest(res , "AI screening limit reached for this organization. Please upgrade your plan.");
+}
+
     const data = await jobApply.findOneAndUpdate(
   { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
   {
@@ -1296,7 +1310,7 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
     const job = await jobPostModel.findById(jobPostId).lean();
     if (!job) throw new Error("Job not found");
 
-    const activePlan = await oganizationPlan.findOne({organizationId: organizationId}).lean();
+    const activePlan = await oganizationPlan.findOne({organizationId: organizationId , isActive:true}).lean();
 
     if (!activePlan) {
      return badRequest(res, "no active plan found for this Analizer.");
@@ -1315,9 +1329,9 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
     // check AI screeing Usages // 
 
     const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: organizationId });
-    if (currentAICount >= activePlan.NumberofAnalizers) {
-      return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
-    }
+    // if (currentAICount >= activePlan.NumberofAnalizers) {
+    //   return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
+    // }
 
     const [findJd, 
       // Qualificationdata, 
@@ -1983,14 +1997,28 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
     );
 
 
-
-        if(activePlan.NumberofAnalizers > 0){
+    // Update candidate with AI screening result
+    if(activePlan.NumberofAnalizers > 0){
       const Updateservice = await oganizationPlan.findOneAndUpdate(
         { organizationId: organizationId },
         { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
         { new: true }
       );
     }
+
+    // If main is 0, try to decrement from addNumberOfAnalizers
+  else if (activePlan.addNumberOfAnalizers > 0) {
+  await oganizationPlan.findOneAndUpdate(
+    { organizationId: organizationId },
+    { $inc: { addNumberOfAnalizers: -1 } },
+    { new: true }
+  );
+ } 
+
+else {
+  throw new Error("AI screening limit reached for this organization. Please upgrade your plan.");
+}
+
 
 
   } catch (error) {

@@ -82,7 +82,7 @@ export const createOrganization = async (req, res) => {
       typeOfIndustry,
       typeOfSector,
     } = req.body;
-    
+
 
     if (!typeOfOrganization) return badRequest(res, "Organization type are required.");
     if (!typeOfIndustry) return badRequest(res, "Industry type are required.");
@@ -95,7 +95,7 @@ export const createOrganization = async (req, res) => {
     });
     const saved = await org.save();
 
-    
+
     // const roleData = await roleModel.findOne({ roleName: "SuperAdmin" });
     // const { employeName, userName, password } = req.body.employeeData || {};
 
@@ -108,7 +108,7 @@ export const createOrganization = async (req, res) => {
     // if(userExist){
     //   return badRequest(res, "userNmae Already Exist.");
     // }
-    
+
     //  const salt = await bcrypt.genSalt(10);
     //       const hashPassword = await bcrypt.hash(password, salt);
     // const employeeData = await employeeModel.create({
@@ -176,7 +176,7 @@ export const getAllOrganizations = async (req, res) => {
           }
         }
       },
-      
+
       // Lookup and unwind typeOfOrganization
       {
         $lookup: {
@@ -194,13 +194,13 @@ export const getAllOrganizations = async (req, res) => {
       },
 
       {
-        $lookup:{
+        $lookup: {
           from: "plans",
           localField: "PlanId",
           foreignField: "_id",
           as: "PlanDetail"
         }
-      },{
+      }, {
         $unwind: {
           path: "$PlanDetail",
           preserveNullAndEmptyArrays: true
@@ -236,7 +236,7 @@ export const getAllOrganizations = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
-{
+      {
         $lookup: {
           from: "currencies",
           localField: "defaultCurreny",
@@ -344,9 +344,9 @@ export const getAllOrganizations = async (req, res) => {
           path: "$userInfo",
           preserveNullAndEmptyArrays: true
         }
-      },{
+      }, {
         $lookup: {
-          from:'allocateds',
+          from: 'allocateds',
           localField: 'allocatedModule',
           foreignField: '_id',
           as: 'allocatedModule'
@@ -367,7 +367,7 @@ export const getAllOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // defaultCurrenyId: {
           //   $cond: [
           //     { $ne: ["$defaultCurrenyDetail", null] },
@@ -389,8 +389,8 @@ export const getAllOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
-          defaultCurreny : {
+
+          defaultCurreny: {
             $cond: [
               { $ne: ["$currenyDetail", null] },
               {
@@ -401,7 +401,7 @@ export const getAllOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // Format typeOfSector
           typeOfSector: {
             $cond: [
@@ -413,7 +413,7 @@ export const getAllOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // Format promoterDetail with nested lookup fields
           promoterDetail: {
             $cond: [
@@ -448,7 +448,7 @@ export const getAllOrganizations = async (req, res) => {
               null
             ]
           },
-          
+
           // Format managementDetail with nested lookup fields
           managementDetail: {
             $cond: [
@@ -483,7 +483,7 @@ export const getAllOrganizations = async (req, res) => {
               null
             ]
           },
-          
+
           // Format userId
           userId: {
             name: { $ifNull: ["$userInfo.employeName", ""] },
@@ -491,7 +491,7 @@ export const getAllOrganizations = async (req, res) => {
             userName: { $ifNull: ["$userInfo.userName", ""] },
             _id: { $ifNull: ["$userInfo._id", null] }
           },
-           allocatedModule: {
+          allocatedModule: {
             $map: {
               input: "$allocatedModule",
               as: "item",
@@ -505,7 +505,7 @@ export const getAllOrganizations = async (req, res) => {
           }
         }
       },
-      
+
       // Remove unwanted fields
       {
         $project: {
@@ -515,7 +515,7 @@ export const getAllOrganizations = async (req, res) => {
           typeOfOrganizationDetail: 0,
           // defaultCurrenyDetail:0,
           typeOfIndustryDetail: 0,
-          currenyDetail:0,
+          currenyDetail: 0,
           typeOfSectorDetail: 0,
           promoterLanguageDetail: 0,
           promoterQualificationDetail: 0,
@@ -537,7 +537,7 @@ export const getOrganizations = async (req, res) => {
 
   try {
 
-    const OrganizationId=req.employee?.organizationId;
+    const OrganizationId = req.employee?.organizationId;
     if (!OrganizationId) return badRequest(res, "Organization ID is required.");
 
     const orgs = await OrganizationModel.aggregate([
@@ -579,7 +579,7 @@ export const getOrganizations = async (req, res) => {
           }
         }
       },
-      
+
       // Lookup and unwind typeOfOrganization
       {
         $lookup: {
@@ -597,13 +597,13 @@ export const getOrganizations = async (req, res) => {
       },
 
       {
-        $lookup:{
+        $lookup: {
           from: "plans",
           localField: "PlanId",
           foreignField: "_id",
           as: "PlanDetail"
         }
-      },{
+      }, {
         $unwind: {
           path: "$PlanDetail",
           preserveNullAndEmptyArrays: true
@@ -639,7 +639,7 @@ export const getOrganizations = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
-{
+      {
         $lookup: {
           from: "currencies",
           localField: "defaultCurreny",
@@ -747,9 +747,9 @@ export const getOrganizations = async (req, res) => {
           path: "$userInfo",
           preserveNullAndEmptyArrays: true
         }
-      },{
+      }, {
         $lookup: {
-          from:'allocateds',
+          from: 'allocateds',
           localField: 'allocatedModule',
           foreignField: '_id',
           as: 'allocatedModule'
@@ -770,7 +770,7 @@ export const getOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // defaultCurrenyId: {
           //   $cond: [
           //     { $ne: ["$defaultCurrenyDetail", null] },
@@ -792,8 +792,8 @@ export const getOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
-          defaultCurreny : {
+
+          defaultCurreny: {
             $cond: [
               { $ne: ["$currenyDetail", null] },
               {
@@ -804,7 +804,7 @@ export const getOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // Format typeOfSector
           typeOfSector: {
             $cond: [
@@ -816,7 +816,7 @@ export const getOrganizations = async (req, res) => {
               { _id: null, name: "" }
             ]
           },
-          
+
           // Format promoterDetail with nested lookup fields
           promoterDetail: {
             $cond: [
@@ -851,7 +851,7 @@ export const getOrganizations = async (req, res) => {
               null
             ]
           },
-          
+
           // Format managementDetail with nested lookup fields
           managementDetail: {
             $cond: [
@@ -886,7 +886,7 @@ export const getOrganizations = async (req, res) => {
               null
             ]
           },
-          
+
           // Format userId
           userId: {
             name: { $ifNull: ["$userInfo.employeName", ""] },
@@ -894,7 +894,7 @@ export const getOrganizations = async (req, res) => {
             userName: { $ifNull: ["$userInfo.userName", ""] },
             _id: { $ifNull: ["$userInfo._id", null] }
           },
-           allocatedModule: {
+          allocatedModule: {
             $map: {
               input: "$allocatedModule",
               as: "item",
@@ -908,7 +908,7 @@ export const getOrganizations = async (req, res) => {
           }
         }
       },
-      
+
       // Remove unwanted fields
       {
         $project: {
@@ -918,7 +918,7 @@ export const getOrganizations = async (req, res) => {
           typeOfOrganizationDetail: 0,
           // defaultCurrenyDetail:0,
           typeOfIndustryDetail: 0,
-          currenyDetail:0,
+          currenyDetail: 0,
           typeOfSectorDetail: 0,
           promoterLanguageDetail: 0,
           promoterQualificationDetail: 0,
@@ -944,15 +944,15 @@ export const getOrganizationById = async (req, res) => {
       .populate("managementDetail.languagePreferenceId", "name")
       .populate("managementDetail.qualificationId", "name")
       .populate("defaultCurreny", "name icon");
-      // .populate("defaultCurrenyId", "name")
-      
-      if (!org) return notFound(res, "Organization not found");
+    // .populate("defaultCurrenyId", "name")
 
-        const employees = await employeeModel.find(
+    if (!org) return notFound(res, "Organization not found");
+
+    const employees = await employeeModel.find(
       { organizationId: org._id },
       "userName"
     );
-     const response = {
+    const response = {
       ...org.toObject(),
       employees: employees,
     };
@@ -962,6 +962,22 @@ export const getOrganizationById = async (req, res) => {
   }
 };
 
+export const organizationPermission = async (req, res) => {
+  try {
+
+    const OrganizationId = req.employee?.organizationId;
+    if (!OrganizationId) return badRequest(res, "Organization ID is required.");
+
+    const orgDetail = await OrganizationModel.findById(OrganizationId).select('permission')
+
+    if (!orgDetail) return notFound(res, "Organization not found");
+
+
+    return success(res, "Organization Permission", orgDetail);
+  } catch (error) {
+    return unknownError(res, error);
+  }
+};
 // UPDATE
 export const updateOrganization = async (req, res) => {
   try {
@@ -992,7 +1008,7 @@ export const getCurrencyList = async (req, res) => {
     let matchStatus = {};
 
     if (status && status !== "all") {
-      matchStatus.status = status; 
+      matchStatus.status = status;
     } else if (!status || status === "active") {
       matchStatus.status = "active";
     }

@@ -53,6 +53,7 @@ const planSchema = new Schema(
       type: Number,
       default: 0,
     },
+
     addNumberOfAnalizers: {
       type: Number,
       default: 0,
@@ -61,6 +62,12 @@ const planSchema = new Schema(
       type: Number,
       default: 0,
     },
+
+  reminderSent: {
+  type: Boolean,
+  default: false,
+}
+
   },
   { timestamps: true }
 );

@@ -931,7 +931,6 @@ export const getCallDashboardStats11 = async (req, res) => {
   }
 };
 
-
 export const getCallDashboardStats = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
@@ -975,7 +974,6 @@ if (agent) {
         { call_status: { $regex: search, $options: "i" } },
         { unique_id: { $regex: search, $options: "i" } },
         {call_status: { $regex: search, $options: "i" } }
-
       ]; 
     }
 
@@ -1042,6 +1040,7 @@ if (agent) {
 export const getPendingScheduledCalls = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
+    console.log("Fetching pending scheduled calls for organizationId:", organizationId);
 
     if (!organizationId) return badRequest(res, "Missing organizationId in token");
 
@@ -1104,7 +1103,7 @@ export const updateOnePendingCallSchedule = async (req, res) => {
   }
 };
 
-export const deleteManyCallSchedules = async (req, res) => {
+export const cancelManyCallSchedules = async (req, res) => {
   try {
     const { ids } = req.body; // Array of _id
     const organizationId = req.employee.organizationId;
@@ -1112,53 +1111,120 @@ export const deleteManyCallSchedules = async (req, res) => {
     if (!organizationId) return badRequest(res, "Missing organizationId in token");
     if (!Array.isArray(ids) || !ids.length) return badRequest(res, "ids[] required");
 
-    const result = await CallSchedule.deleteMany({
+    // Bulk cancel: status ko 'cancelled' set karo
+    const result = await CallSchedule.updateMany(
+      {
+        _id: { $in: ids },
+        organizationId,
+        status: "pending"
+      },
+      {
+        $set: { status: "cancelled" }
+      }
+    );
+
+    // Cancelled records fetch karo
+    const cancelledRecords = await CallSchedule.find({
       _id: { $in: ids },
-      organizationId
+      organizationId,
+      status: "cancelled"
     });
 
-    return success(res, "Deleted records", result);
+    return success(res, "Call scheduling cancelled successfully", {
+      summary: result,
+      cancelledRecords
+    });
   } catch (err) {
     return unknownError(res, err);
   }
 };
 
 
+// export const updateManyPendingCallSchedules = async (req, res) => {
+//   try {
+//     const { updates } = req.body; // Array of { _id, scheduleAt, caller }
+//     const organizationId = req.employee.organizationId;
+
+//     if (!organizationId) return badRequest(res, "Missing organizationId in token");
+//     if (!Array.isArray(updates) || !updates.length) return badRequest(res, "Updates array required");
+
+//     const bulkOps = [];
+
+//     for (const { _id, scheduleAt, caller } of updates) {
+//       if (!_id || !scheduleAt || !caller) continue;
+
+//       const date = new Date(scheduleAt);
+//       if (isNaN(date.getTime())) continue;
+
+//       bulkOps.push({
+//         updateOne: {
+//           filter: {
+//             _id,
+//             organizationId,
+//             status: "pending",
+//           },
+//           update: {
+//             $set: { scheduleAt: date }
+//           }
+//         }
+//       });
+//     }
+
+//     console.log("Bulk operations to perform:", bulkOps.length);
+
+//     if (!bulkOps.length) return badRequest(res, "No valid update operations");
+
+//     const result = await CallSchedule.bulkWrite(bulkOps);
+//     return success(res, "Bulk update completed", result);
+//   } catch (err) {
+//     return unknownError(res, err);
+//   }
+// };
+
+
 export const updateManyPendingCallSchedules = async (req, res) => {
   try {
-    const { updates } = req.body; // Array of { _id, scheduleAt, caller }
+    const { ids, scheduleAt, gap = 2 } = req.body;
     const organizationId = req.employee.organizationId;
 
     if (!organizationId) return badRequest(res, "Missing organizationId in token");
-    if (!Array.isArray(updates) || !updates.length) return badRequest(res, "Updates array required");
+    if (!Array.isArray(ids) || !ids.length) return badRequest(res, "ids[] required");
+    if (!scheduleAt) return badRequest(res, "scheduleAt is required");
 
-    const bulkOps = [];
+    const baseTime = new Date(scheduleAt);
+    if (isNaN(baseTime.getTime())) return badRequest(res, "Invalid scheduleAt date");
 
-    for (const { _id, scheduleAt, caller } of updates) {
-      if (!_id || !scheduleAt || !caller) continue;
-
-      const date = new Date(scheduleAt);
-      if (isNaN(date.getTime())) continue;
-
-      bulkOps.push({
-        updateOne: {
-          filter: {
-            _id,
+    // Bulk update
+    const bulkOps = ids.map((id, idx) => ({
+      updateOne: {
+        filter: { _id: id, organizationId, status: "pending" },
+        update: {
+          $set: {
+            scheduleAt: new Date(baseTime.getTime() + idx * gap * 60000),
+            gapInMinutes: gap,
             organizationId,
-            status: "pending",
-          },
-          update: {
-            $set: { scheduleAt: date, caller }
+            status: "pending"
           }
         }
-      });
-    }
+      }
+    }));
 
     if (!bulkOps.length) return badRequest(res, "No valid update operations");
 
     const result = await CallSchedule.bulkWrite(bulkOps);
-    return success(res, "Bulk update completed", result);
+
+    // Fetch updated records
+    const updatedRecords = await CallSchedule.find({
+      _id: { $in: ids },
+      organizationId
+    });
+
+    return success(res, "Bulk reschedule completed", {
+      summary: result,
+      updatedRecords
+    });
   } catch (err) {
+    console.error("Error in updateManyPendingCallSchedules:", err);
     return unknownError(res, err);
   }
 };

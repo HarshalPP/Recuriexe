@@ -323,6 +323,13 @@ export const assignMultipleCandidatesToClient = async (req, res) => {
       "public-read",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
+  // ✅ Update the assignment with the Excel URL
+await ClientCandidateAssignment.updateOne(
+  { clientId, organizationId },
+  { $set: { excelUrl: url } }
+);
+
+
 
     return success(res, "Candidate assignment updated and Excel uploaded.", {
       assignedCount: newCandidateIds.length,
@@ -510,6 +517,7 @@ export const getAssignedCandidatesToClients = async (req, res) => {
           _id: 0,
           clientId: "$clientId",
           clientName: "$clientDetails.companyName",
+          excelUrl: "$excelUrl", // <-- Include excel URL
           candidate: {
             _id: "$candidateDetails._id",
             candidateUniqueId: "$candidateDetails.candidateUniqueId",
@@ -537,13 +545,14 @@ export const getAssignedCandidatesToClients = async (req, res) => {
       },
 
       // Group by client
-      {
-        $group: {
-          _id: "$clientId",
-          clientName: { $first: "$clientName" },
-          candidates: { $push: "$candidate" }
-        }
-      },
+   {
+  $group: {
+    _id: "$clientId",
+    clientName: { $first: "$clientName" },
+    excelUrl: { $first: "$excelUrl" }, // 👈 Add this
+    candidates: { $push: "$candidate" }
+  }
+},
 
       { $sort: { clientName: 1 } },
       { $skip: (parseInt(page) - 1) * parseInt(limit) },

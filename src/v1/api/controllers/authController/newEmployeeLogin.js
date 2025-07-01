@@ -2211,7 +2211,8 @@ export const planCreditRemaining = async (req, res) => {
         planDescription: mainplandetails.planDescription,
         planPrice: mainplandetails.planPrice,
         planDurationInDays: mainplandetails.planDurationInDays,
-        isActive: mainplandetails.isActive,
+        isActive: planDetails.isActive,
+        planId:planId,
       },
       usage: {
         jobPostUsage: `${jobPostUsed}/${maxJobs}`,
@@ -2219,7 +2220,8 @@ export const planCreditRemaining = async (req, res) => {
         userUsage: `${userUsed}/${maxUsers}`,
         userUsagePercentage: `${userPerc}%`,
         analyzerUsage: `${analyzerUsed}/${maxAnalyizers}`,
-        analyzerUsagePercentage: `${analyzerPerc}%`
+        analyzerUsagePercentage: `${analyzerPerc}%`,
+        addNumberOfAnalizers:planDetails.addNumberOfAnalizers
       }
     };
 

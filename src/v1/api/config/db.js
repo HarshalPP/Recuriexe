@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { initializeScheduledJobs } from "../Utils/LinkedIn/scheduler.js"; // named export
-
+import {schedulePlanExpiryCheck} from "../controllers/PlanController/planController.js"
 
 dotenv.config();
 
@@ -14,6 +14,8 @@ const connectDB = async () => {
     // Now it's safe to initialize scheduler
     console.log("⚙️ Initializing scheduled LinkedIn jobs...");
     await initializeScheduledJobs();
+
+    schedulePlanExpiryCheck();
 
   } catch (error) {
     console.error("MongoDB connection error:", error);

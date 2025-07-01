@@ -73,7 +73,7 @@ const callScheduleSchema = new Schema(
     },                       // call time (UTC)
     status: {
       type: String,
-      enum: ["pending", "running", "done", "failed",""],
+      enum: ["pending", "running", "done", "failed","cancelled",""],
       default: "",
     },
     gapInMinutes: {

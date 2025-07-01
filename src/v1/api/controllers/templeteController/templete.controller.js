@@ -276,7 +276,7 @@ async function getPlaceholderData(job, jobDescription) {
 // }
 
 async function getPlaceholderDataTest(job, jobDescription = null) {
-  console.log('job-/-/-', job.jobPostIdRef)
+  // console.log('job-/-/-', job.jobPostIdRef)
   const placeholders = {};
   const isJobApply = !!job.candidateUniqueId;
 
@@ -524,14 +524,10 @@ function validateTemplateContent(content, placeholders) {
 
 function validateTemplateContentTest(content, placeholders) {
   if (!placeholders || typeof placeholders !== 'object') return ['Placeholders object is missing'];
-
-  console.log('3')
   const validPlaceholders = Object.values(placeholders || {})
     .flatMap(group => Object.values(group || {}));
-  console.log('4')
   const foundPlaceholders = content.match(/{{[a-zA-Z0-9._]+}}/g) || [];
   const invalidPlaceholders = foundPlaceholders.filter(ph => !validPlaceholders.includes(ph));
-  console.log('4.5')
   return invalidPlaceholders.length === 0 ? null : invalidPlaceholders;
 }
 
@@ -611,17 +607,36 @@ export async function getTemplate(req, res) {
 }
 
 
+export async function deleteTemplate(req, res) {
+  try {
+    const { templateId } = req.query;
+    const template = await Template.findById(templateId);
+
+    if (!template) {
+      return badRequest(res, "Template not found");
+    }
+
+     await Template.findByIdAndDelete(templateId)
+
+    return success(res, "Template Delete successfully");
+  } catch (error) {
+    console.error("Template retrieval error:", error);
+    return unknownError(res, error);
+  }
+}
+
+
 
 export async function updateTemplate(req, res) {
   try {
     // const { templateId } = req.params;
-    const { title, content , type , templateId} = req.body;
+    const { title, content, type, templateId } = req.body;
 
     if (!title && !content) {
       return badRequest(res, "Please provide the title and/or content to update");
     }
 
-    if(!templateId){
+    if (!templateId) {
       return badRequest(res, "Template Id Required");
     }
     const template = await Template.findById(templateId);
@@ -629,8 +644,8 @@ export async function updateTemplate(req, res) {
       return notFound(res, "Template Not Found");
     }
 
-       if (title) {
-       const existingTemplate = await Template.findOne({
+    if (title) {
+      const existingTemplate = await Template.findOne({
         _id: { $ne: templateId },
         title: { $eq: title.trim() },
       }).collation({ locale: 'en', strength: 2 });
@@ -652,72 +667,72 @@ export async function updateTemplate(req, res) {
     //     return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
     //   }
     // }
-if (content) {
-  let placeholders = {};
+    if (content) {
+      let placeholders = {};
 
-  // 🧠 Use template.modelType to generate placeholders
-  if (template.modelType === "jobPost") {
-    placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-      ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-      customFields: {
-        companyName: 'companyName',
-        department: 'department',
-        designation: 'designation',
-        location: 'location'
+      // 🧠 Use template.modelType to generate placeholders
+      if (template.modelType === "jobPost") {
+        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+          customFields: {
+            companyName: 'companyName',
+            department: 'department',
+            designation: 'designation',
+            location: 'location'
+          }
+        });
+
+        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+          customFields: {
+            jobSummary: 'jobSummary',
+            rolesAndResponsibilities: 'rolesAndResponsibilities',
+            keySkills: 'keySkills'
+          }
+        });
+
+      } else if (template.modelType === "jobApply") {
+        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        });
+
+      } else if (template.modelType === "jobPostAndApply") {
+        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+          customFields: {
+            companyName: 'companyName',
+            department: 'department',
+            designation: 'designation',
+            location: 'location'
+          }
+        });
+
+        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+          customFields: {
+            jobSummary: 'jobSummary',
+            rolesAndResponsibilities: 'rolesAndResponsibilities',
+            keySkills: 'keySkills'
+          }
+        });
+
+        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        });
       }
-    });
 
-    placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-      ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-      customFields: {
-        jobSummary: 'jobSummary',
-        rolesAndResponsibilities: 'rolesAndResponsibilities',
-        keySkills: 'keySkills'
+      const invalidPlaceholders = validateTemplateContentTest(content, placeholders);
+
+      // ✅ Fix: Safely check length
+      if (invalidPlaceholders && invalidPlaceholders.length > 0) {
+        return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
       }
-    });
 
-  } else if (template.modelType === "jobApply") {
-    placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-      ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
-    });
+      template.content = content;
+    }
 
-  } else if (template.modelType === "jobPostAndApply") {
-    placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-      ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-      customFields: {
-        companyName: 'companyName',
-        department: 'department',
-        designation: 'designation',
-        location: 'location'
-      }
-    });
 
-    placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-      ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-      customFields: {
-        jobSummary: 'jobSummary',
-        rolesAndResponsibilities: 'rolesAndResponsibilities',
-        keySkills: 'keySkills'
-      }
-    });
-
-    placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-      ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
-    });
-  }
-
-  const invalidPlaceholders = validateTemplateContentTest(content, placeholders);
-
-  // ✅ Fix: Safely check length
-  if (invalidPlaceholders && invalidPlaceholders.length > 0) {
-    return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
-  }
-
-  template.content = content;
-}
-
- 
-    if(type){
+    if (type) {
       template.modelType = type
     }
     template.updatedAt = Date.now();
@@ -778,7 +793,12 @@ export async function getAvailablePlaceholders(req, res) {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          location: 'location'
+          jobPostWorklocation: 'jobPostWorklocation',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          jobPostBranch: 'jobPostBranch',
+          jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -794,7 +814,12 @@ export async function getAvailablePlaceholders(req, res) {
       });
     } else if (!type || type === "jobApply") {
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+          customFields: {
+          jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
       });
     } else if (!type || type === "jobPostAndApply") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
@@ -803,7 +828,12 @@ export async function getAvailablePlaceholders(req, res) {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          location: 'location'
+          jobPostWorklocation: 'jobPostWorklocation',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          jobPostBranch: 'jobPostBranch',
+          jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -819,7 +849,12 @@ export async function getAvailablePlaceholders(req, res) {
       });
 
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        customFields: {
+          jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
       });
     } else {
       return badRequest(res, "Model Type Invalid")
@@ -1053,11 +1088,16 @@ export async function createTemplateTest(req, res) {
     if (type === "jobPost") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-        customFields: {
+            customFields: {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          location: 'location'
+          jobPostWorklocation: 'jobPostWorklocation',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          jobPostBranch: 'jobPostBranch',
+          jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -1073,17 +1113,27 @@ export async function createTemplateTest(req, res) {
     } else if (type === "jobApply") {
       console.log('1')
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        customFields: {
+            jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
       });
 
     } else if (type === "jobPostAndApply") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
         customFields: {
-          companyName: 'companyName',
+           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          location: 'location'
+          jobPostWorklocation: 'jobPostWorklocation',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          jobPostBranch: 'jobPostBranch',
+          jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -1097,7 +1147,12 @@ export async function createTemplateTest(req, res) {
       });
 
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        customFields: {
+         jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
       });
     } else {
       return badRequest(res, "Invalid type");

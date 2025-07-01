@@ -10,10 +10,19 @@ import {
     getPlanById,
     updatePlan,
     deletePlan,
-    assignPlanToOrganization
+    assignPlanToOrganization,
+    upgradeOrganizationPlan
 } from '../../controllers/PlanController/planController.js';
 
+import {
+  createCreditRule,
+  getAllCreditRules,
+  updateCreditRule,
+  deleteCreditRule,
+} from "../../controllers/AIController/aiCreditRule.controller.js"
+
 import{ createAICreditPlan,getAICreditPlanById,getAllAICreditPlans,updateAICreditPlan,deleteAICreditPlan,assignAICreditsToOrganization} from "../../controllers/PlanController/AiPlan.controller.js"
+import {verifyEmployeeToken } from "../../middleware/authicationmiddleware.js"
 
 
 // prepaid Plan // 
@@ -23,6 +32,7 @@ router.get('/getPlanById/:id', getPlanById);
 router.post('/updatePlan/:id', updatePlan);
 router.post('/deletePlan/:id', deletePlan);
 router.post('/assignPlanToOrganization', assignPlanToOrganization);
+router.post("/upgradeOrganizationPlan"  , verifyEmployeeToken , upgradeOrganizationPlan)
 
 
 
@@ -43,7 +53,13 @@ router.get("/aiplans", getAllAICreditPlans);
 router.get("/aiplans/:id", getAICreditPlanById);
 router.put("/aiplans/:id", updateAICreditPlan);
 router.delete("/aiplans/:id", deleteAICreditPlan);
-router.post("/aiPlanAssign", assignAICreditsToOrganization);
+router.post("/aiPlanAssign", verifyEmployeeToken , assignAICreditsToOrganization);
+
+
+router.post("/createCreditRule", createCreditRule);
+router.get("/getAllCreditRules", getAllCreditRules);
+router.post("/updateCreditRule/:id", updateCreditRule);
+router.post("/deleteCreditRule/:id", deleteCreditRule);
 
 
 export default router;

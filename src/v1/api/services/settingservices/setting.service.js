@@ -1,6 +1,7 @@
 import setting from "../../models/settingModel/setting.model.js"
 import settingcandidate from "../../models/settingModel/candidatesetting.model.js"
 import Postsettingcandidate from "../../models/settingModel/jobPostsetting.model.js"
+import Clientsetting from "../../models/settingModel/clientsetting.model.js"
 
 
 // get setting //
@@ -121,6 +122,46 @@ const getJobPostSetting = async (organizationId) => {
 
 
 
+  // Job candidate //
+
+// Update job post settings
+const updateClientSetting = async (data, organizationId) => {
+  let settings = await Clientsetting.findOne({ organizationId });
+
+  if (!settings) {
+    // Ensure organizationId is added during creation
+    settings = await Clientsetting.create({ ...data, organizationId });
+    return settings;
+  }
+
+  const updatedSetting = await Clientsetting.findByIdAndUpdate(
+    settings._id,
+    { $set: data },
+    { new: true }
+  );
+
+  return updatedSetting;
+};
+
+// Get job post settings
+const getClientSetting = async (organizationId) => {
+  try {
+    let settings = await Clientsetting.findOne({ organizationId });
+
+    if (!settings) {
+      settings = await Clientsetting.create({ organizationId }); // Use defaults from schema
+    }
+
+    return settings;
+  } catch (error) {
+    console.error("Error in getJobPostSetting:", error);
+    throw error;
+  }
+};
+
+
+
+
 
   export default {
     getsetting,
@@ -128,5 +169,7 @@ const getJobPostSetting = async (organizationId) => {
     candidatesetting,
     updatecandidatesetting,
     updateJobPostSetting,
-    getJobPostSetting
+    getJobPostSetting,
+    updateClientSetting,
+    getClientSetting
   };

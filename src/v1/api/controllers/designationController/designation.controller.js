@@ -8,6 +8,7 @@ import deparmentModel from "../../models/deparmentModel/deparment.model.js"
 import designationModel from "../../models/designationModel/designation.model.js";
 import mongoose from "mongoose";
 import budgetModel from "../../models/budgedModel/budged.model.js"
+import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 import {
   addDesignation,
@@ -424,6 +425,13 @@ export const getJobDescriptionsByDesignation = async (req, res) => {
 export const generateDesignationFromAI = async (req, res) => {
   try {
     const { departmentId, subDepartmentId } = req.body;
+    const orgainizationId = req.employee.organizationId;
+
+        const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
+            if(!activePlan){
+              return badRequest(res, "no active plan found for this Analizer.");
+            }
+
 
     if (!departmentId) {
       return badRequest(res, "departmentId is required.");
@@ -467,7 +475,7 @@ export const generateDesignationFromAI = async (req, res) => {
       return badRequest(res, "AI did not return a valid list of designations.");
     }
 
-    return success(res, "Designations generated successfully", {
+      success(res, "Designations generated successfully", {
       department: department.name,
       departmentId: department._id,
       ...(subDepartmentName && {
@@ -476,6 +484,31 @@ export const generateDesignationFromAI = async (req, res) => {
       }),
       designations: aiResult
     });
+
+
+    
+    
+                // Update candidate with AI screening result
+            if(activePlan.NumberofAnalizers > 0){
+              const Updateservice = await oganizationPlan.findOneAndUpdate(
+                { organizationId: orgainizationId },
+                { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+                { new: true }
+              );
+            }
+        
+            // If main is 0, try to decrement from addNumberOfAnalizers
+          else if (activePlan.addNumberOfAnalizers > 0) {
+          await oganizationPlan.findOneAndUpdate(
+            { organizationId: orgainizationId },
+            { $inc: { addNumberOfAnalizers: -1 } },
+            { new: true }
+          );
+         } 
+        
+        else {
+          return badRequest(res , "AI limit reached for this organization. Please upgrade your plan.");
+        }
 
   } catch (error) {
     console.error("❌ generateDesignationFromAI Error:", error.message);
