@@ -962,22 +962,39 @@ export const getOrganizationById = async (req, res) => {
   }
 };
 
-export const organizationPermission = async (req, res) => {
+export const updateOrganizationPermission = async (req, res) => {
   try {
+    const { organizationId, permission } = req.body;
 
-    const OrganizationId = req.employee?.organizationId;
-    if (!OrganizationId) return badRequest(res, "Organization ID is required.");
+    if (!organizationId || !mongoose.isValidObjectId(organizationId)) {
+      return badRequest(res, "Valid organizationId is required.");
+    }
+    if (!permission || typeof permission !== "object" || Array.isArray(permission)) {
+      return badRequest(res, "permission must be an object of boolean flags.");
+    }
 
-    const orgDetail = await OrganizationModel.findById(OrganizationId).select('permission')
+    // build dot‑notation update for *every* key
+    const update = {};
+    for (const [key, value] of Object.entries(permission)) {
+      if (typeof value !== "boolean") {
+        return badRequest(res, `Value for "${key}" must be boolean.`);
+      }
+      update[`permission.${key}`] = value;
+    }
 
-    if (!orgDetail) return notFound(res, "Organization not found");
+    const org = await OrganizationModel.findByIdAndUpdate(
+      organizationId,
+      { $set: update },
+      { new: true, projection: { permission: 1 } }
+    );
+    if (!org) return notFound(res, "Organization not found.");
 
-
-    return success(res, "Organization Permission", orgDetail);
-  } catch (error) {
-    return unknownError(res, error);
+    return success(res, "Permissions updated successfully.", org.permission);
+  } catch (err) {
+    return unknownError(res, err);
   }
 };
+
 // UPDATE
 export const updateOrganization = async (req, res) => {
   try {

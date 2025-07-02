@@ -323,6 +323,8 @@ export const assignAICreditsInternally = async ({ planId, numberOfCredits, Price
       updatedPlan = newPlan;
     }
 
+    console.log("numberOfCredits" , numberOfCredits)
+
     // ✅ Update organization plan analyzers
     planDetails.addNumberOfAnalizers += numberOfCredits;
     await planDetails.save();

@@ -157,6 +157,10 @@ export async function checkResponse(req, res) {
         // 1. Try to find in planAndPaymentHistoryModel (main and pd payment)
         let PaymentDetail = await planAndPaymentHistoryModel.findOne({ orderId: txnRefNo });
 
+        if(PaymentDetail && PaymentDetail.paymentStatus == "success"){
+            return badRequest(res , "payment is Already Done !")
+        }
+
         if (PaymentDetail) {
 
             const organizationId = PaymentDetail.organizationId;

@@ -3773,6 +3773,15 @@ console.log("endDate", endDate);
       organizationId: new ObjectId(organizationId),
       createdAt: { $gte: startDate, $lte: endDate }
     };
+    
+    // for only job apply
+      const newfilter = {
+      orgainizationId: new ObjectId(organizationId),
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+
+
+
     if (department) filter.department = department;
 
 
@@ -3785,7 +3794,8 @@ console.log("endDate", endDate);
       rejectedApplications,
       avgProcessingSpeed,
       avgConfidence,
-      departmentStats
+      departmentStats,
+      PendingApplication
     ] = await Promise.all([
       ScreeningResultModel.countDocuments(filter),
       ScreeningResultModel.countDocuments({ ...filter, decision: 'Approved' }),
@@ -3822,13 +3832,19 @@ console.log("endDate", endDate);
           }
         },
         { $sort: { total: -1 } }
-      ])
+      ]),
+
+      jobApply.countDocuments({
+        ...newfilter,
+        AI_Screeing_Result:"Pending"
+      })
     ]);
 
     // Calculated values
     const totalApps = totalApplications || 0;
     const approved = approvedApplications || 0;
     const rejected = rejectedApplications || 0;
+    const pending = PendingApplication || 0;
     const approvalRate = totalApps > 0 ? Math.round((approved / totalApps) * 100) : 0;
     const rejectionRate = totalApps > 0 ? Math.round((rejected / totalApps) * 100) : 0;
 
@@ -3840,6 +3856,7 @@ console.log("endDate", endDate);
         totalApplications: totalApps,
         aiApproved: approved,
         aiRejected: rejected,
+        aiPending:pending,
         processingSpeed: `${processingSpeed.toFixed(1)}s`
       },
       insights: {

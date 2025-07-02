@@ -27,6 +27,9 @@ import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 import AIConfigModel from "../../models/AiModel/ai.model.js"
 import { sendEmail } from "../../Utils/sendEmail.js";
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
+
+
 
 
 export const createAIConfig = async (req, res) => {
@@ -1244,11 +1247,19 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
         
     success(res,  "AI_Screening" , updateData);
 
+    const CreditRules = await AICreditRule.findOne({ actionType: "AI_SCREENING" });
+
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
+
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+
     // Update candidate with AI screening result
     if(activePlan.NumberofAnalizers > 0){
       const Updateservice = await oganizationPlan.findOneAndUpdate(
         { organizationId: orgainizationId },
-        { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
         { new: true }
       );
     }
@@ -1257,7 +1268,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
   else if (activePlan.addNumberOfAnalizers > 0) {
   await oganizationPlan.findOneAndUpdate(
     { organizationId: orgainizationId },
-    { $inc: { addNumberOfAnalizers: -1 } },
+    { $inc: { addNumberOfAnalizers: -creditsNeeded } },
     { new: true }
   );
  } 
@@ -1996,12 +2007,20 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       { new: true, upsert: true }
     );
 
+    const CreditRules = await AICreditRule.findOne({ actionType: "AI_SCREENING" });
+
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
+
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+
 
     // Update candidate with AI screening result
     if(activePlan.NumberofAnalizers > 0){
       const Updateservice = await oganizationPlan.findOneAndUpdate(
         { organizationId: organizationId },
-        { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
         { new: true }
       );
     }
@@ -2010,7 +2029,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
   else if (activePlan.addNumberOfAnalizers > 0) {
   await oganizationPlan.findOneAndUpdate(
     { organizationId: organizationId },
-    { $inc: { addNumberOfAnalizers: -1 } },
+    { $inc: { addNumberOfAnalizers: -creditsNeeded } },
     { new: true }
   );
  } 

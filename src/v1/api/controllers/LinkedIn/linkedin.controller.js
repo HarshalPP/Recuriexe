@@ -30,6 +30,8 @@ import { ObjectId } from "mongodb";
 import { log } from "util";
 import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js";
 import { title } from "process";
+import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js";
 
 // Redirect to LinkedIn auth
 export const redirectToLinkedIn = asyncHandler(async (req, res) => {
@@ -2023,6 +2025,7 @@ export const deleteDraft = asyncHandler(async (req, res) => {
 
 export const generatePostText = asyncHandler(async (req, res) => {
   const { jobIds } = req.params;
+  const organizationId = req.employee?.organizationId;
 
   if (!jobIds || typeof jobIds !== "string") {
     // throw new ApiError(400, "Job IDs must be provided as comma-separated string");
@@ -2050,6 +2053,13 @@ export const generatePostText = asyncHandler(async (req, res) => {
 
   const positions = jobPositionDocs.map((doc) => doc.position).filter(Boolean);
   const mainJobId = jobIdList[0];
+
+  const activePlan = await oganizationPlan
+    .findOne({ organizationId: organizationId, isActive: true })
+    .lean();
+  if (!activePlan) {
+    return badRequest(res, "no active plan found for this Analizer.");
+  }
 
   const jobData = await jobPostModel
     .findById(mainJobId)
@@ -2106,6 +2116,47 @@ export const generatePostText = asyncHandler(async (req, res) => {
 export const getPostGenStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const doc = await PostedContent.findById(id).lean();
+  const organizationId = req.employee?.organizationId;
+
+  const activePlan = await oganizationPlan
+    .findOne({ organizationId: organizationId, isActive: true })
+    .lean();
+  if (!activePlan) {
+    return badRequest(res, "no active plan found for this Analizer.");
+  }
+
+  const CreditRules = await AICreditRule.findOne({
+    actionType: "LINKEDIN_AI",
+  });
+
+  // if (!CreditRules) {
+  //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+  // }
+
+  const creditsNeeded = CreditRules.creditsRequired || 1;
+
+  // Update candidate with AI screening result
+  if (activePlan.NumberofAnalizers > 0) {
+    const Updateservice = await oganizationPlan.findOneAndUpdate(
+      { organizationId: organizationId },
+      { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+      { new: true }
+    );
+  }
+
+  // If main is 0, try to decrement from addNumberOfAnalizers
+  else if (activePlan.addNumberOfAnalizers > 0) {
+    await oganizationPlan.findOneAndUpdate(
+      { organizationId: organizationId },
+      { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+      { new: true }
+    );
+  } else {
+    return badRequest(
+      res,
+      "AI limit reached for this organization. Please upgrade your plan."
+    );
+  }
 
   // if (!doc) throw new ApiError(404, 'Generation task not found');
   if (!doc) {
@@ -2198,6 +2249,46 @@ export const generateLinkedotherInPost = async (req, res) => {
     const { title } = req.query;
     const organizationId = req.employee?.organizationId;
 
+  const activePlan = await oganizationPlan
+    .findOne({ organizationId: organizationId, isActive: true })
+    .lean();
+  if (!activePlan) {
+    return badRequest(res, "no active plan found for this Analizer.");
+  }
+
+  const CreditRules = await AICreditRule.findOne({
+    actionType: "LINKEDIN_AI",
+  });
+
+  // if (!CreditRules) {
+  //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+  // }
+
+  const creditsNeeded = CreditRules.creditsRequired || 1;
+
+  // Update candidate with AI screening result
+  if (activePlan.NumberofAnalizers > 0) {
+    const Updateservice = await oganizationPlan.findOneAndUpdate(
+      { organizationId: organizationId },
+      { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+      { new: true }
+    );
+  }
+
+  // If main is 0, try to decrement from addNumberOfAnalizers
+  else if (activePlan.addNumberOfAnalizers > 0) {
+    await oganizationPlan.findOneAndUpdate(
+      { organizationId: organizationId },
+      { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+      { new: true }
+    );
+  } else {
+    return badRequest(
+      res,
+      "AI limit reached for this organization. Please upgrade your plan."
+    );
+  }
+
     // Validate input
     if (!title || typeof title !== "string") {
       return badRequest(res, "A valid title is required.");
@@ -2219,7 +2310,7 @@ export const generateLinkedotherInPost = async (req, res) => {
     const organizationName = organization.name;
 
     // Enhanced Prompt - Ask for PLAIN TEXT only
-        const prompt = `
+    const prompt = `
     Generate a professional LinkedIn post based on this title: "${title}"
 
     This post is for ${organizationName}, a leading company in its field. 

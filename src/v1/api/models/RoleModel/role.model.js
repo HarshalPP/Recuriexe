@@ -276,6 +276,11 @@ const roleSchema = new Schema(
     CustomPdfTemplate:{
       type: Boolean, default: false
     },
+    interviewSetup : {
+      agentSetup :{
+      type: Boolean, default: false
+    },
+    },
   },
   {
     timestamps: true,

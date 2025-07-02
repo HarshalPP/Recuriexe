@@ -15,12 +15,21 @@ import {
 } from "../../formatters/globalResponse.js";
 
 
- const CLIENT_ID="872671367575-jg9vohru7bc7cj22iitp617iascb9pjn.apps.googleusercontent.com"
-const REDIRECT_URI="https://finexe.fincooper.in/callback"
-const ACCESS_TOKEN="ya29.a0AeXRPp5zHWCRNeYdt8Ppy-5885VUaHtB5HIocDgrnaVwSc_gOs5zhpODFE8PYjIh_U6nA6kecQvRB1xes8Y6kLrnjyPiW9R8xe7bKgH1ojx2arFWBjEdn4Gytwmvjmf4xDJNqzTZS0-PR5nXXuzKXArYLi3FIlF25Kr3EgX1aCgYKASUSARASFQHGX2MiJmfv90mN-q4k-wAy7uW0TQ0175"
-const REFRESH_TOKEN="1//0gNOPs9nx_5veCgYIARAAGBASNwF-L9IrRdWAA9LjQgzoL2hciELQpx93lM3jqeIgBa6VwxM-n-jkvAhHX8hN07z1dxJHWO4NAnQ"
-const EXPIRY_DATE="3599"
-const CLIENT_SECRET="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"
+//  const CLIENT_ID="872671367575-jg9vohru7bc7cj22iitp617iascb9pjn.apps.googleusercontent.com"
+// const REDIRECT_URI="https://finexe.fincooper.in/callback"
+// const ACCESS_TOKEN="ya29.a0AeXRPp5zHWCRNeYdt8Ppy-5885VUaHtB5HIocDgrnaVwSc_gOs5zhpODFE8PYjIh_U6nA6kecQvRB1xes8Y6kLrnjyPiW9R8xe7bKgH1ojx2arFWBjEdn4Gytwmvjmf4xDJNqzTZS0-PR5nXXuzKXArYLi3FIlF25Kr3EgX1aCgYKASUSARASFQHGX2MiJmfv90mN-q4k-wAy7uW0TQ0175"
+// const REFRESH_TOKEN="1//0gNOPs9nx_5veCgYIARAAGBASNwF-L9IrRdWAA9LjQgzoL2hciELQpx93lM3jqeIgBa6VwxM-n-jkvAhHX8hN07z1dxJHWO4NAnQ"
+// const EXPIRY_DATE="3599"
+// const CLIENT_SECRET="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"
+
+const GOOGLE_CLIENT_ID='872671367575-jg9vohru7bc7cj22iitp617iascb9pjn.apps.googleusercontent.com'
+const GOOGLE_CLIENT_SECRET='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'
+const REDIRECT_URI='https://finexe.fincooper.in/callback'
+const CLIENT_ID='872671367575-jg9vohru7bc7cj22iitp617iascb9pjn.apps.googleusercontent.com'
+const CLIENT_SECRET='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'
+const ACCESS_TOKEN='ya29.a0AS3H6Nze4Ivb-PTC5MleGCuPLExQ0u399XCZc9nz2AZ2njcGWvc8rghpiltIhrT1gHrixa8LPqOGxip2N_00Zfn0Q1kz2Y3S4pAwzOmua1sxfX1eiRsCbMOXEeEgSnTqVLkgwShp2A5oNjtDgs2Rq7f8eiKrmfv8pPInFaUBaCgYKAS0SARASFQHGX2MiHz62IteppY64ZTlocrxTmQ0175'
+const REFRESH_TOKEN='1//0gCRpUj6-Bt_ICgYIARAAGBASNwF-L9IrofH_1PmPml0lVdRsmahXJnYHa2GCxj8PEcnz3X167UtSQTI-xdW_zeVCRqqF6bl8KyM'
+const EXPIRY_DATE='1751440014544'
 
 /* ───────────────────────────── 1.  Add / schedule ─────────────────────────── */
 // export const addInterview = async (req, res) => {
@@ -79,93 +88,7 @@ const CLIENT_SECRET="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"
 //     }
 // };
 
-
 export const addInterview1 = async (req, res) => {
-    try {
-        const { organizationId } = req.employee || {};
-        if (!organizationId)
-            return badRequest(res, "Invalid token – organizationId missing");
-
-        const {
-            candidateId,
-            interviewerId,
-            interviewModel,
-            interviewType,
-            scheduleDate,
-            durationMinutes,
-            roundName = "",
-            feedback = "",
-            skillsFeedback = [],
-            status,
-        } = req.body;
-
-        if (!candidateId || !interviewerId)
-            return badRequest(res, "candidateId & interviewerId are required");
-
-        const latestInterview = await InterviewDetailModel
-            .findOne({ organizationId, candidateId })
-            .sort({ createdAt: -1 })
-            .lean();
-
-        let finalInterviewModel = interviewModel;
-        let finalInterviewType = interviewType;
-
-        if (latestInterview) {
-            finalInterviewModel = interviewModel ? interviewModel : latestInterview.interviewModel;
-            finalInterviewType = interviewType ? interviewType : latestInterview.interviewType;
-        } else {
-            if (!interviewModel || !interviewType) {
-                return badRequest(
-                    res,
-                    "interviewModel & interviewType are required for the first round"
-                );
-            }
-        }
-
-        if (status === "schedule") {
-            if (!scheduleDate || !durationMinutes) {
-                return badRequest(
-                    res,
-                    "Duration & ScheduleDate Are Required"
-                );
-            }
-        }
-        let baseTime;
-        if (scheduleDate) {
-            baseTime = new Date(scheduleDate);
-            if (isNaN(baseTime.getTime()))
-                return badRequest(res, "Invalid scheduleDate");
-        }
-
-        const completedRounds = await InterviewDetailModel.countDocuments({
-            organizationId,
-            candidateId,
-            status: "complete",
-        });
-
-        const newInterview = await InterviewDetailModel.create({
-            organizationId,
-            candidateId,
-            interviewerId,
-            interviewModel: finalInterviewModel,
-            interviewType: finalInterviewType,
-            roundNumber: completedRounds + 1,
-            roundName,
-            scheduleDate: scheduleDate ? baseTime : null,
-            durationMinutes,
-            feedback,
-            skillsFeedback,
-            status,
-        });
-
-        return success(res, "Interview scheduled", newInterview);
-    } catch (err) {
-        console.error("addInterview:", err);
-        return unknownError(res, err);
-    }
-};
-
-export const addInterview = async (req, res) => {
     try {
         const { organizationId } = req.employee || {};
         if (!organizationId)
@@ -275,6 +198,144 @@ export const addInterview = async (req, res) => {
         return unknownError(res, err);
     }
 };
+
+export const addInterview = async (req, res) => {
+    try {
+        const { organizationId } = req.employee || {};
+        if (!organizationId)
+            return badRequest(res, "Invalid token – organizationId missing");
+
+        const {
+            candidateId,
+            interviewerId,
+            interviewModel,
+            interviewType,
+            scheduleDate,
+            durationMinutes,
+            roundName = "",
+            feedback = "",
+            skillsFeedback = [],
+            status,
+        } = req.body;
+
+        if (!candidateId || !interviewerId)
+            return badRequest(res, "candidateId & interviewerId are required");
+
+        const latestInterview = await InterviewDetailModel
+            .findOne({ organizationId, candidateId })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        let finalInterviewModel = interviewModel;
+        let finalInterviewType = interviewType;
+
+        if (latestInterview) {
+            finalInterviewModel = interviewModel ? interviewModel : latestInterview.interviewModel;
+            finalInterviewType = interviewType ? interviewType : latestInterview.interviewType;
+        } else {
+            if (!interviewModel || !interviewType) {
+                return badRequest(
+                    res,
+                    "interviewModel & interviewType are required for the first round"
+                );
+            }
+        }
+
+        if (status === "schedule") {
+            if (!scheduleDate || !durationMinutes) {
+                return badRequest(res, "Duration & ScheduleDate Are Required");
+            }
+
+            // ✅ Check if candidate is shortlisted
+            const candidate = await JobApplyForm.findOne({ _id: candidateId, resumeShortlisted: "shortlisted" });
+            if (!candidate) {
+                return badRequest(res, "Candidate is not shortlisted or does not exist.");
+            }
+
+            // ✅ Check interviewer availability (prevent time overlap)
+            const baseStart = new Date(scheduleDate);
+            if (isNaN(baseStart.getTime())) {
+                return badRequest(res, "Invalid scheduleDate");
+            }
+
+            const baseEnd = new Date(baseStart.getTime() + durationMinutes * 60000);
+
+            const overlappingInterview = await InterviewDetailModel.findOne({
+                interviewerId,
+                organizationId,
+                status: { $in: ["schedule", "running"] },
+                scheduleDate: { $lt: baseEnd },
+                $expr: {
+                    $gt: [
+                        { $add: ["$scheduleDate", { $multiply: ["$durationMinutes", 60000] }] },
+                        baseStart,
+                    ],
+                },
+            });
+
+            if (overlappingInterview) {
+                return badRequest(res, "Interviewer already has an interview scheduled at this time.");
+            }
+        }
+
+        let baseTime;
+        if (scheduleDate) {
+            baseTime = new Date(scheduleDate);
+            if (isNaN(baseTime.getTime()))
+                return badRequest(res, "Invalid scheduleDate");
+        }
+
+        const completedRounds = await InterviewDetailModel.countDocuments({
+            organizationId,
+            candidateId,
+            status: "complete",
+        });
+
+        const newInterview = await InterviewDetailModel.create({
+            organizationId,
+            candidateId,
+            interviewerId,
+            interviewModel: finalInterviewModel,
+            interviewType: finalInterviewType,
+            roundNumber: completedRounds + 1,
+            roundName,
+            scheduleDate: scheduleDate ? baseTime : null,
+            durationMinutes,
+            feedback,
+            skillsFeedback,
+            status,
+        });
+
+        // ✅ Generate meet link for Online interviews
+        if (finalInterviewType === "Online" && baseTime) {
+            const jobApplyForm = await JobApplyForm.findById(candidateId);
+            const organization = await OrganizationModel.findById(organizationId);
+            const employee = await Employee.findById(interviewerId);
+
+            if (jobApplyForm && organization && employee) {
+                const meetLink = await generateInterviewLink({
+                    date: baseTime.toISOString().split("T")[0],
+                    time: baseTime.toTimeString().slice(0, 5),
+                    durationMinutes,
+                    candidateEmail: jobApplyForm.emailId,
+                    candidateName: jobApplyForm.name,
+                    jobTitle: jobApplyForm.position,
+                    companyName: organization.name || "",
+                    interviewerName: employee.employeName || employee.userName || "",
+                });
+
+                newInterview.scheduleLink = meetLink;
+                await newInterview.save();
+            }
+        }
+
+        return success(res, "Interview scheduled", newInterview);
+    } catch (err) {
+        console.error("addInterview:", err);
+        return unknownError(res, err);
+    }
+};
+
 
 
 export const addBulkInterviews = async (req, res) => {
@@ -643,6 +704,7 @@ async function generateInterviewLink(opts) {
         calendarId: "primary",
         resource: event,
         conferenceDataVersion: 1,
+          sendUpdates: "all",   
     });
 
     return res.data.hangoutLink;  // Google‑Meet URL

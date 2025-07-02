@@ -164,6 +164,7 @@ export const assignPlanToOrganization = async (req, res) => {
       NumberOfUsers: plan.NumberOfUsers,
       NumberofAnalizers: plan.NumberofAnalizers,
       Numberofdownloads: plan.Numberofdownloads,
+      reminderSent:false
     };
 
     if (existingOrgPlan) {
@@ -217,7 +218,8 @@ export const upgradeOrganizationPlan = async (req, res) => {
       NumberOfJobPosts: plan.NumberOfJobPosts,
       NumberOfUsers: plan.NumberOfUsers,
       NumberofAnalizers: plan.NumberofAnalizers,
-      Numberofdownloads: plan.Numberofdownloads
+      Numberofdownloads: plan.Numberofdownloads,
+      createdAt:Date.now()
     };
 
     let updatedPlan;
@@ -284,6 +286,7 @@ export const upgradenewOrgPlan = async ({ PlanId, organizationId , Amount}) => {
       NumberOfUsers: plan.NumberOfUsers,
       NumberofAnalizers: plan.NumberofAnalizers,
       Numberofdownloads: plan.Numberofdownloads,
+      createdAt:Date.now()
     };
 
     let updatedPlan;
@@ -323,7 +326,7 @@ export function schedulePlanExpiryCheck() {
     "* * * * *", // Runs every minute for testing (adjust in prod)
     async () => {
       const now = new Date();
-      console.log("coming inside");
+      // console.log("coming inside");
       
 
       try {

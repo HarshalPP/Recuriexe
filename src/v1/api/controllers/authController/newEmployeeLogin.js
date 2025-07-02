@@ -2164,6 +2164,7 @@ export const planCreditRemaining = async (req, res) => {
     const planDetails = await organizationPlanModel.findOne({
       organizationId: new ObjectId(organizationId)
     });
+    
 
     if (!planDetails) {
       return badRequest(res, "Plan details not found for the organization");

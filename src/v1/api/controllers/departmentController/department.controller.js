@@ -22,6 +22,7 @@ import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import JobApplyModel from "../../models/jobformModel/jobform.model.js";
 import DepartmentBudget from "../../models/budgedModel/budged.model.js";
 import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
 
 // Import Gemini //
 
@@ -274,8 +275,14 @@ Based on this context, generate a structured list of major departments and their
       return badRequest(res, "Invalid or empty department structure received from AI.");
     }
 
+    const CreditRules = await AICreditRule.findOne({ actionType: "DESIGNATION_AI" });
 
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
 
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+    
     success(res, "Department structure generated successfully", aiResult);
 
 
@@ -283,7 +290,7 @@ Based on this context, generate a structured list of major departments and their
         if(activePlan.NumberofAnalizers > 0){
           const Updateservice = await oganizationPlan.findOneAndUpdate(
             { organizationId: orgainizationId },
-            { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+            { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
             { new: true }
           );
         }
@@ -292,7 +299,7 @@ Based on this context, generate a structured list of major departments and their
       else if (activePlan.addNumberOfAnalizers > 0) {
       await oganizationPlan.findOneAndUpdate(
         { organizationId: orgainizationId },
-        { $inc: { addNumberOfAnalizers: -1 } },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
         { new: true }
       );
      } 

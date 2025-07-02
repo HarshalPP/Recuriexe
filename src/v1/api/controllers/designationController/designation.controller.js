@@ -27,6 +27,8 @@ import employeModel from "../../models/employeemodel/employee.model.js";
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import JobApplyModel from "../../models/jobformModel/jobform.model.js";
 import DepartmentBudget from "../../models/budgedModel/budged.model.js";
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
+
 
 
 
@@ -486,13 +488,21 @@ export const generateDesignationFromAI = async (req, res) => {
     });
 
 
+    const CreditRules = await AICreditRule.findOne({ actionType: "DESIGNATION_AI" });
+
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
+
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+
     
     
                 // Update candidate with AI screening result
             if(activePlan.NumberofAnalizers > 0){
               const Updateservice = await oganizationPlan.findOneAndUpdate(
                 { organizationId: orgainizationId },
-                { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+                { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
                 { new: true }
               );
             }
@@ -501,7 +511,7 @@ export const generateDesignationFromAI = async (req, res) => {
           else if (activePlan.addNumberOfAnalizers > 0) {
           await oganizationPlan.findOneAndUpdate(
             { organizationId: orgainizationId },
-            { $inc: { addNumberOfAnalizers: -1 } },
+            { $inc: { addNumberOfAnalizers: -creditsNeeded } },
             { new: true }
           );
          } 

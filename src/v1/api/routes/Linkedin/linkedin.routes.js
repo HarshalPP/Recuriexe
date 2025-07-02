@@ -65,12 +65,12 @@ router.delete("/draft/delete/:draftId", deleteDraft);
 
 
 //
-router.get('/generate-post/:jobIds', generatePostText);
+router.get('/generate-post/:jobIds', verifyEmployeeToken,generatePostText);
 
 router.get("/other/post",verifyEmployeeToken, generateLinkedotherInPost);
 
 
-router.get('/status/:id', getPostGenStatus);
+router.get('/status/:id',verifyEmployeeToken, getPostGenStatus);
 
 
 
