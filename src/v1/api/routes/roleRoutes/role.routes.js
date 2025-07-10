@@ -11,6 +11,7 @@ import {
   getRoleDropDown,
   roleDetail,
   roleAssignToEmployee,
+  cleanAndUpdateRoles,
 } from "../../controllers/RoleController/role.controller.js"
 
 
@@ -36,5 +37,6 @@ router.get("/getAllRoleByType", getAllRoleByType);
 router.get("/detail", verifyEmployeeToken , roleDetail)
 router.get("/collectionRoleEmploye", getCollectionRoleEmploye);
 router.post("/roleAssignToEmployee", verifyEmployeeToken, roleAssignToEmployee);
+router.get("/cleanAndUpdateRoles",cleanAndUpdateRoles)
 
 export default router;

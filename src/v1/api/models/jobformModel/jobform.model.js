@@ -4,6 +4,7 @@ import JobPost from "../../models/jobPostModel/jobPost.model.js"
 const { Schema, model } = mongoose;
 const { ObjectId } = Schema;
 import moment from "moment-timezone";
+import employeModel from "../employeemodel/employee.model.js";
 
 const jobApplyModelSchema = new Schema(
   {
@@ -39,6 +40,11 @@ const jobApplyModelSchema = new Schema(
     lastOrganization: {
       type: [String],
       default: []
+    },
+    internalReferenceData:{
+      employeeCode:  {type : String , default: "" },
+      employeeName:  {type : String ,  default: "" },
+      employeeId:  {type : ObjectId , ref: "employee" ,default: null }
     },
 
     startDate: { type: Date },
@@ -80,7 +86,7 @@ const jobApplyModelSchema = new Schema(
     rejectedById: { type: ObjectId, ref: "employee", default: null },
     resumeShortlisted: {
       type: String,
-      enum: ["shortlisted", "notshortlisted", "hold", "active"],
+      enum: ["shortlisted", "notshortlisted", "hold", "active","reject","approve"],
       default: "active",
     },
     hrInterviewSchedule: {
@@ -239,7 +245,8 @@ const jobApplyModelSchema = new Schema(
     },
 
     AI_Score: {
-      type: Number
+      type: Number,
+      default:0
     },
 
     AI_Confidence: {
@@ -250,6 +257,11 @@ const jobApplyModelSchema = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Agency",
       default: null
+    },
+    documentRequest:{
+      type: String,
+      enum: ["notRequest","sendRequest","complete"],
+      default: "notRequest"
     },
 
     immediatejoiner: { type: Boolean, default: false },

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import User from "./routes/authRoutes/auth.routes.js"
 import Upload from "./routes/uploadRoutes/upload.routes.js"
-
+import formLibraryRoute from "./routes/formLibraryRoutes/formLibrary.route.js"
 
 // Super Admin Routes //
 import Allocated from "./routes/AllocatedModule/Allocatedmodule.routes.js"
@@ -26,8 +26,12 @@ import formStagesetUP from "./routes/formStageRoutes/formstage.routes.js"
 import templete from "./routes/templeteRoutes/templete.routes.js"
 import userConfig from "./routes/userConfigRoutes/userConfig.routes.js"
 import Bookdemo from "./routes/bookRoutes/book.routes.js"
-
-
+import varibleRouter from "./routes/variableRoutes/varible.route.js"
+import pdfRouter from "./routes/pdfRoutes/pdf.route.js"
+import initRouter from "./routes/initRoutes/init.route.js"
+import initFieldRouter from "./routes/initFieldsRoutes/initFields.route.js"
+import jobRouter from "./routes/jobRoutes/job.route.js"
+import emailtemplateRouter from "./routes/emailroutes/pdfTemplate.route.js"
 // Budged //
 import Budged from "./routes/budgedRoutes/budged.routes.js"
 
@@ -95,7 +99,7 @@ const router = Router();
 
 //expense
 import expenseCategoryRouter from './routes/expense/expenseCategory.router.js';
-import expenseTypeRouter from './routes/expense/expenseType.router.js'
+// import expenseTypeRouter from './routes/expense/expenseType.router.js'
 import fieldRouter from './routes/expense/field.route.js'
 import tripRouter from './routes/expense/trip.route.js'
 import expenseRouter from './routes/expense/expense.route.js'
@@ -118,6 +122,10 @@ import organizationRoutes from "./routes/Linkedin/organization.routes.js"
 import socialMedia from "./routes/Linkedin/social.media.routes.js"
 import serviceCommonRouter from "./routes/serviceRoutes/common.router.js"
 
+
+// Social Media Routes
+import socialMediaRoutes from "./routes/SocialMediaRoutes/socialAuth.routes.js"
+
 // gmail send Routes 
 
 import emailRoutes from "./routes/GmailRoute/mail.routes.js"
@@ -136,9 +144,23 @@ import interviewRouter from "./routes/interviewRoutes/interview.routes.js"
 //expense
 //airphone
 import airphoneRouter from "./routes/airPhoneRoutes/airphone.routes.js"
+import serviceproviderRoute from './routes/serviceProvidedRoutes/service.route.js';
+import userProductRouter from './routes/userProduct/userProduct.route.js';
+import requestRouter from './routes/partnerRequestRoute/request.route.js';
+import templateRoute from "./routes/templateRoutes/template.route.js"
+import uploadRouter from './routes/uploadCommandRoutes/fileupload.route.js';
+import dashboardRouter from './routes/dashRoutes/dashboard.route.js';
+import docRoute from "./routes/docRoutes/doc.route.js"
+import systemCategoryRoute from './routes/expenseRoutes/systemCategory.route.js';
+import subcategoryRoutes from './routes/expenseRoutes/subcategory.route.js';
+import dynamicFormRouter from './routes/expenseRoutes/dynamicForm.route.js';
+import expenseType from './routes/expenseRoutes/expenseType.route.js'
+
+import documentValueTemplateRouter from "./routes/documentRoutes/documentFormValueRoutes.js";
+import documentFormTemplateRouter from "./routes/documentRoutes/documentFormTemplateRoutes.js";
 
 router.use("/expenseCategory",expenseCategoryRouter)
-router.use("/expenseType",expenseTypeRouter)
+// router.use("/expenseType",expenseTypeRouter)
 router.use("/field",fieldRouter)
 router.use("/trip",tripRouter)
 router.use("/expense",expenseRouter)
@@ -154,6 +176,8 @@ router.use('/favorite',favoriteRouter)
 router.use("/templete" , templete)
 router.use("/demo" , Bookdemo)
 router.use("/Agency" , Agency)
+
+
 
 
 // Add API routes here for REGISTER //
@@ -270,8 +294,9 @@ router.use('/linkedin', linkedinRoutes);
 router.use("/organizations", organizationRoutes);
 router.use("/socialmedia", socialMedia );
 
+//Social Media
 
-
+router.use("/socialMedia", socialMediaRoutes);
 
 router.get("/googlesheet",bulkJobApplyToGoogleSheet)
 
@@ -290,5 +315,31 @@ router.use("/mail",emailRoutes)
 //airphone routes
 router.use("/airphone", airphoneRouter);
 
+
+// commandexe routes
+
+router.use("/user-service" , serviceproviderRoute)
+router.use("/userproduct" , userProductRouter)
+router.use("/request" , requestRouter)
+router.use("/form-library" , formLibraryRoute)
+router.use("/varibale" , varibleRouter)
+router.use("/pdf" ,pdfRouter )
+router.use("/init" ,initRouter )
+router.use("/initFields" ,initFieldRouter )
+router.use("/vendor-template" ,templateRoute )
+router.use("/job" ,jobRouter )
+router.use("/email" ,emailtemplateRouter )
+router.use("/file" , uploadRouter)
+router.use("/dashboard" ,dashboardRouter )
+router.use("/doc" ,docRoute )
+
+// document routes 
+router.use("/documentFormTemplate", documentFormTemplateRouter);
+router.use("/documentValueTemplate", documentValueTemplateRouter);
+//expenseRoutes
+router.use("/systemCategory",systemCategoryRoute)
+router.use("/subCategory",subcategoryRoutes)
+router.use("/dynamicForm",dynamicFormRouter)
+router.use("/expenseType",expenseType)
 
 export default router;

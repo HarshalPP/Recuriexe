@@ -23,6 +23,8 @@ import folderSchema from "../../models/fileShare.model.js/folder.model.js"
 import axios from 'axios';
 import organizationModel from "../../models/organizationModel/organization.model.js";
 import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
+import moment from "moment-timezone";
+
 
 
 // Helper function to convert package string to budget amount
@@ -190,7 +192,7 @@ export const jobPostAddDirect = async (req, res) => {
       const roleName = roleDetails.roleName?.toLowerCase();
       if (autoApproveRoles.includes(roleName)) {
         // jobPostStatus = "active";
-      } else if (roleDetails.jobPostDashboard.jobPostApprove) {
+      } else if (roleDetails?.RecruitmentHiring?.jobPostDashboard?.jobPostApprove) {
         jobPostStatus = "active";
       }
     }
@@ -208,7 +210,7 @@ export const jobPostAddDirect = async (req, res) => {
     if (!activePlan) {
       return badRequest(res, "No active plan found for this organization. Please contact support.");
     }
-    const createdAt = new Date(activePlan?.createdAt);
+    const createdAt = new Date(activePlan?.PlanDate);
     const expiryDate = new Date(createdAt);
     expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
 
@@ -216,12 +218,21 @@ export const jobPostAddDirect = async (req, res) => {
       return badRequest(res, "Plan has expired. Please renew or upgrade your plan.");
     }
 
-    // ✅ Check job post usage
-    const currentJobPostCount = await jobPostModel.countDocuments({ organizationId: NewOrg });
+    // ✅ Calculate plan validity window
+    const planStart = new Date(activePlan.PlanDate);
+    const planEnd = new Date(planStart);
+    planEnd.setDate(planEnd.getDate() + (activePlan.planDurationInDays || 0));
+
+    // ✅ Count only job posts created within the current plan window
+    const currentJobPostCount = await jobPostModel.countDocuments({
+      organizationId: NewOrg,
+      createdAt: { $gte: planStart, $lt: planEnd },
+    });
+
     if (currentJobPostCount >= activePlan.NumberOfJobPosts) {
       return badRequest(
         res,
-        `Job post limit reached. Allowed: ${activePlan.NumberOfJobPosts}, Current: ${currentJobPostCount}. Please upgrade your plan.`
+        `Job post limit reached , Please upgrade your plan.`
       );
     }
 
@@ -1173,6 +1184,7 @@ export const getAllJobPostBypermission = async (req, res) => {
     }
     const createdByHrId = req.employee.id
     const organizationId = req.employee.organizationId
+    const Role = req.employee.roleName[0];
     // if (!jobPostExpired || jobPostExpired === "false") {
     //   matchStage.jobPostExpired = false
     // } else if (jobPostExpired === "true") {
@@ -1182,6 +1194,13 @@ export const getAllJobPostBypermission = async (req, res) => {
     if (jobTitle) {
       matchStage.position = { $regex: jobTitle, $options: "i" };
     }
+
+    // // Sort By Created post data //
+
+    // if (typeof Role == "string" && Role.toLowerCase() !== "admin") {
+    //  matchStage.createdByHrId = new mongoose.Types.ObjectId(createdByHrId);
+    //  }
+
     let startDate, endDate;
     const periodInDays = parseInt(period); // ✅ Only one declaration here
 
@@ -1515,7 +1534,7 @@ export const getAllJobPostBypermission = async (req, res) => {
 export const updateJobPost = async (req, res) => {
   try {
     const { id } = req.params;
-
+    const employeeId = req.employee.id
     const updateFields = req.body;
 
     const existingJobPost = await jobPostModel.findById(id);
@@ -1523,7 +1542,7 @@ export const updateJobPost = async (req, res) => {
       return badRequest(res, "Job post not found");
     }
     const isStatusChanging = updateFields.status && updateFields.status !== existingJobPost.status;
-
+    updateFields.updatedBy = employeeId
     const updatedJobPost = await jobPostModel.findByIdAndUpdate(id, updateFields, {
       new: true,
       runValidators: true,
@@ -1548,7 +1567,37 @@ export const updateJobPost = async (req, res) => {
         }
         await budget.save();
       }
+
+
+      // ✅ Update NumberOfJobPosts in organization's active plan
+      const orgPlan = await organizationPlanModel.findOne({
+        organizationId: updatedJobPost.organizationId,
+        isActive: true,
+      });
+
+      if (
+        orgPlan &&
+        existingJobPost.status == "active" &&
+        updateFields.status == "inactive" &&
+        updatedJobPost.AI_Post == "false"
+      ) {
+        updatedJobPost.AI_Post = "true";
+        await updatedJobPost.save();
+        orgPlan.NumberOfJobPosts += 1;
+        await orgPlan.save();
+      }
+
+
+      else if (orgPlan && existingJobPost.status == "inactive" && updateFields.status == "active") {
+        updatedJobPost.AI_Post_New = "true";
+        await updatedJobPost.save();
+        orgPlan.NumberOfJobPosts -= 1;
+        await orgPlan.save();
+      }
+
+
     }
+
 
 
     success(res, "Job post updated successfully", updatedJobPost);
@@ -3191,27 +3240,27 @@ export const getApplicantsLocationByJob = async (req, res) => {
     //   matchStage.jobPostId = { $in: jobPostIdArray.map(id => new ObjectId(id)) };
     // }
 
-if(jobPostId && jobPostId !== 'all'){
-    let parsedJobPostId = jobPostId;
+    if (jobPostId && jobPostId !== 'all') {
+      let parsedJobPostId = jobPostId;
 
-    if (typeof jobPostId === 'string') {
-      try {
-        parsedJobPostId = JSON.parse(jobPostId);
-      } catch (err) {
-        parsedJobPostId = jobPostId.split(',');
+      if (typeof jobPostId === 'string') {
+        try {
+          parsedJobPostId = JSON.parse(jobPostId);
+        } catch (err) {
+          parsedJobPostId = jobPostId.split(',');
+        }
       }
+
+      const jobPostIdArray = Array.isArray(parsedJobPostId) ? parsedJobPostId : [parsedJobPostId];
+
+      const validObjectIds = jobPostIdArray.filter(id => mongoose.Types.ObjectId.isValid(id));
+
+      if (!validObjectIds.length) {
+        return badRequest(res, "No valid jobPostId(s) provided.");
+      }
+
+      matchStage.jobPostId = { $in: validObjectIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
-
-    const jobPostIdArray = Array.isArray(parsedJobPostId) ? parsedJobPostId : [parsedJobPostId];
-
-    const validObjectIds = jobPostIdArray.filter(id => mongoose.Types.ObjectId.isValid(id));
-
-    if (!validObjectIds.length) {
-      return badRequest(res, "No valid jobPostId(s) provided.");
-    }
-
-    matchStage.jobPostId = { $in: validObjectIds.map(id => new mongoose.Types.ObjectId(id)) };
-  }
 
     if (AI_Screeing_Status !== undefined) {
       const AIScreeing = AI_Screeing_Status.split(',').map(val => val.trim());
@@ -3561,3 +3610,1227 @@ export const filemanagerOldData = async (req, res) => {
   }
 };
 
+
+
+
+
+///   TRACK RECURITER //
+
+
+export const getRecruiterDashboard = async (req, res) => {
+  try {
+    const {
+      createdByHrId,
+      period = '30',
+      startDate: queryStartDate,
+      endDate: queryEndDate,
+      timeZone = 'UTC',
+      dashboardType = 'full' // 'full', 'overview', 'charts', 'comparison'
+    } = req.query;
+
+    // Validate required parameters
+    if (!createdByHrId) {
+      return badRequest(res, "createdByHrId is required");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(createdByHrId)) {
+      return badRequest(res, "Invalid createdByHrId format");
+    }
+
+    const organizationId = req.employee?.organizationId;
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not found");
+    }
+
+    const baseMatchStage = {
+      createdByHrId: new ObjectId(createdByHrId),
+      organizationId: new ObjectId(organizationId)
+    };
+
+    // Date range calculation
+    let startDate, endDate;
+    const periodInDays = parseInt(period);
+
+    if (period !== 'all') {
+      if (queryStartDate && queryEndDate) {
+        startDate = new Date(`${queryStartDate}T00:00:00.000Z`);
+        endDate = new Date(`${queryEndDate}T23:59:59.999Z`);
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return badRequest(res, "Invalid date format. Use YYYY-MM-DD");
+        }
+
+        if (startDate > endDate) {
+          return badRequest(res, "Start date cannot be greater than end date");
+        }
+      } else if (!isNaN(periodInDays) && periodInDays > 0) {
+        endDate = new Date();
+        endDate.setUTCHours(23, 59, 59, 999);
+
+        startDate = new Date(endDate); // Start from endDate
+        startDate.setUTCDate(endDate.getUTCDate() - periodInDays + 1); // Inclusive
+        startDate.setUTCHours(0, 0, 0, 0);
+      } else {
+        return badRequest(res, "Invalid period value. Use positive number or 'all'");
+      }
+
+      if (startDate && endDate) {
+        baseMatchStage.createdAt = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+    let dashboardData = {};
+
+    console.log("startDate", startDate)
+    console.log("endDate", endDate)
+
+    // Execute queries based on dashboard type
+    switch (dashboardType) {
+      case 'overview':
+        dashboardData = await getOverviewOnly(baseMatchStage);
+        break;
+
+      case 'charts':
+        dashboardData = await getChartsOnly(baseMatchStage, timeZone);
+        break;
+
+      case 'comparison':
+        if (!queryStartDate || !queryEndDate) {
+          return badRequest(res, "Start date and end date are required for comparison");
+        }
+        dashboardData = await getComparisonData(baseMatchStage, queryStartDate, queryEndDate);
+        break;
+
+      case 'full':
+      default:
+        // Full dashboard with all data
+        const [
+          overviewStats,
+          statusDistribution,
+          monthlyTrends,
+          weeklyTrends,
+          dailyTrends,
+          departmentWiseStats,
+          DesingationWiseStats,
+          employmentTypeStats,
+          performanceMetrics,
+          recentActivity,
+          topPerformingPosts
+        ] = await Promise.all([
+          getOverviewStats(baseMatchStage),
+          getStatusDistribution(baseMatchStage),
+          getMonthlyTrends(baseMatchStage, timeZone),
+          getWeeklyTrends(baseMatchStage, timeZone),
+          getDailyTrends(baseMatchStage, timeZone),
+          getDepartmentWiseStats(baseMatchStage),
+          getDesingationWiseStats(baseMatchStage),
+          getEmploymentTypeStats(baseMatchStage),
+          getPerformanceMetrics(baseMatchStage),
+          getRecentActivity(baseMatchStage),
+          getTopPerformingPosts(baseMatchStage)
+        ]);
+
+        dashboardData = {
+          overview: overviewStats,
+          charts: {
+            statusDistribution,
+            monthlyTrends,
+            weeklyTrends,
+            dailyTrends,
+            departmentWiseStats,
+            DesingationWiseStats,
+            employmentTypeStats
+          },
+          performance: performanceMetrics,
+          recentActivity,
+          topPerformingPosts
+        };
+        break;
+    }
+
+    // Add metadata
+    dashboardData.metadata = {
+      recruiterId: createdByHrId,
+      organizationId: organizationId,
+      dateRange: {
+        startDate: startDate ? startDate.toISOString() : null,
+        endDate: endDate ? endDate.toISOString() : null,
+        period: period,
+        timeZone: timeZone
+      },
+      dashboardType,
+      generatedAt: new Date().toISOString()
+    };
+
+    success(res, "Recruiter dashboard data retrieved successfully", dashboardData);
+
+  } catch (error) {
+    console.error("Dashboard API Error:", error);
+    unknownError(res, error);
+  }
+};
+
+// Helper function for overview only
+const getOverviewOnly = async (matchStage) => {
+  const overview = await getOverviewStats(matchStage);
+  return { overview };
+};
+
+// Helper function for charts only
+const getChartsOnly = async (matchStage, timeZone) => {
+  const [
+    statusDistribution,
+    monthlyTrends,
+    weeklyTrends,
+    dailyTrends,
+    departmentWiseStats,
+    desingationWiseStats,
+    employmentTypeStats
+  ] = await Promise.all([
+    getStatusDistribution(matchStage),
+    getMonthlyTrends(matchStage, timeZone),
+    getWeeklyTrends(matchStage, timeZone),
+    getDailyTrends(matchStage, timeZone),
+    getDepartmentWiseStats(matchStage),
+    getDesingationWiseStats(matchStage),
+    getEmploymentTypeStats(matchStage)
+  ]);
+
+  return {
+    charts: {
+      statusDistribution,
+      monthlyTrends,
+      weeklyTrends,
+      dailyTrends,
+      departmentWiseStats,
+      desingationWiseStats,
+      employmentTypeStats
+    }
+  };
+};
+
+// Helper function for comparison data
+const getComparisonData = async (baseMatch, startDateStr, endDateStr) => {
+  const currentStartDate = new Date(`${startDateStr}T00:00:00.000Z`);
+  const currentEndDate = new Date(`${endDateStr}T23:59:59.999Z`);
+
+  // Calculate previous period of same duration
+  const periodDays = Math.ceil((currentEndDate - currentStartDate) / (1000 * 60 * 60 * 24));
+  const previousEndDate = new Date(currentStartDate);
+  previousEndDate.setDate(previousEndDate.getDate() - 1);
+  previousEndDate.setHours(23, 59, 59, 999);
+  const previousStartDate = new Date(previousEndDate);
+  previousStartDate.setDate(previousStartDate.getDate() - periodDays);
+  previousStartDate.setHours(0, 0, 0, 0);
+
+  const [currentStats, previousStats] = await Promise.all([
+    getOverviewStats({
+      ...baseMatch,
+      createdAt: { $gte: currentStartDate, $lte: currentEndDate }
+    }),
+    getOverviewStats({
+      ...baseMatch,
+      createdAt: { $gte: previousStartDate, $lte: previousEndDate }
+    })
+  ]);
+
+  return {
+    comparison: {
+      current: {
+        ...currentStats,
+        period: `${startDateStr} to ${endDateStr}`
+      },
+      previous: {
+        ...previousStats,
+        period: `${previousStartDate.toISOString().split('T')[0]} to ${previousEndDate.toISOString().split('T')[0]}`
+      },
+      changes: {
+        totalPosts: calculatePercentageChange(previousStats.totalPosts, currentStats.totalPosts),
+        activePosts: calculatePercentageChange(previousStats.activePosts, currentStats.activePosts),
+        totalApplicants: calculatePercentageChange(previousStats.totalApplicants, currentStats.totalApplicants),
+        avgApplicantsPerPost: calculatePercentageChange(previousStats.avgApplicantsPerPost, currentStats.avgApplicantsPerPost),
+        successRate: calculatePercentageChange(
+          previousStats.totalPosts > 0 ? (previousStats.activePosts / previousStats.totalPosts) * 100 : 0,
+          currentStats.totalPosts > 0 ? (currentStats.activePosts / currentStats.totalPosts) * 100 : 0
+        )
+      }
+    }
+  };
+};
+
+// Helper function for overview statistics
+const getOverviewStats = async (matchStage) => {
+  const stats = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: null,
+        totalPosts: { $sum: 1 },
+        activePosts: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        },
+        pendingPosts: {
+          $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] }
+        },
+        inactivePosts: {
+          $sum: { $cond: [{ $eq: ["$status", "inactive"] }, 1, 0] }
+        },
+        rejectedPosts: {
+          $sum: { $cond: [{ $eq: ["$status", "reject"] }, 1, 0] }
+        },
+        expiredPosts: {
+          $sum: { $cond: [{ $eq: ["$jobPostExpired", true] }, 1, 0] }
+        },
+        totalApplicants: { $sum: "$totalApplicants" },
+        totalPositions: { $sum: "$noOfPosition" },
+        avgApplicantsPerPost: { $avg: "$totalApplicants" },
+
+        totalBudget: {
+          $sum: {
+            $cond: [
+              { $ne: ["$budget", ""] },
+              { $toDouble: "$budget" },
+              0
+            ]
+          }
+        }
+      }
+    }
+  ]);
+
+  const result = stats[0] || {};
+
+  return {
+    totalPosts: result.totalPosts || 0,
+    activePosts: result.activePosts || 0,
+    pendingPosts: result.pendingPosts || 0,
+    inactivePosts: result.inactivePosts || 0,
+    rejectedPosts: result.rejectedPosts || 0,
+    expiredPosts: result.expiredPosts || 0,
+    totalApplicants: result.totalApplicants || 0,
+    totalPositions: result.totalPositions || 0,
+    avgApplicantsPerPost: Math.round((result.avgApplicantsPerPost || 0) * 100) / 100,
+    totalBudget: result.totalBudget || 0,
+    successRate: result.totalPosts > 0 ? Math.round((result.activePosts / result.totalPosts) * 100 * 100) / 100 : 0,
+  };
+};
+
+// Helper function for status distribution
+const getStatusDistribution = async (matchStage) => {
+  const distribution = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        totalPositions: { $sum: "$noOfPosition" }
+      }
+    },
+    {
+      $project: {
+        status: "$_id",
+        count: 1,
+        totalApplicants: 1,
+        totalPositions: 1,
+        _id: 0
+      }
+    },
+    { $sort: { count: -1 } }
+  ]);
+
+  return distribution;
+};
+
+// Helper function for monthly trends
+const getMonthlyTrends = async (matchStage, timeZone) => {
+  const trends = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$createdAt" },
+          month: { $month: "$createdAt" }
+        },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        },
+        totalPositions: { $sum: "$noOfPosition" }
+      }
+    },
+    {
+      $project: {
+        period: {
+          $dateToString: {
+            format: "%Y-%m",
+            date: {
+              $dateFromParts: {
+                year: "$_id.year",
+                month: "$_id.month",
+                day: 1
+              }
+            }
+          }
+        },
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        totalPositions: 1,
+        _id: 0
+      }
+    },
+    { $sort: { period: 1 } }
+  ]);
+
+  return trends;
+};
+
+// Helper function for weekly trends
+const getWeeklyTrends = async (matchStage, timeZone) => {
+  const trends = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: {
+          year: { $isoWeekYear: "$createdAt" },
+          week: { $isoWeek: "$createdAt" }
+        },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        }
+      }
+    },
+    {
+      $project: {
+        period: {
+          $concat: [
+            { $toString: "$_id.year" },
+            "-W",
+            { $toString: "$_id.week" }
+          ]
+        },
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        _id: 0
+      }
+    },
+    { $sort: { period: 1 } }
+  ]);
+
+  return trends;
+};
+
+// Helper function for daily trends
+const getDailyTrends = async (matchStage, timeZone) => {
+  const trends = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt"
+          }
+        },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        }
+      }
+    },
+    {
+      $project: {
+        date: "$_id",
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        _id: 0
+      }
+    },
+    { $sort: { date: 1 } }
+  ]);
+
+  return trends;
+};
+
+// Helper function for department-wise statistics
+const getDepartmentWiseStats = async (matchStage) => {
+  const stats = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "newdepartments",
+        localField: "departmentId",
+        foreignField: "_id",
+        as: "department"
+      }
+    },
+    { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: "$departmentId",
+        departmentName: { $first: "$department.name" },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        },
+        totalPositions: { $sum: "$noOfPosition" },
+        avgApplicantsPerPost: { $avg: "$totalApplicants" }
+      }
+    },
+    {
+      $project: {
+        departmentId: "$_id",
+        departmentName: { $ifNull: ["$departmentName", "Unknown"] },
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        totalPositions: 1,
+        avgApplicantsPerPost: { $round: ["$avgApplicantsPerPost", 2] },
+        _id: 0
+      }
+    },
+    { $sort: { count: -1 } }
+  ]);
+
+  return stats;
+};
+
+
+// Helper function for department-wise statistics
+// Helper function for designation-wise statistics
+const getDesingationWiseStats = async (matchStage) => {
+  const stats = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "newdesignations", // ✅ likely typo fixed from "newdesignation"
+        localField: "designationId",
+        foreignField: "_id",
+        as: "designation"
+      }
+    },
+    { $unwind: { path: "$designation", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: "$designation._id",
+        designationName: { $first: "$designation.name" },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        },
+        totalPositions: { $sum: "$noOfPosition" },
+        avgApplicantsPerPost: { $avg: "$totalApplicants" }
+      }
+    },
+    {
+      $project: {
+        designationId: "$_id",
+        designationName: { $ifNull: ["$designationName", "Unknown"] },
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        totalPositions: 1,
+        avgApplicantsPerPost: { $round: ["$avgApplicantsPerPost", 2] },
+        _id: 0
+      }
+    },
+    { $sort: { count: -1 } }
+  ]);
+
+  return stats;
+};
+
+
+
+// Helper function for employment type statistics
+const getEmploymentTypeStats = async (matchStage) => {
+  const stats = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "employmenttypes",
+        localField: "employmentTypeId",
+        foreignField: "_id",
+        as: "employmentType"
+      }
+    },
+    { $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: "$employmentTypeId",
+        employmentType: { $first: "$employmentType.title" },
+        count: { $sum: 1 },
+        totalApplicants: { $sum: "$totalApplicants" },
+        activeCount: {
+          $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] }
+        }
+      }
+    },
+    {
+      $project: {
+        employmentTypeId: "$_id",
+        employmentType: { $ifNull: ["$employmentType", "Unknown"] },
+        count: 1,
+        totalApplicants: 1,
+        activeCount: 1,
+        _id: 0
+      }
+    },
+    { $sort: { count: -1 } }
+  ]);
+
+  return stats;
+};
+
+// Helper function for performance metrics
+const getPerformanceMetrics = async (matchStage) => {
+  const metrics = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $group: {
+        _id: null,
+        totalPosts: { $sum: 1 },
+        successfulPosts: {
+          $sum: { $cond: [{ $gt: ["$totalApplicants", 0] }, 1, 0] }
+        },
+        averageTimeToActivate: {
+          $avg: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "active"] }, { $ne: ["$jobPostApproveDate", null] }] },
+              {
+                $subtract: ["$jobPostApproveDate", "$createdAt"]
+              },
+              null
+            ]
+          }
+        },
+        totalBudgetAllocated: {
+          $sum: {
+            $cond: [
+              { $and: [{ $ne: ["$budget", ""] }, { $ne: ["$budget", null] }] },
+              {
+                $cond: [
+                  { $eq: ["$budgetType", "Monthly"] },
+                  { $multiply: [{ $toDouble: "$budget" }, 12] },
+                  { $toDouble: "$budget" }
+                ]
+              },
+              0
+            ]
+          }
+        },
+        aiEnabledPosts: {
+          $sum: { $cond: [{ $eq: ["$AI_Screening", "true"] }, 1, 0] }
+        }
+      }
+    }
+  ]);
+
+  const result = metrics[0] || {};
+
+  return {
+    totalPosts: result.totalPosts || 0,
+    successfulPosts: result.successfulPosts || 0,
+    successRate: result.totalPosts > 0 ? Math.round((result.successfulPosts / result.totalPosts) * 100 * 100) / 100 : 0,
+    averageTimeToActivate: result.averageTimeToActivate ? Math.round(result.averageTimeToActivate / (1000 * 60 * 60 * 24)) : 0,
+    totalBudgetAllocated: result.totalBudgetAllocated || 0,
+    aiAdoptionRate: result.totalPosts > 0 ? Math.round((result.aiEnabledPosts / result.totalPosts) * 100 * 100) / 100 : 0
+  };
+};
+
+// Helper function for recent activity
+const getRecentActivity = async (matchStage) => {
+  const activity = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "newdepartments",
+        localField: "departmentId",
+        foreignField: "_id",
+        as: "department"
+      }
+    },
+    { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "employmenttypes",
+        localField: "employmentTypeId",
+        foreignField: "_id",
+        as: "employmentType"
+      }
+    },
+    { $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        jobPostId: 1,
+        position: 1,
+        status: 1,
+        totalApplicants: 1,
+        noOfPosition: 1,
+        budget: 1,
+        budgetType: 1,
+        departmentName: "$department.name",
+        employmentType: "$employmentType.title",
+        createdAt: 1,
+        jobPostApproveDate: 1,
+        AI_Screening: 1
+      }
+    },
+    { $sort: { createdAt: -1 } },
+    { $limit: 15 }
+  ]);
+
+  return activity;
+};
+
+// Helper function for top performing posts
+const getTopPerformingPosts = async (matchStage) => {
+  const topPosts = await jobPostModel.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "newdepartments",
+        localField: "departmentId",
+        foreignField: "_id",
+        as: "department"
+      }
+    },
+    { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "employmenttypes",
+        localField: "employmentTypeId",
+        foreignField: "_id",
+        as: "employmentType"
+      }
+    },
+    { $unwind: { path: "$employmentType", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        jobPostId: 1,
+        position: 1,
+        status: 1,
+        totalApplicants: 1,
+        noOfPosition: 1,
+        budget: 1,
+        budgetType: 1,
+        departmentName: "$department.name",
+        employmentType: "$employmentType.title",
+        createdAt: 1,
+        applicantsPerPosition: {
+          $cond: [
+            { $gt: ["$noOfPosition", 0] },
+            { $divide: ["$totalApplicants", "$noOfPosition"] },
+            0
+          ]
+        },
+        AI_Screening: 1
+      }
+    },
+    { $sort: { totalApplicants: -1 } },
+    { $limit: 10 }
+  ]);
+
+  return topPosts;
+};
+
+// Helper function to calculate percentage change
+const calculatePercentageChange = (previous, current) => {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous * 100) * 100) / 100;
+};
+
+
+export const setAIScoreForPending = async (req, res) => {
+  try {
+    const pendingJobs = await jobApply.find({ AI_Screeing_Status: "Pending" });
+
+    const updatePromises = pendingJobs.map((job) =>
+      jobApply.updateOne(
+        { _id: job._id },
+        {
+          $set: {
+            AI_Score: 0
+          }
+        }
+      )
+    );
+
+    const results = await Promise.all(updatePromises);
+
+    const modifiedCount = results.reduce((sum, r) => sum + (r.modifiedCount || 0), 0);
+
+    return success(res, "AI_Score set to 0 for pending jobs", {
+      totalMatched: pendingJobs.length,
+      modifiedCount
+    });
+  } catch (error) {
+    console.error("Error updating AI_Score:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+
+
+// get api for recrutier //
+
+export const getRecruiterData = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+
+    const recruiterStats = await jobPostModel.aggregate([
+      {
+        $match: { organizationId: new mongoose.Types.ObjectId(organizationId) }
+      },
+      {
+        $group: {
+          _id: "$createdByHrId",
+          jobPostCount: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: "employees", // change to your recruiter collection if different
+          localField: "_id",
+          foreignField: "_id",
+          as: "recruiterInfo"
+        }
+      },
+      { $unwind: { path: "$recruiterInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          recruiterId: "$_id",
+          employeName: "$recruiterInfo.employeName",
+          jobPostCount: 1,
+          _id: 0
+        }
+      },
+      { $sort: { jobPostCount: -1 } } // Optional: sort by most active recruiters
+    ]);
+
+    return success(res, "Recruiter job post data fetched successfully", recruiterStats);
+  } catch (error) {
+    console.error("Error fetching recruiter data:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+
+export const getALLRecruiterData = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+
+    // Validate organization ID
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not found");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+      return badRequest(res, "Invalid organization ID format");
+    }
+
+    const {
+      page = 1,
+      limit = 1000,
+      sortBy = 'jobPostCount',
+      sortOrder = 'desc',
+      search = '',
+      includeInactive = false,
+      period = '30',
+      timeZone = 'UTC'
+    } = req.query;
+
+    // Build base match stage for job posts
+    const baseJobPostMatch = {
+      organizationId: new mongoose.Types.ObjectId(organizationId)
+    };
+
+    // Date range filter (default to last 30 days)
+    const { startDate, endDate } = req.query;
+    let dateRange;
+
+    if (startDate && endDate) {
+      const start = new Date(`${startDate}T00:00:00.000Z`);
+      const end = new Date(`${endDate}T23:59:59.999Z`);
+
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        baseJobPostMatch.createdAt = { $gte: start, $lte: end };
+        dateRange = { startDate: start, endDate: end };
+      }
+    } else if (period !== 'all') {
+      // Apply default date range based on period (if not 'all')
+      const endDate = new Date();
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      baseJobPostMatch.createdAt = { $gte: startDate, $lte: endDate };
+      dateRange = { startDate, endDate };
+    } else {
+      // No date filter for 'all'
+      dateRange = null;
+    }
+
+
+    // Get all unique recruiters in the organization
+    const recruiters = await jobPostModel.distinct("createdByHrId", baseJobPostMatch);
+
+    // Get detailed data for each recruiter
+    const recruiterDetailPromises = recruiters.map(async (recruiterId) => {
+      const recruiterMatchStage = {
+        ...baseJobPostMatch,
+        createdByHrId: recruiterId
+      };
+
+      // Get all detailed statistics for this recruiter
+      const [
+        recruiterInfo,
+        overviewStats,
+        // statusDistribution,
+        // monthlyTrends,
+        // weeklyTrends,
+        // dailyTrends,
+        // departmentStats,
+        // designationStats,
+        // employmentTypeStats,
+        // recentActivity,
+        topPerformingPosts
+      ] = await Promise.all([
+        // Get recruiter basic info
+        jobPostModel.aggregate([
+          { $match: recruiterMatchStage },
+          {
+            $lookup: {
+              from: "employees",
+              localField: "createdByHrId",
+              foreignField: "_id",
+              as: "recruiterInfo"
+            }
+          },
+          { $unwind: { path: "$recruiterInfo", preserveNullAndEmptyArrays: true } },
+          // Lookup Role info from recruiterInfo.roleId
+          {
+            $lookup: {
+              from: "roles", // 👈 Assuming collection name is 'roles'
+              localField: "recruiterInfo.roleId",
+              foreignField: "_id",
+              as: "roleDetails"
+            }
+          },
+          {
+            $project: {
+              recruiterId: "$createdByHrId",
+              recruiterName: "$recruiterInfo.employeName",
+              recruiterEmail: "$recruiterInfo.email",
+              recruiterImage: "$recruiterInfo.employeePhoto",
+              recruiterPhone: "$recruiterInfo.phone",
+              department: "$recruiterInfo.department",
+              designation: "$recruiterInfo.designation",
+              isActive: "$recruiterInfo.isActive",
+              roles: "$roleDetails.roleName", // 👈 Will return array of role names
+              _id: 0
+            }
+          },
+          { $limit: 1 }
+        ]),
+
+        // Get overview statistics
+        getOverviewStats(recruiterMatchStage),
+
+        // // Get status distribution
+        // getStatusDistribution(recruiterMatchStage),
+
+        // // Get monthly trends
+        // getMonthlyTrends(recruiterMatchStage, timeZone),
+
+        // // Get weekly trends
+        // getWeeklyTrends(recruiterMatchStage, timeZone),
+
+        // // Get daily trends
+        // getDailyTrends(recruiterMatchStage, timeZone),
+
+        // // Get department-wise stats
+        // getDepartmentWiseStats(recruiterMatchStage),
+
+        // // Get designation-wise stats
+        // getDesingationWiseStats(recruiterMatchStage),
+
+        // // Get employment type stats
+        // getEmploymentTypeStats(recruiterMatchStage),
+
+        // // Get recent activity
+        // getRecentActivity(recruiterMatchStage, 15),
+
+        // Get top performing posts
+        getTopPerformingPosts(recruiterMatchStage, 10)
+      ]);
+
+      const recruiterData = recruiterInfo[0] || {
+        recruiterId: recruiterId,
+        recruiterName: "Unknown",
+        recruiterEmail: null,
+        recruiterPhone: null,
+        department: null,
+        designation: null,
+        isActive: true
+      };
+
+      // // Calculate performance metrics
+      // const successfulPosts = statusDistribution.filter(s => 
+      //   s.status === 'active' || s.status === 'closed'
+      // ).reduce((sum, s) => sum + s.count, 0);
+
+
+      return {
+        ...recruiterData,
+
+        // Main structure matching the expected response
+        items: {
+          // Overview Statistics
+          overview: overviewStats,
+
+          // // Charts data
+          // charts: {
+          //   statusDistribution: statusDistribution,
+          //   monthlyTrends: monthlyTrends,
+          //   weeklyTrends: weeklyTrends,
+          //   dailyTrends: dailyTrends,
+          //   departmentWiseStats: departmentStats,
+          //   DesingationWiseStats: designationStats, // Note: keeping the typo to match expected response
+          //   employmentTypeStats: employmentTypeStats
+          // },
+
+          // Performance metrics
+          // performance: performance,
+
+          // // Recent activity
+          // recentActivity: recentActivity,
+
+          // // Top performing posts
+          topPerformingPosts: topPerformingPosts,
+
+          // Metadata
+          metadata: {
+            recruiterId: recruiterId,
+            organizationId: organizationId,
+            // dateRange: {
+            //   startDate: dateRange.startDate || null,
+            //   endDate: dateRange.endDate || null,
+            //   period: period,
+            //   timeZone: timeZone
+            // },
+            dashboardType: "full",
+            generatedAt: new Date()
+          }
+        },
+
+        // Summary for easy access
+        summary: {
+          totalPosts: overviewStats.totalPosts,
+          activePosts: overviewStats.activePosts,
+          totalApplicants: overviewStats.totalApplicants,
+          totalPositions: overviewStats.totalPositions,
+          // lastActivity: recentActivity.length > 0 ? recentActivity[0].createdAt : null
+        }
+      };
+    });
+
+    // Wait for all recruiter data to be fetched
+    const allRecruiterData = await Promise.all(recruiterDetailPromises);
+
+    // Filter by search term if provided
+    let filteredStats = allRecruiterData;
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      filteredStats = allRecruiterData.filter(recruiter =>
+        recruiter.recruiterName?.match(searchRegex) ||
+        recruiter.recruiterEmail?.match(searchRegex) ||
+        recruiter.department?.match(searchRegex) ||
+        recruiter.designation?.match(searchRegex)
+      );
+    }
+
+    // Filter inactive recruiters if requested
+    if (!includeInactive) {
+      filteredStats = filteredStats.filter(recruiter => recruiter.isActive !== false);
+    }
+
+    // Sort the results
+    filteredStats.sort((a, b) => {
+      let aValue, bValue;
+
+      // Handle nested sorting paths
+      if (sortBy.includes('.')) {
+        const keys = sortBy.split('.');
+        aValue = keys.reduce((obj, key) => obj?.[key], a) || 0;
+        bValue = keys.reduce((obj, key) => obj?.[key], b) || 0;
+      } else {
+        aValue = a[sortBy] || a.summary?.[sortBy] || a.items?.overview?.[sortBy] || 0;
+        bValue = b[sortBy] || b.summary?.[sortBy] || b.items?.overview?.[sortBy] || 0;
+      }
+
+      if (sortOrder === 'desc') {
+        return bValue - aValue;
+      } else {
+        return aValue - bValue;
+      }
+    });
+
+    // Pagination
+    const pageNumber = Math.max(1, parseInt(page));
+    const pageSize = Math.min(100, Math.max(1, parseInt(limit)));
+    const startIndex = (pageNumber - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+
+    const paginatedStats = filteredStats.slice(startIndex, endIndex);
+
+    // Calculate summary statistics
+    const summary = {
+      totalRecruiters: filteredStats.length,
+      activeRecruiters: filteredStats.filter(r => r.isActive !== false).length,
+      totalJobPosts: filteredStats.reduce((sum, r) => sum + r.summary.totalPosts, 0),
+      totalApplicants: filteredStats.reduce((sum, r) => sum + r.summary.totalApplicants, 0),
+      totalActivePosts: filteredStats.reduce((sum, r) => sum + r.summary.activePosts, 0),
+      totalBudget: filteredStats.reduce((sum, r) => sum + r.items.overview.totalBudget, 0),
+      avgJobPostsPerRecruiter: filteredStats.length > 0 ?
+        Math.round((filteredStats.reduce((sum, r) => sum + r.summary.totalPosts, 0) / filteredStats.length) * 100) / 100 : 0,
+      // avgSuccessRate: filteredStats.length > 0 ? 
+      //   Math.round((filteredStats.reduce((sum, r) => sum + r.items.performance.successRate, 0) / filteredStats.length) * 100) / 100 : 0
+    };
+
+    // Structure response to match expected format
+    const responseData = {
+      status: true,
+      subCode: 200,
+      message: "Recruiter dashboard data retrieved successfully",
+      error: "",
+      items: {
+        recruiters: paginatedStats,
+        summary,
+        pagination: {
+          currentPage: pageNumber,
+          pageSize,
+          totalRecords: filteredStats.length,
+          totalPages: Math.ceil(filteredStats.length / pageSize),
+          hasNextPage: endIndex < filteredStats.length,
+          hasPreviousPage: pageNumber > 1
+        },
+        filters: {
+          organizationId,
+          search,
+          includeInactive,
+          sortBy,
+          sortOrder,
+          dateRange: dateRange ? {
+            startDate: dateRange.startDate.toISOString(),
+            endDate: dateRange.endDate.toISOString()
+          } : null
+        }
+      }
+    };
+
+    return success(res, "data featch successfully", responseData)
+
+  } catch (error) {
+    console.error("Error fetching recruiter data:", error);
+    return unknownError(res, error)
+  }
+};
+
+
+// Additional API to get detailed recruiter performance
+export const getRecruiterPerformanceDetail = async (req, res) => {
+  try {
+    const { recruiterId } = req.params;
+    const organizationId = req.employee?.organizationId;
+
+    if (!recruiterId || !mongoose.Types.ObjectId.isValid(recruiterId)) {
+      return badRequest(res, "Valid recruiter ID is required");
+    }
+
+    if (!organizationId) {
+      return badRequest(res, "Organization ID not found");
+    }
+
+    const matchStage = {
+      createdByHrId: new mongoose.Types.ObjectId(recruiterId),
+      organizationId: new mongoose.Types.ObjectId(organizationId)
+    };
+
+    // Get detailed performance data
+    const [
+      recruiterInfo,
+      overviewStats,
+      statusDistribution,
+      monthlyTrends,
+      departmentStats,
+      recentPosts
+    ] = await Promise.all([
+      // Recruiter basic info
+      jobPostModel.aggregate([
+        { $match: matchStage },
+        {
+          $lookup: {
+            from: "employees",
+            localField: "createdByHrId",
+            foreignField: "_id",
+            as: "recruiterInfo"
+          }
+        },
+        { $unwind: "$recruiterInfo" },
+        {
+          $project: {
+            recruiterName: "$recruiterInfo.employeName",
+            recruiterEmail: "$recruiterInfo.email",
+            department: "$recruiterInfo.department",
+            designation: "$recruiterInfo.designation",
+            _id: 0
+          }
+        },
+        { $limit: 1 }
+      ]),
+
+      // Overview statistics
+      getOverviewStats(matchStage),
+
+      // Status distribution
+      getStatusDistribution(matchStage),
+
+      // Monthly trends
+      getMonthlyTrends(matchStage, 'UTC'),
+
+      // Department-wise stats
+      getDepartmentWiseStats(matchStage),
+
+      // Recent posts
+      getRecentActivity(matchStage)
+    ]);
+
+    const responseData = {
+      recruiterInfo: recruiterInfo[0] || null,
+      performance: {
+        overview: overviewStats,
+        statusDistribution,
+        monthlyTrends,
+        departmentStats,
+        recentPosts
+      }
+    };
+
+    return success(res, "Recruiter performance detail fetched successfully", responseData);
+
+  } catch (error) {
+    console.error("Error fetching recruiter performance detail:", error);
+    return unknownError(res, error);
+  }
+};

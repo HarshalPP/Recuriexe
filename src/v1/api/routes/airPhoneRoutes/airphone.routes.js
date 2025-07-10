@@ -18,7 +18,7 @@ router.post('/initiate-c2c',verifyEmployeeToken, airphoneController.initiateC2C)
 router.post('/add-agent',verifyEmployeeToken, airphoneController.addAgent);
 
 //update agent status API
-router.post('/update-agent-status', airphoneController.updateAgentStatus);
+router.post('/updateStatus',verifyEmployeeToken, airphoneController.updateAgentStatus);
 
 //get agent status API
 router.post('/get-agent-status',upload.none(), airphoneController.getAgentStatus);

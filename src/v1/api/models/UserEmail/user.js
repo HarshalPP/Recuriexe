@@ -8,6 +8,7 @@ const EmailuserSchema = new mongoose.Schema({
   photo: String,
   accessToken: String || null,
   refreshToken: String || null,
+  expiryDate:{type :Number , default:null},
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }, 
 }, { timestamps: true });
 

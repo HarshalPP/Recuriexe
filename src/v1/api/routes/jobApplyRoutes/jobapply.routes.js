@@ -2,8 +2,8 @@ import express from "express";
 const router = express.Router();
 import{jobApplyFormAdd , getAllJobApplied ,getJobAppliedDetail, getMyAppliedJobs , jobApplySendToManager , getJobFormSendManagerReview ,
      RecruitmentPipeline , getDashboardSummary , getDashboardMetrics , DeepAnalize , AnalizedCandidate , getDashboardOverview ,
-      getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel ,
-       assignCandidateUniqueIds , convertBranchIdToArray , bulkJobApplyWithResumeExtraction , pincodeByLatitudeAndLongitude}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
+      getScreeningAnalytics , getJobAppliedById , getJobApplyFields , getAllDeepAnalyses , calculatexcelcount , exportJobApplicationsExcel ,updateJobApplyById,
+       assignCandidateUniqueIds , convertBranchIdToArray , bulkJobApplyWithResumeExtraction , pincodeByLatitudeAndLongitude , getInternalReferenceSummary}  from "../../controllers/jobApplyformController/jobapplyform.controller.js"
 import { IsAuthenticated , verifyEmployeeToken  } from "../../middleware/authicationmiddleware.js";
 
 
@@ -18,10 +18,14 @@ router.get("/RecruitmentPipeline" , verifyEmployeeToken ,  RecruitmentPipeline)
 router.get("/getDashboardSummary"  ,  verifyEmployeeToken ,getDashboardSummary)
 router.get("/getDashboardMetrics" ,  verifyEmployeeToken , getDashboardMetrics)
 router.get("/getJobAppliedById/:id" , verifyEmployeeToken , getJobAppliedById)
+router.post("/updateJobAppliedById/:id" , verifyEmployeeToken , updateJobApplyById)
 router.get("/getJobApplyFields" , verifyEmployeeToken , getJobApplyFields)
 router.post("/calculatexcelcount" , verifyEmployeeToken , calculatexcelcount)
 router.post("/exportJobApplicationsExcel" , verifyEmployeeToken , exportJobApplicationsExcel)
 router.get("/assignCandidateUniqueIds" , verifyEmployeeToken , assignCandidateUniqueIds)
+
+router.get("/internal-reference-summary" , verifyEmployeeToken , getInternalReferenceSummary)
+
 
 
 // AI Analizer //

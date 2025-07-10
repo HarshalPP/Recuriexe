@@ -165,6 +165,48 @@ export const generateAIResponseWithImageUrl = async (prompt, fileUrl) => {
 };
 
 
+export const generateNotesResponse = async (prompt) => {
+  try {
+    const jsonEnforcedPrompt = `Give a structured overview of "${prompt}" with the following format in valid JSON:
+
+{
+  "description": "One paragraph summary of what ${prompt} is.",
+  "keyFeatures": [
+    "First key feature",
+    "Second key feature",
+    "Third key feature",
+    "... (at least 4-6 items)"
+  ],
+  "primaryUseCases": [
+    "First use case",
+    "Second use case",
+    "... (at least 4-5 items)"
+  ]
+}
+
+⚠️ Return only the raw JSON above. Do NOT include any explanation, text, or Markdown formatting like \`\`\`json.`
+
+    const result = await geminiModel.generateContent(jsonEnforcedPrompt);
+    const textFn = result?.response?.text;
+
+    let responseText = typeof textFn === "function" ? await textFn() : textFn;
+    responseText = responseText?.replace(/```json|```/g, "").trim();
+
+    try {
+      return JSON.parse(responseText);
+    } catch (error) {
+      console.warn("⚠️ AI response is not valid JSON. Returning as plain text.");
+      return { text: responseText || "" };
+    }
+
+  } catch (error) {
+    console.error("❌ Gemini API Error:", error);
+    throw new Error("Failed to generate AI response.");
+  }
+};
+
+
+
 
 
 
@@ -241,6 +283,149 @@ export const generateAIScreening = async (prompt, fileUrl) => {
     return { error: error.message || "Unexpected error" };
   }
 };
+
+
+// AI_Interview //
+
+
+
+export const generatingInterview = async (prompt, fileUrl) => {
+  try {
+    const mimeType = mime.lookup(fileUrl) || "application/octet-stream";
+    let resumeText = "";
+
+    if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      // 📝 DOCX file: Download and extract text
+      const { data: buffer } = await axios.get(fileUrl, { responseType: "arraybuffer" });
+      const { value: extractedText } = await mammoth.extractRawText({ buffer });
+      resumeText = extractedText;
+    } else {
+      // 📄 PDF or other formats (base64 inline for Gemini)
+      const base64File = await fetchFileAsBase64(fileUrl);
+      const result = await geminiModel.generateContent([
+        {
+          inlineData: {
+            mimeType,
+            data: base64File,
+          },
+        },
+        prompt,
+      ]);
+
+      const responseText = result.response.text?.() || "{}";
+      return parseJsonResponse(responseText);
+    }
+
+    // ✨ Generate content with plain resume text
+    const result = await geminiModel.generateContent([
+      prompt + `\n\nResume Content:\n${resumeText}`
+    ]);
+
+    const responseText = result.response.text?.() || "{}";
+    return parseJsonResponse(responseText);
+
+  } catch (error) {
+    console.error("⚠️ AI Screening Error:", error);
+    return { error: error.message || "Unexpected error occurred during screening." };
+  }
+};
+
+// 🔧 Helper to safely parse JSON response
+const parseJsonResponse = (rawText) => {
+  try {
+    return JSON.parse(rawText.replace(/```json|```/g, "").trim());
+  } catch (err) {
+    console.error("❌ Failed to parse AI response JSON:", err);
+    return { error: "Invalid JSON format in AI response" };
+  }
+};
+
+// END //
+
+
+
+
+export const callSummaryPrompt = async ({ transcript, jobDescription, resume }) => {
+  try {
+    const mimeType = mime.lookup(resume) || "application/octet-stream";
+
+    let resumeContent = "";
+
+    // DOCX
+    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const response = await axios.get(resume, { responseType: 'arraybuffer' });
+      const { value: plainText } = await mammoth.extractRawText({ buffer: response.data });
+      resumeContent = plainText;
+    } else {
+      // PDF or other types
+      const base64File = await fetchFileAsBase64(resume);
+      const fileResponse = await geminiModel.generateContent([
+        {
+          inlineData: {
+            mimeType,
+            data: base64File,
+          },
+        },
+        "Extract the plain text from this resume file. Respond with only the text, no formatting or commentary.",
+      ]);
+      resumeContent = fileResponse.response.text?.() || "";
+    }
+
+    // 📌 Updated Prompt
+    const prompt = `You are an AI assistant that summarizes job interviews.
+
+🎯 Objective:
+Summarize the candidate’s performance in a structured, insightful way based on the job description, their resume, and the full interview conversation.
+
+📄 Job Description:
+${JSON.stringify(jobDescription, null, 2)}
+
+📁 Resume:
+${resumeContent}
+
+🗣️ Interview Transcript:
+${transcript}
+
+📝 TASK:
+Analyze the full conversation and provide a clear summary in the following format:
+
+\`\`\`json
+{
+  "candidateStrengths": [ "Point 1", "Point 2" ],
+  "weaknesses": [ "Point 1", "Point 2" ],
+  "jobFitScore": "X/10",
+  "finalRemarks": "Concise closing opinion on the candidate’s suitability."
+}
+\`\`\`
+
+Respond only in JSON. No extra text.`;
+
+    // Call Gemini
+    const result = await geminiModel.generateContent(prompt);
+    const responseText = result.response.text?.() || "{}";
+
+    // Clean markdown formatting
+    const cleaned = responseText.replace(/```json|```/g, "").trim();
+
+    // Parse response
+    const summary = JSON.parse(cleaned);
+
+    // 🔍 Derive recommendation status from score
+    const score = parseInt(summary.jobFitScore?.split("/")[0] || "0");
+    summary.status =
+      score >= 8 ? "Recommended" :
+      score <= 4 ? "Not Recommended" :
+      "Neutral";
+
+    return summary;
+
+  } catch (error) {
+    console.error("Summary Prompt Error:", error);
+    return { error: error.message || "Unexpected summary error" };
+  }
+};
+
+
 
 
 

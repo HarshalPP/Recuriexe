@@ -2,42 +2,46 @@ import {
   success,
   unknownError,
   serverValidation,
-  badRequest
-} from "../../formatters/globalResponse.js"
+  badRequest,
+} from "../../formatters/globalResponse.js";
 import { validationResult } from "express-validator";
-import { sendThankuEmail } from "../../services/emailservices/email.services.js"
-import { screenApplicant } from "../../services/screeningAI/screeningAi.services.js"
-import jobApply from "../../models/jobformModel/jobform.model.js"
+import { sendThankuEmail } from "../../services/emailservices/email.services.js";
+import { screenApplicant } from "../../services/screeningAI/screeningAi.services.js";
+import jobApply from "../../models/jobformModel/jobform.model.js";
 import vacancyRequestModel from "../../models/vacencyModel/vacancyRequest.model.js";
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
-import User from "../../models/AuthModel/auth.model.js"
-import employeemodel from "../../models/employeemodel/employee.model.js"
+import User from "../../models/AuthModel/auth.model.js";
+import employeemodel from "../../models/employeemodel/employee.model.js";
 import { UnknownError } from "postmark/dist/client/errors/Errors.js";
 import aiModel from "../../models/AiModel/ai.model.js";
 import mongoose from "mongoose";
 const ObjectId = mongoose.Types.ObjectId;
-import mailSwitchesModel from "../../models/mailModel/mailSwitch.model.js"
+import mailSwitchesModel from "../../models/mailModel/mailSwitch.model.js";
 import designationModel from "../../models/designationModel/designation.model.js";
-import cron from 'node-cron';
+import cron from "node-cron";
 import ScreeningResultModel from "../../models/screeningResultModel/screeningResult.model.js";
-import portalsetUpModel from "../../models/PortalSetUp/portalsetup.js"
-import organizationModel from "../../models/organizationModel/organization.model.js"
-import dayjs from 'dayjs';
-import { processAIScreeningForCandidate } from "../../controllers/AIController/aiConfig.controller.js"
+import portalsetUpModel from "../../models/PortalSetUp/portalsetup.js";
+import organizationModel from "../../models/organizationModel/organization.model.js";
+import dayjs from "dayjs";
+import { processAIScreeningForCandidate } from "../../controllers/AIController/aiConfig.controller.js";
 import AIRule from "../../models/AiScreeing/AIRule.model.js";
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js";
-import targetCompanyModel from "../../models/companyModel/targetCompany.model.js"
-import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+import targetCompanyModel from "../../models/companyModel/targetCompany.model.js";
+import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoogleSheet.js";
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
-import { generateExcelAndUpload } from "../../Utils/excelUploader.js"
+import { generateExcelAndUpload } from "../../Utils/excelUploader.js";
 import AiScreening from "../../models/AiScreeing/AiScreening.model.js";
-import branchModel from "../../models/branchModel/branch.model.js"
-import BudgetModel from "../../models/budgedModel/budged.model.js"
-import { saveFileFromUrl, createFolder } from "../../services/fileShareService/finalFileShare.services.js"
-import folderSchema from "../../models/fileShare.model.js/folder.model.js"
-import {extractCandidateDataFromResume} from "../../services/Geminiservices/gemini.service.js"
-import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js"
-import {getLatLngByPincode} from"../jobpostController/jobpost.controller.js"
+import branchModel from "../../models/branchModel/branch.model.js";
+import BudgetModel from "../../models/budgedModel/budged.model.js";
+import {
+  saveFileFromUrl,
+  createFolder,
+} from "../../services/fileShareService/finalFileShare.services.js";
+import folderSchema from "../../models/fileShare.model.js/folder.model.js";
+import { extractCandidateDataFromResume } from "../../services/Geminiservices/gemini.service.js";
+import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
+import { getLatLngByPincode } from "../jobpostController/jobpost.controller.js";
+import employeModel from "../../models/employeemodel/employee.model.js";
 // Run at 11:59 PM every day
 // cron.schedule("59 23 * * *", async () => {
 //   try {
@@ -57,14 +61,13 @@ import {getLatLngByPincode} from"../jobpostController/jobpost.controller.js"
 //   }
 // });
 
-
 cron.schedule("59 23 * * *", async () => {
   try {
     const now = new Date();
 
     const expiredJobPosts = await jobPostModel.find({
       expiredDate: { $lt: now },
-      status: "active"
+      status: "active",
     });
 
     for (const job of expiredJobPosts) {
@@ -85,26 +88,27 @@ cron.schedule("59 23 * * *", async () => {
         const noOfPosition = Number(job.noOfPosition || 0);
 
         budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
-        budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+        budget.jobPostForNumberOfEmployees = Math.max(
+          0,
+          budget.jobPostForNumberOfEmployees - noOfPosition
+        );
 
         await budget.save();
       }
     }
 
-    console.log(`Expired and updated ${expiredJobPosts.length} job post(s) at ${now}`);
+    console.log(
+      `Expired and updated ${expiredJobPosts.length} job post(s) at ${now}`
+    );
   } catch (error) {
     console.error("Error running job expiry cron:", error);
   }
 });
 
-
-
 //   import jobFormGoogleSheet from "../../../helpers/jobFormGoogleSheet.js"; // adjust path
 //   import jobFormGoogleSheet from "../../../helpers/jobFormGoogleSheet.js"; // adjust path
-
 
 // Apply Job form //
-
 
 // export const jobApplyFormAdd = async (req, res) => {
 //   try {
@@ -177,15 +181,12 @@ cron.schedule("59 23 * * *", async () => {
 //       return badRequest(res, "Designation not found for this job post.");
 //     }
 
-
-
 //     req.body.departmentId = jobPost.departmentId;
 //     req.body.subDepartmentId = jobPost.subDepartmentId;
 //     req.body.position = finddesingnation.name;
 //     req.body.branchId = jobPost.branchId[0]; // Assuming branchId is an array, taking the first element
 
 //     const vacancyRequest = await vacancyRequestModel.findOne({ jobPostId: req.body.jobPostId }).lean();
-
 
 //     const aiScreeningEnabled =
 //       jobPost?.AI_Screening == "true" || vacancyRequest?.AI_Screening == "true";
@@ -224,7 +225,6 @@ cron.schedule("59 23 * * *", async () => {
 //     const jobFormInstance = new jobApply(req.body);
 //     const jobApplyForm = await jobFormInstance.save(); // triggers pre("save")
 
-
 //     if (jobApplyForm.jobFormType == "recommended") {
 //       await jobApply.findByIdAndUpdate(
 //         { _id: jobApplyForm._id },
@@ -255,19 +255,15 @@ cron.schedule("59 23 * * *", async () => {
 //   }
 // }
 
-
 export const jobApplyFormAdd = async (req, res) => {
   try {
-
-
-
-    const { emailId, jobPostId, resume, name, pincode } = req.body;
-    // not hanlde organization 
+    const { emailId, jobPostId, resume, name, pincode, internalReferenceName } =
+      req.body;
+    // not hanlde organization
 
     if (!jobPostId) {
       return badRequest(res, "Job post Id required.");
     }
-
 
     if (!pincode) {
       return badRequest(res, "Pincode is required.");
@@ -277,9 +273,12 @@ export const jobApplyFormAdd = async (req, res) => {
       return badRequest(res, "Job post not found.");
     }
 
-    const organizationFind = await organizationModel.findById(jobPost.organizationId).select('name')
-    const portalsetUpDetail = await portalsetUpModel.findOne({ organizationId: new ObjectId(organizationFind._id) }).select('maxApplicationsPerEmployee minDaysBetweenApplications')
-
+    const organizationFind = await organizationModel
+      .findById(jobPost.organizationId)
+      .select("name");
+    const portalsetUpDetail = await portalsetUpModel
+      .findOne({ organizationId: new ObjectId(organizationFind._id) })
+      .select("maxApplicationsPerEmployee minDaysBetweenApplications");
 
     if (jobPost.totalApplicants >= jobPost.numberOfApplicant) {
       return badRequest(res, "This job is no longer accepting applications.");
@@ -300,12 +299,14 @@ export const jobApplyFormAdd = async (req, res) => {
       const minDate = new Date(now);
       minDate.setDate(minDate.getDate() - minDaysGap);
       // 🔍 Get all applications by user to this jobPostId within the last `minDaysGap` days
-      const recentApplications = await jobApply.find({
-        emailId,
-        orgainizationId: new ObjectId(organizationFind._id),
-        // jobPostId: jobPostId,
-        createdAt: { $gte: minDate }
-      }).sort({ createdAt: -1 });
+      const recentApplications = await jobApply
+        .find({
+          emailId,
+          orgainizationId: new ObjectId(organizationFind._id),
+          // jobPostId: jobPostId,
+          createdAt: { $gte: minDate },
+        })
+        .sort({ createdAt: -1 });
 
       // 🚫 Too many applications within restricted period
       if (recentApplications.length >= maxApplications) {
@@ -313,7 +314,9 @@ export const jobApplyFormAdd = async (req, res) => {
         const nextAllowedDate = new Date(lastAppliedAt);
         nextAllowedDate.setDate(nextAllowedDate.getDate() + minDaysGap);
 
-        const daysLeft = Math.ceil((nextAllowedDate - now) / (1000 * 60 * 60 * 24));
+        const daysLeft = Math.ceil(
+          (nextAllowedDate - now) / (1000 * 60 * 60 * 24)
+        );
 
         return badRequest(
           res,
@@ -340,7 +343,9 @@ export const jobApplyFormAdd = async (req, res) => {
       }
     });
 
-    const finddesingnation = await designationModel.findById(jobPost.designationId).lean();
+    const finddesingnation = await designationModel
+      .findById(jobPost.designationId)
+      .lean();
     if (!finddesingnation) {
       return badRequest(res, "Designation not found for this job post.");
     }
@@ -348,18 +353,46 @@ export const jobApplyFormAdd = async (req, res) => {
     req.body.departmentId = jobPost.departmentId;
     req.body.subDepartmentId = jobPost.subDepartmentId;
     req.body.position = finddesingnation.name;
-    req.body.JobType = jobPost.JobType || ""
-    req.body.jobFormType = "request"
+    req.body.JobType = jobPost.JobType || "";
+    req.body.jobFormType = "request";
     req.body.orgainizationId = jobPost.organizationId || null;
-
 
     // Save the job application
     const jobFormInstance = new jobApply(req.body);
     const jobApplyForm = await jobFormInstance.save();
+     
+        // Internal Refernace logic
+
+    if (internalReferenceName) {
+      const internalemployeeData = await employeModel
+        .findOne({
+          employeUniqueId: internalReferenceName,
+          organizationId: new ObjectId(jobPost.organizationId),
+        })
+        .select("employeUniqueId employeName employeeCode _id");
+      
+      console.log("internalemployeeData:---",internalemployeeData);
+      
+      if (internalemployeeData) {
+        await jobApply.findByIdAndUpdate(
+          jobFormInstance._id,
+          {
+            $set: {
+              internalReferenceData: {
+                employeeCode: internalemployeeData.employeUniqueId || "",
+                employeeName: internalemployeeData.employeName || "",
+                employeeId : new ObjectId(internalemployeeData._id) || null ,
+              },
+            },
+          },
+          { new: true }
+        );
+      }
+    }
 
     // ✅ Check if number of applicants reaches the limit
     const totalApplications = await jobApply.countDocuments({
-      jobPostId: jobPostId
+      jobPostId: jobPostId,
     });
 
     const updatedJobPost = await jobPostModel.findByIdAndUpdate(
@@ -368,10 +401,13 @@ export const jobApplyFormAdd = async (req, res) => {
       { new: true }
     );
 
-    if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
+    if (
+      jobPost.numberOfApplicant > 0 &&
+      totalApplications >= jobPost.numberOfApplicant
+    ) {
       await jobPostModel.findByIdAndUpdate(jobPostId, {
         // jobPostExpired: true,
-        status: 'inactive'
+        status: "inactive",
       });
       // 2. Update budget
       const budget = await BudgetModel.findOne({
@@ -382,79 +418,91 @@ export const jobApplyFormAdd = async (req, res) => {
         const budgetImpact = Number(jobPost.budget || 0);
         const noOfPosition = Number(jobPost.noOfPosition || 0);
         budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
-        budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+        budget.jobPostForNumberOfEmployees = Math.max(
+          0,
+          budget.jobPostForNumberOfEmployees - noOfPosition
+        );
         await budget.save();
       }
     }
 
-
     success(res, "Job Applied Successfully", jobApplyForm);
 
     // create job folder with condidate id and resume
-    
-    const rootFolderKey = 'job-posts';
+
+    const rootFolderKey = "job-posts";
     const formatFolderName = (name) => {
       return name
         .trim()
         .split(/\s+/)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join('_');
+        .map(
+          (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join("_");
     };
-    const folderKey = `${rootFolderKey}/${formatFolderName(finddesingnation.name)}_${jobPost.jobPostId}/`;
+    const folderKey = `${rootFolderKey}/${formatFolderName(
+      finddesingnation.name
+    )}_${jobPost.jobPostId}/`;
 
-    const parentFolder = await folderSchema.findOne({
-      organizationId: new ObjectId(jobPost.organizationId),
-      key: folderKey
-    }).lean();
+    const parentFolder = await folderSchema
+      .findOne({
+        organizationId: new ObjectId(jobPost.organizationId),
+        key: folderKey,
+      })
+      .lean();
 
     let parentId;
     const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
     let candidateFolder = await folderSchema.findOne({
       organizationId: new ObjectId(jobPost.organizationId),
-      key: candidateFolderKey
+      key: candidateFolderKey,
     });
 
     if (!candidateFolder) {
-      console.log('create candidate folder create run ')
+      console.log("create candidate folder create run ");
       const newRootFolder = new folderSchema({
         organizationId: jobPost.organizationId,
         candidateId: null,
         parentId: parentFolder._id,
         name: `${jobApplyForm.candidateUniqueId}`,
-        type: 'folder',
+        type: "folder",
         key: candidateFolderKey,
-        mimetype: 'application/x-directory',
-        status: 'active',
+        mimetype: "application/x-directory",
+        status: "active",
       });
 
       const newCreateRootFolder = await newRootFolder.save();
       parentId = newCreateRootFolder._id;
     } else {
-      console.log('create candidate folder create alresy done  ')
+      console.log("create candidate folder create alresy done  ");
       parentId = candidateFolder._id;
     }
 
     // ✅ Step 3: Create subfolder (designation + jobPostId)
-    const folderPath = `${rootFolderKey}/${formatFolderName(finddesingnation.name)}_${jobPost.jobPostId}/`;
+    const folderPath = `${rootFolderKey}/${formatFolderName(
+      finddesingnation.name
+    )}_${jobPost.jobPostId}/`;
 
     req.body.parentId = parentId;
     req.body.candidateId = null;
 
     const createFolderResult = await createFolder(folderPath, req);
 
-    console.log('file create ')
+    console.log("file create ");
     const saveResumeResult = await saveFileFromUrl({
       fileUrl: resume,
       parentId: parentId,
       organizationId: jobPost.organizationId,
-      candidateId: null
+      candidateId: null,
     });
 
     if (!saveResumeResult.status) {
       console.warn("Failed to save resume from URL:", saveResumeResult.message);
     }
 
-   let existingPin = await pincodeLocationModel.findOne({ pincode: pincode.trim() });
+    let existingPin = await pincodeLocationModel.findOne({
+      pincode: pincode.trim(),
+    });
     let latlng = null;
 
     if (!existingPin) {
@@ -465,8 +513,8 @@ export const jobApplyFormAdd = async (req, res) => {
           pincode: pincode.trim(),
           latitude: latlng.latitude,
           longitude: latlng.longitude,
-          state:latlng.state,
-          district: latlng.district
+          state: latlng.state,
+          district: latlng.district,
         });
       } else {
         console.warn(`Lat/Lng not found for pincode: ${pincode}`);
@@ -478,12 +526,17 @@ export const jobApplyFormAdd = async (req, res) => {
       jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
       jobApplyMailSwitch?.hrmsMail?.jobApplyMail
     ) {
-      await sendThankuEmail(emailId, name.toUpperCase(), jobPost?.position, organizationFind?.name?.toUpperCase() ,jobApplyForm.candidateUniqueId);
+      await sendThankuEmail(
+        emailId,
+        name.toUpperCase(),
+        jobPost?.position,
+        organizationFind?.name?.toUpperCase(),
+        jobApplyForm.candidateUniqueId
+      );
     }
 
-
-    // job apply google sheete data save 
-    await jobApplyToGoogleSheet(jobApplyForm._id)
+    // job apply google sheete data save
+    // await jobApplyToGoogleSheet(jobApplyForm._id);
 
     // const AIRuleData = await AIRule.findOne({ AutomaticScreening: true });
     //  if(AIRule){
@@ -496,8 +549,10 @@ export const jobApplyFormAdd = async (req, res) => {
 
     // }
 
-    const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId: jobPost.organizationId })
-  
+    const AIdata = await AiScreening.findOne({
+      autoScreening: true,
+      organizationId: jobPost.organizationId,
+    });
 
     if (AIdata) {
       await processAIScreeningForCandidate({
@@ -508,16 +563,57 @@ export const jobApplyFormAdd = async (req, res) => {
       });
     }
 
+
   } catch (error) {
     console.error("Error in :", error);
     unknownError(res, error);
   }
 };
 
+export const getInternalReferenceSummary = async (req, res) => {
+  try {
+    const organizationId = req.employee?.organizationId;
+    if (!organizationId) return badRequest(res, "Organization ID is required.");
 
+    const summaryData = await jobApply.aggregate([
+      {
+        $match: {
+          "internalReferenceData.employeeCode": { $exists: true, $ne: "" },
+          orgainizationId: new ObjectId(organizationId),
+        },
+      },
+      {
+        $group: {
+          _id: {
+            employeeCode: "$internalReferenceData.employeeCode",
+            employeeName: "$internalReferenceData.employeeName",
+          },
+          totalReferred: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { totalReferred: -1 },
+      },
+      {
+        $project: {
+          _id: 0,
+          employeeCode: "$_id.employeeCode",
+          employeeName: "$_id.employeeName",
+          totalReferred: 1,
+        },
+      },
+    ]);
 
+    return success(res, "Referral summary fetched successfully", summaryData);
+  } catch (error) {
+    console.error("Summary Error:", error);
+    return unknownError(res, error);
+  }
+};
 
 // Get JobApplyed  details //
+
+
 export const getAllJobApplied = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
@@ -525,9 +621,21 @@ export const getAllJobApplied = async (req, res) => {
     const limit = parseInt(req.query.limit) || 100; // default 10 items per page
     const skip = (page - 1) * limit;
 
-
     // Extract search and filter parameters
-    const { startDate, endDate, search, position, emailId, mobileNumber, AI_Screeing_Result, resumeShortlisted, departmentId, branchId, qualificationId } = req.query;
+    const {
+      startDate,
+      endDate,
+      search,
+      position,
+      emailId,
+      mobileNumber,
+      AI_Screeing_Result,
+      resumeShortlisted,
+      departmentId,
+      branchId,
+      qualificationId,
+      internalReferenceEmployeeName,
+    } = req.query;
 
     // Build match conditions
     let matchConditions = {
@@ -535,6 +643,10 @@ export const getAllJobApplied = async (req, res) => {
       jobFormType: "request",
     };
 
+    // 🔁 Apply internal reference filter (NEW)
+    if (internalReferenceEmployeeName) {
+      matchConditions["internalReferenceData.employeeName"] = internalReferenceEmployeeName;
+    }
 
     // Add date range filter
     if (startDate || endDate) {
@@ -554,7 +666,6 @@ export const getAllJobApplied = async (req, res) => {
       matchConditions.orgainizationId = new ObjectId(organizationId);
     }
 
-
     // Add search conditions
     const searchConditions = [];
 
@@ -566,27 +677,27 @@ export const getAllJobApplied = async (req, res) => {
           { emailId: { $regex: search, $options: "i" } },
           { mobileNumber: { $regex: search, $options: "i" } },
           { position: { $regex: search, $options: "i" } },
-          { candidateUniqueId: { $regex: search, $options: "i" } }
-        ]
+          { candidateUniqueId: { $regex: search, $options: "i" } },
+        ],
       });
     }
 
     // Specific field searches
     if (position) {
       searchConditions.push({
-        position: { $regex: position, $options: "i" }
+        position: { $regex: position, $options: "i" },
       });
     }
 
     if (emailId) {
       searchConditions.push({
-        emailId: { $regex: emailId, $options: "i" }
+        emailId: { $regex: emailId, $options: "i" },
       });
     }
 
     if (mobileNumber) {
       searchConditions.push({
-        mobileNumber: { $regex: mobileNumber, $options: "i" }
+        mobileNumber: { $regex: mobileNumber, $options: "i" },
       });
     }
 
@@ -610,29 +721,29 @@ export const getAllJobApplied = async (req, res) => {
     if (branchId) {
       const branchIdsArray = Array.isArray(branchId)
         ? branchId
-        : branchId.split(',');
+        : branchId.split(",");
 
       matchConditions.branchId = {
-        $in: branchIdsArray.map(id => new ObjectId(id))
+        $in: branchIdsArray.map((id) => new ObjectId(id)),
       };
     }
 
-let qualificationIdsArray = [];
+    let qualificationIdsArray = [];
 
-if (qualificationId) {
-  qualificationIdsArray = Array.isArray(qualificationId)
-    ? qualificationId.map(id => new ObjectId(id))
-    : qualificationId.split(',').map(id => new ObjectId(id));
-}
+    if (qualificationId) {
+      qualificationIdsArray = Array.isArray(qualificationId)
+        ? qualificationId.map((id) => new ObjectId(id))
+        : qualificationId.split(",").map((id) => new ObjectId(id));
+    }
 
-// console.log("matchConditions", JSON.stringify(matchConditions, null, 2));
+    // console.log("matchConditions", JSON.stringify(matchConditions, null, 2));
 
     const jobAppliedDetails = await jobApply.aggregate([
       {
         $match: matchConditions,
       },
       {
-        $sort: { createdAt: -1 },
+         $sort: { AI_Score: -1 }, // ✅ change here
       },
       {
         $lookup: {
@@ -649,18 +760,26 @@ if (qualificationId) {
           preserveNullAndEmptyArrays: true,
         },
       },
-        {
-    $lookup: {
-      from: "interviewdetails",
-      let: { candidateId: "$_id" },
-      pipeline: [
-        { $match: { $expr: { $eq: ["$candidateId", "$$candidateId"] } } },
-        { $sort: { createdAt: -1 } },        // newest first
-        { $project: { _id: 0, status: 1, roundNumber: 1, roundName:1, scheduleDate:1, } }
-      ],
-      as: "interviewScheduleDetail"                 // array of every round
-    }
-  },
+      {
+        $lookup: {
+          from: "interviewdetails",
+          let: { candidateId: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$candidateId", "$$candidateId"] } } },
+            { $sort: { createdAt: -1 } }, // newest first
+            {
+              $project: {
+                _id: 0,
+                status: 1,
+                roundNumber: 1,
+                roundName: 1,
+                scheduleDate: 1,
+              },
+            },
+          ],
+          as: "interviewScheduleDetail", // array of every round
+        },
+      },
       {
         $lookup: {
           from: "newbranches",
@@ -668,18 +787,18 @@ if (qualificationId) {
           pipeline: [
             {
               $match: {
-                $expr: { $in: ["$_id", "$$branchIds"] }
-              }
+                $expr: { $in: ["$_id", "$$branchIds"] },
+              },
             },
             {
               $project: {
-                _id: 1,      // include _id
-                name: 1      // include name
-              }
-            }
+                _id: 1, // include _id
+                name: 1, // include name
+              },
+            },
           ],
-          as: "branches"
-        }
+          as: "branches",
+        },
       },
 
       {
@@ -759,7 +878,7 @@ if (qualificationId) {
             {
               $unwind: {
                 path: "$HrinterviewName",
-                preserveNullAndEmptyArrays: true
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -782,26 +901,26 @@ if (qualificationId) {
             {
               $unwind: {
                 path: "$ManagerinterviewName",
-                preserveNullAndEmptyArrays: true
+                preserveNullAndEmptyArrays: true,
               },
-            }
+            },
           ],
           as: "interviewDetails",
         },
-      }, {
-
+      },
+      {
         $lookup: {
           from: "users",
           localField: "candidateId",
           foreignField: "_id",
           as: "candidateDetails",
-        }
-
-      }, {
+        },
+      },
+      {
         $unwind: {
           path: "$candidateDetails",
           preserveNullAndEmptyArrays: true, // If you want to keep jobs without user details
-        }
+        },
       },
 
       {
@@ -819,52 +938,52 @@ if (qualificationId) {
         },
       },
 
-  {
-  $lookup: {
-    from: "qualifications",
-    let: {
-      qualificationIds: {
-        $cond: {
-          if: { $isArray: "$jobPostDetail.qualificationId" },
-          then: "$jobPostDetail.qualificationId",
-          else: []
-        }
-      }
-    },
-    pipeline: [
       {
-        $match: {
-          $expr: {
-            $and: [
-              { $in: ["$_id", "$$qualificationIds"] },
-              ...(qualificationIdsArray.length > 0
-                ? [{ $in: ["$_id", qualificationIdsArray] }]
-                : [])
-            ]
-          }
-        }
+        $lookup: {
+          from: "qualifications",
+          let: {
+            qualificationIds: {
+              $cond: {
+                if: { $isArray: "$jobPostDetail.qualificationId" },
+                then: "$jobPostDetail.qualificationId",
+                else: [],
+              },
+            },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $in: ["$_id", "$$qualificationIds"] },
+                    ...(qualificationIdsArray.length > 0
+                      ? [{ $in: ["$_id", qualificationIdsArray] }]
+                      : []),
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                name: 1,
+              },
+            },
+          ],
+          as: "qualificationDetails",
+        },
       },
-      {
-        $project: {
-          _id: 1,
-          name: 1
-        }
-      }
-    ],
-    as: "qualificationDetails"
-  }
-},
 
-// 🔍 Add this immediately after the above $lookup
-...(qualificationIdsArray.length > 0
-  ? [{
-      $match: {
-        qualificationDetails: { $ne: [], $exists: true }
-      }
-    }]
-  : []),
-
-
+      // 🔍 Add this immediately after the above $lookup
+      ...(qualificationIdsArray.length > 0
+        ? [
+            {
+              $match: {
+                qualificationDetails: { $ne: [], $exists: true },
+              },
+            },
+          ]
+        : []),
 
       {
         $lookup: {
@@ -898,7 +1017,7 @@ if (qualificationId) {
 
       {
         $addFields: {
-            interviewCount: { $size: "$interviewDetails" },
+          interviewCount: { $size: "$interviewDetails" },
           subDepartment: {
             $arrayElemAt: [
               {
@@ -906,14 +1025,14 @@ if (qualificationId) {
                   input: "$subDepartmentDetail.subDepartments",
                   as: "sub",
                   cond: {
-                    $eq: ["$$sub._id", "$jobPostDetail.subDepartmentId"]
-                  }
-                }
+                    $eq: ["$$sub._id", "$jobPostDetail.subDepartmentId"],
+                  },
+                },
               },
-              0
-            ]
-          }
-        }
+              0,
+            ],
+          },
+        },
       },
       {
         $project: {
@@ -941,7 +1060,7 @@ if (qualificationId) {
           position: 1,
           createdAt: 1,
           department: 1,
-          interviewScheduleDetail:1,
+          interviewScheduleDetail: 1,
           qualificationDetails: 1,
           designationDetail: {
             _id: 1,
@@ -949,9 +1068,10 @@ if (qualificationId) {
           },
           subDepartment: {
             _id: 1,
-            name: 1
+            name: 1,
           },
-          branches: 1
+          branches: 1,
+          internalReferenceData:1,
         },
       },
       { $skip: skip },
@@ -978,20 +1098,33 @@ if (qualificationId) {
       departmentData[departmentName].push(job);
     });
 
+    // const allJobs = Object.values(departmentData)
+    //   .flat() // Flatten the array of department job arrays into a single array
+    //   .filter((job) => job.createdAt) // Ensure the job has a `createdAt` field
+    //   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort jobs by `createdAt` in descending order
 
 
     const allJobs = Object.values(departmentData)
-      .flat()  // Flatten the array of department job arrays into a single array
-      .filter((job) => job.createdAt)  // Ensure the job has a `createdAt` field
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));  // Sort jobs by `createdAt` in descending order
+  .flat()
+  .filter((job) => job.AI_Score !== undefined && job.AI_Score !== null)
+  .sort((a, b) => b.AI_Score - a.AI_Score); // Descending order by AI_Score
 
     const filteredMatchConditions = { ...matchConditions }; // Filtered total
     const totalCount = await jobApply.countDocuments(filteredMatchConditions);
 
     //  const totalCount = allJobs.length || 0;
-    const totalShortlisted = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "shortlisted", orgainizationId: organizationId });
-    const totalRejected = await jobApply.countDocuments({ status: "active", jobFormType: "request", resumeShortlisted: "notshortlisted", orgainizationId: organizationId });
-
+    const totalShortlisted = await jobApply.countDocuments({
+      status: "active",
+      jobFormType: "request",
+      resumeShortlisted: "shortlisted",
+      orgainizationId: organizationId,
+    });
+    const totalRejected = await jobApply.countDocuments({
+      status: "active",
+      jobFormType: "request",
+      resumeShortlisted: "notshortlisted",
+      orgainizationId: organizationId,
+    });
 
     return success(res, "All job Applied Form details", {
       data: allJobs,
@@ -999,7 +1132,7 @@ if (qualificationId) {
       limit,
       totalCount,
       totalShortlisted,
-      totalRejected
+      totalRejected,
     });
   } catch (error) {
     console.error("Error in getAllJobApplied:", error.message);
@@ -1063,7 +1196,12 @@ export const getJobAppliedById = async (req, res) => {
           as: "hrFeedbackinterviewers",
         },
       },
-      { $unwind: { path: "$hrFeedbackinterviewers", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$hrFeedbackinterviewers",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "employees",
@@ -1073,7 +1211,12 @@ export const getJobAppliedById = async (req, res) => {
           as: "hrInterviewerDetails",
         },
       },
-      { $unwind: { path: "$hrInterviewerDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$hrInterviewerDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "interviewdetails",
@@ -1094,7 +1237,12 @@ export const getJobAppliedById = async (req, res) => {
                 as: "HrinterviewName",
               },
             },
-            { $unwind: { path: "$HrinterviewName", preserveNullAndEmptyArrays: true } },
+            {
+              $unwind: {
+                path: "$HrinterviewName",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
             {
               $lookup: {
                 from: "employees",
@@ -1104,7 +1252,12 @@ export const getJobAppliedById = async (req, res) => {
                 as: "ManagerinterviewName",
               },
             },
-            { $unwind: { path: "$ManagerinterviewName", preserveNullAndEmptyArrays: true } },
+            {
+              $unwind: {
+                path: "$ManagerinterviewName",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
           ],
           as: "interviewDetails",
         },
@@ -1117,7 +1270,12 @@ export const getJobAppliedById = async (req, res) => {
           as: "candidateDetails",
         },
       },
-      { $unwind: { path: "$candidateDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$candidateDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "jobposts",
@@ -1135,7 +1293,12 @@ export const getJobAppliedById = async (req, res) => {
           as: "jobDescriptionDetail",
         },
       },
-      { $unwind: { path: "$jobDescriptionDetail", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$jobDescriptionDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "newdesignations",
@@ -1144,11 +1307,16 @@ export const getJobAppliedById = async (req, res) => {
           as: "designationDetail",
         },
       },
-      { $unwind: { path: "$designationDetail", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$designationDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $lookup: {
           from: "newbranches",
-          localField: "branchId",          // array of ObjectId(s)
+          localField: "branchId", // array of ObjectId(s)
           foreignField: "_id",
           pipeline: [
             {
@@ -1156,12 +1324,12 @@ export const getJobAppliedById = async (req, res) => {
                 _id: 0,
                 name: 1,
                 address: 1,
-                city: 1
-              }
-            }
+                city: 1,
+              },
+            },
           ],
-          as: "newbrancheDetail"
-        }
+          as: "newbrancheDetail",
+        },
       },
       {
         $lookup: {
@@ -1171,7 +1339,12 @@ export const getJobAppliedById = async (req, res) => {
           as: "subDepartmentDetail",
         },
       },
-      { $unwind: { path: "$subDepartmentDetail", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$subDepartmentDetail",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $addFields: {
           subDepartment: {
@@ -1214,6 +1387,7 @@ export const getJobAppliedById = async (req, res) => {
           lastOrganization: 1,
           position: 1,
           createdAt: 1,
+          documentRequest:1,
           department: 1,
           newbrancheDetail: {
             name: 1,
@@ -1238,13 +1412,13 @@ export const getJobAppliedById = async (req, res) => {
     const candidates = await jobApply
       .find({ orgainizationId: new ObjectId(organizationId) })
       .sort({ createdAt: -1 })
-      .select('_id')
+      .select("_id")
       .lean(); // optional but improves performance
 
-
     // Ensure both sides are strings for reliable comparison
-    const index = candidates.findIndex((c) => c._id.toString() == id.toString());
-
+    const index = candidates.findIndex(
+      (c) => c._id.toString() == id.toString()
+    );
 
     let previousCandidateId = null;
     let nextCandidateId = null;
@@ -1262,32 +1436,34 @@ export const getJobAppliedById = async (req, res) => {
       jobApplication[0].nextCandidateId = nextCandidateId;
     }
 
-
-    return success(res, "Job application details fetched successfully", jobApplication[0]);
+    return success(
+      res,
+      "Job application details fetched successfully",
+      jobApplication[0]
+    );
   } catch (error) {
     console.error("Error in getJobAppliedById:", error.message);
     return UnknownError(res, error);
   }
 };
 
-
-
 // create _id by get detail
 
 export const getJobAppliedDetail = async (req, res) => {
   try {
-    const { id } = req.query
+    const { id } = req.query;
 
     if (!id) {
-      return badRequest(res, "id are required")
+      return badRequest(res, "id are required");
     }
-    const jobAppliedDetail = await jobApply.findById(id).populate('candidateId')
-    return success(res, "Applied Form details", jobAppliedDetail)
+    const jobAppliedDetail = await jobApply
+      .findById(id)
+      .populate("candidateId");
+    return success(res, "Applied Form details", jobAppliedDetail);
   } catch (error) {
     return UnknownError(res, error);
   }
-}
-
+};
 
 // get Recurtment pipeline //
 
@@ -1297,14 +1473,13 @@ export const RecruitmentPipeline = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10; // default 10 items per page
     const skip = (page - 1) * limit;
 
-
     const statuses = req.query.status
       ? Array.isArray(req.query.status)
         ? req.query.status
-        : req.query.status.split(',')
+        : req.query.status.split(",")
       : ["shortlisted"]; // default to 'shortlisted' if none provided
 
-    console.log("statuses", statuses)
+    console.log("statuses", statuses);
 
     const jobAppliedDetails = await jobApply.aggregate([
       {
@@ -1314,7 +1489,7 @@ export const RecruitmentPipeline = async (req, res) => {
         },
       },
       {
-        $sort: { updatedAt: -1 }
+        $sort: { updatedAt: -1 },
       },
       {
         $lookup: {
@@ -1399,11 +1574,13 @@ export const RecruitmentPipeline = async (req, res) => {
               $match: {
                 $expr: {
                   $and: [
-                    { $gt: [{ $size: { $ifNull: ["$$interviewIds", []] } }, 0] },
-                    { $in: ["$_id", "$$interviewIds"] }
-                  ]
-                }
-              }
+                    {
+                      $gt: [{ $size: { $ifNull: ["$$interviewIds", []] } }, 0],
+                    },
+                    { $in: ["$_id", "$$interviewIds"] },
+                  ],
+                },
+              },
             },
 
             {
@@ -1429,7 +1606,7 @@ export const RecruitmentPipeline = async (req, res) => {
             {
               $unwind: {
                 path: "$HrinterviewName",
-                preserveNullAndEmptyArrays: true
+                preserveNullAndEmptyArrays: true,
               },
             },
             {
@@ -1452,9 +1629,9 @@ export const RecruitmentPipeline = async (req, res) => {
             {
               $unwind: {
                 path: "$ManagerinterviewName",
-                preserveNullAndEmptyArrays: true
+                preserveNullAndEmptyArrays: true,
               },
-            }
+            },
           ],
           as: "interviewDetails",
         },
@@ -1520,7 +1697,6 @@ export const RecruitmentPipeline = async (req, res) => {
       { $limit: limit },
     ]);
 
-
     const departmentData = {};
 
     jobAppliedDetails.forEach((job) => {
@@ -1549,28 +1725,26 @@ export const RecruitmentPipeline = async (req, res) => {
     // }));
 
     const allJobs = Object.values(departmentData)
-      .flat()  // Flatten the array of department job arrays into a single array
-      .filter((job) => job.createdAt)  // Ensure the job has a `createdAt` field
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));  // Sort jobs by `createdAt` in descending order
+      .flat() // Flatten the array of department job arrays into a single array
+      .filter((job) => job.createdAt) // Ensure the job has a `createdAt` field
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort jobs by `createdAt` in descending order
 
-
-
-    const totalCount = await jobApply.countDocuments({ status: "active", jobFormType: "request" });
-
+    const totalCount = await jobApply.countDocuments({
+      status: "active",
+      jobFormType: "request",
+    });
 
     return success(res, "All job Applied Form details", {
       data: allJobs,
       page,
       limit,
-      totalCount
+      totalCount,
     });
   } catch (error) {
     console.error("Error in getAllJobApplied:", error.message);
     return UnknownError(res, error);
   }
 };
-
-
 
 // get Applied candidate indivisual data //
 
@@ -1580,7 +1754,7 @@ export const getMyAppliedJobs = async (req, res) => {
     const candidateId = req.user._id;
 
     if (!candidateId) {
-      return badRequest(res, "candidate not found")
+      return badRequest(res, "candidate not found");
     }
 
     const skip = (page - 1) * limit;
@@ -1759,10 +1933,6 @@ export const getMyAppliedJobs = async (req, res) => {
   }
 };
 
-
-
-
-
 export const jobApplySendToManager = async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1827,8 +1997,6 @@ export const jobApplySendToManager = async (req, res) => {
   }
 };
 
-
-
 // Manager Review //
 export const getJobFormSendManagerReview = async (req, res) => {
   try {
@@ -1837,144 +2005,151 @@ export const getJobFormSendManagerReview = async (req, res) => {
     const filterByManagerInterview = req.query.InterviewBy; // e.g., "manager"
 
     // Step 1: Fetch job applications with managerReview status
-    const jobApplied = await jobApply.find({
-      status: "managerReview",
-    })
+    const jobApplied = await jobApply
+      .find({
+        status: "managerReview",
+      })
       .populate({
-        path: 'InterviewDetailsIds',
+        path: "InterviewDetailsIds",
         populate: [
-          { path: 'managerId', select: 'employeName' },
-          { path: 'interviewerId', select: 'employeName' },
+          { path: "managerId", select: "employeName" },
+          { path: "interviewerId", select: "employeName" },
         ],
       })
       .sort({ createdAt: -1 });
 
-
-
-
     // Step 2: Filter each application's interview details
-    const filteredData = jobApplied.map(application => {
-      const filteredInterviews = application.InterviewDetailsIds.filter(interview => {
-        const matchesManager = interview.managerId?._id?.toString() === managerID.toString();
-        const matchesInterviewTaken = !filterByInterviewTaken || interview.interviewTaken === filterByInterviewTaken;
-        const matchesInterviewer = !filterByManagerInterview || interview.interviewBy === filterByManagerInterview;
+    const filteredData = jobApplied
+      .map((application) => {
+        const filteredInterviews = application.InterviewDetailsIds.filter(
+          (interview) => {
+            const matchesManager =
+              interview.managerId?._id?.toString() === managerID.toString();
+            const matchesInterviewTaken =
+              !filterByInterviewTaken ||
+              interview.interviewTaken === filterByInterviewTaken;
+            const matchesInterviewer =
+              !filterByManagerInterview ||
+              interview.interviewBy === filterByManagerInterview;
 
-        return matchesManager && matchesInterviewTaken && matchesInterviewer;
-      });
+            return (
+              matchesManager && matchesInterviewTaken && matchesInterviewer
+            );
+          }
+        );
 
-      const sortedInterviews = filteredInterviews.sort((a, b) => b.interviewRound - a.interviewRound);
+        const sortedInterviews = filteredInterviews.sort(
+          (a, b) => b.interviewRound - a.interviewRound
+        );
 
-      return {
-        ...application.toObject(),
-        InterviewDetailsIds: sortedInterviews,
-      };
-    }).filter(application => application.InterviewDetailsIds.length > 0);
+        return {
+          ...application.toObject(),
+          InterviewDetailsIds: sortedInterviews,
+        };
+      })
+      .filter((application) => application.InterviewDetailsIds.length > 0);
 
-    success(res, "Filtered job applied forms by interviewTaken and interviewer", {
-      count: filteredData.length,
-      data: filteredData,
-    });
+    success(
+      res,
+      "Filtered job applied forms by interviewTaken and interviewer",
+      {
+        count: filteredData.length,
+        data: filteredData,
+      }
+    );
   } catch (error) {
     unknownError(res, error);
   }
 };
 
-
 export const getDashboardSummary = async (req, res) => {
   try {
-
     const orgainizationId = req.employee.organizationId;
 
- const {
-  year = new Date().getFullYear(),
-  period = "year",
-  customStartDate,
-  customEndDate
-} = req.query;
+    const {
+      year = new Date().getFullYear(),
+      period = "year",
+      customStartDate,
+      customEndDate,
+    } = req.query;
 
-let startDate, endDate;
-const now = new Date();
+    let startDate, endDate;
+    const now = new Date();
 
-// Helper functions
-const setStartOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-};
+    // Helper functions
+    const setStartOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    };
 
-const setEndOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
-};
+    const setEndOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(23, 59, 59, 999);
+      return d;
+    };
 
-if (period == "custom") {
-  if (!customStartDate || !customEndDate) {
-    return badRequest(res, "Both customStartDate and customEndDate are required when using custom period");
-  }
-  startDate = setStartOfDayUTC(new Date(customStartDate));
-  endDate = setEndOfDayUTC(new Date(customEndDate));
-}
-else if (period == "all") {
-  startDate = new Date("2000-01-01T00:00:00.000Z");
-  endDate = new Date();
-}
-else if (period == "1days") {
-  // ✅ This is what you need
-  startDate = setStartOfDayUTC(now);
-  endDate = setEndOfDayUTC(now);
-}
-else if (period == "7days") {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6); // includes today
-  startDate = setStartOfDayUTC(sevenDaysAgo);
-  endDate = setEndOfDayUTC(now);
-}
-else if (period == "30days") {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 29); // includes today
-  startDate = setStartOfDayUTC(thirtyDaysAgo);
-  endDate = setEndOfDayUTC(now);
-}
-else {
-  // full year
-  startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-  endDate = new Date(`${year}-12-31T23:59:59.999Z`);
-}
+    if (period == "custom") {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(
+          res,
+          "Both customStartDate and customEndDate are required when using custom period"
+        );
+      }
+      startDate = setStartOfDayUTC(new Date(customStartDate));
+      endDate = setEndOfDayUTC(new Date(customEndDate));
+    } else if (period == "all") {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+      endDate = new Date();
+    } else if (period == "1days") {
+      // ✅ This is what you need
+      startDate = setStartOfDayUTC(now);
+      endDate = setEndOfDayUTC(now);
+    } else if (period == "7days") {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6); // includes today
+      startDate = setStartOfDayUTC(sevenDaysAgo);
+      endDate = setEndOfDayUTC(now);
+    } else if (period == "30days") {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 29); // includes today
+      startDate = setStartOfDayUTC(thirtyDaysAgo);
+      endDate = setEndOfDayUTC(now);
+    } else {
+      // full year
+      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    }
 
-
-console.log("startDate", startDate )
-console.log("endDate", endDate);
+    console.log("startDate", startDate);
+    console.log("endDate", endDate);
 
     // Get overall application count
     const totalApplications = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
-      orgainizationId: new ObjectId(orgainizationId)
+      orgainizationId: new ObjectId(orgainizationId),
     });
-
-
-
 
     const scheduledInterviews = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: orgainizationId,
-      hrInterviewSchedule: "scheduled" // Assuming 'scheduled' is the status for interviews
-    })
+      hrInterviewSchedule: "scheduled", // Assuming 'scheduled' is the status for interviews
+    });
 
     // Get count of applications in different stages
     const statusCounts = await jobApply.aggregate([
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
           _id: "$status",
-          count: { $sum: 1 }
-        }
-      }
+          count: { $sum: 1 },
+        },
+      },
     ]);
 
     // Get AI screening statistics
@@ -1983,8 +2158,8 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           AI_Result: { $exists: true },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
@@ -1995,14 +2170,13 @@ console.log("endDate", endDate);
               $cond: [
                 { $ne: ["$matchPercentage", null] },
                 "$matchPercentage",
-                null
-              ]
-            }
-          }
-        }
-      }
+                null,
+              ],
+            },
+          },
+        },
+      },
     ]);
-
 
     // Calculate average time to hire
     const timeToHireData = await jobApply.aggregate([
@@ -2010,17 +2184,16 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           resumeShortlisted: "shortlisted",
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
           _id: null,
-          totalShortlisted: { $sum: 1 }
-        }
-      }
+          totalShortlisted: { $sum: 1 },
+        },
+      },
     ]);
-
 
     // total Pending //
     const totalPending = await jobApply.aggregate([
@@ -2028,17 +2201,16 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           resumeShortlisted: "active",
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
           _id: null,
-          totalPending: { $sum: 1 }
-        }
-      }
+          totalPending: { $sum: 1 },
+        },
+      },
     ]);
-
 
     // calcaulate the department //
 
@@ -2047,98 +2219,100 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           departmentId: { $ne: null },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
           // orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+        },
       },
       {
         $group: {
-          _id: "$departmentId"
-        }
+          _id: "$departmentId",
+        },
       },
       {
-        $count: "totalDepartments"
-      }
+        $count: "totalDepartments",
+      },
     ]);
-
 
     // avarage response time for job applications
     const avgResponse = await jobApply.aggregate([
       {
         $match: {
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $lookup: {
           from: "jobposts", // your job post collection
           localField: "jobPostId",
           foreignField: "_id",
-          as: "jobDetails"
-        }
+          as: "jobDetails",
+        },
       },
       {
-        $unwind: "$jobDetails"
+        $unwind: "$jobDetails",
       },
       {
         $addFields: {
           responseTimeInDays: {
             $divide: [
               { $subtract: ["$createdAt", "$jobDetails.createdAt"] },
-              1000 * 60 * 60 * 24 // convert milliseconds to days
-            ]
-          }
-        }
+              1000 * 60 * 60 * 24, // convert milliseconds to days
+            ],
+          },
+        },
       },
       {
         $group: {
           _id: null,
-          averageResponseTime: { $avg: "$responseTimeInDays" }
-        }
+          averageResponseTime: { $avg: "$responseTimeInDays" },
+        },
       },
       {
         $project: {
           _id: 0,
-          averageResponseTime: { $round: ["$averageResponseTime", 2] } // Round to 2 decimal places
-        }
-      }
+          averageResponseTime: { $round: ["$averageResponseTime", 2] }, // Round to 2 decimal places
+        },
+      },
     ]);
     const avgResponseTime = avgResponse[0]?.averageResponseTime || 0;
 
     // Format the response
     const departmentCount = departmentCounts[0]?.totalDepartments || 0;
 
-
     // convertion Rate //
 
     const totalApplication = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
-      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
     });
 
     const totalHired = await jobApply.countDocuments({
       orgainizationId: new ObjectId(orgainizationId), // Filter by organization
       createdAt: { $gte: startDate, $lte: endDate },
-      status: 'onBoarded' // or 'selected'
+      status: "onBoarded", // or 'selected'
     });
 
-    const conversionRate = totalApplication == 0 ? 0 : ((totalHired / totalApplication) * 100).toFixed(2);
+    const conversionRate =
+      totalApplication == 0
+        ? 0
+        : ((totalHired / totalApplication) * 100).toFixed(2);
 
     // calclulate Rejected candidates //
-    const rejectedCandidates = await jobApply.aggregate([{
-      $match: {
-        createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-        resumeShortlisted: "notshortlisted" // rejected candidates
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        totalRejected: { $sum: 1 }
-      }
-    }])
-
+    const rejectedCandidates = await jobApply.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+          resumeShortlisted: "notshortlisted", // rejected candidates
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRejected: { $sum: 1 },
+        },
+      },
+    ]);
 
     // Hire candidate
     const HireData = await jobApply.aggregate([
@@ -2147,50 +2321,46 @@ console.log("endDate", endDate);
           createdAt: { $gte: startDate, $lte: endDate },
           orgainizationId: new ObjectId(orgainizationId), // Filter by organization
           status: "onBoarded", // hired
-          joiningDate: { $ne: null } // make sure they have an actual joining date
-        }
+          joiningDate: { $ne: null }, // make sure they have an actual joining date
+        },
       },
       {
         $project: {
           timeToHire: {
             $divide: [
               { $subtract: ["$joiningDate", "$createdAt"] },
-              1000 * 60 * 60 * 24 // milliseconds to days
-            ]
-          }
-        }
+              1000 * 60 * 60 * 24, // milliseconds to days
+            ],
+          },
+        },
       },
       {
         $group: {
           _id: null,
           avgTimeToHire: { $avg: "$timeToHire" },
-          totalHired: { $sum: 1 }
-        }
-      }
+          totalHired: { $sum: 1 },
+        },
+      },
     ]);
-
 
     // 1. Count applications in the last 7 days
     const appsLast7Days = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
-      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
     });
-
 
     // 2. Count rejections in the last 7 days
     const rejectedLast7Days = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-      resumeShortlisted: 'notshortlisted'
+      resumeShortlisted: "notshortlisted",
     });
-
-
 
     // 1. Count applications in the last 7 days
     const Recommended = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
-      AI_Screeing_Result: 'Approved',
-      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+      AI_Screeing_Result: "Approved",
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
     });
 
     //Approved
@@ -2199,56 +2369,52 @@ console.log("endDate", endDate);
     const NoRecommended = await jobApply.countDocuments({
       createdAt: { $gte: startDate, $lte: endDate },
       orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-      AI_Screeing_Result: 'Rejected'
+      AI_Screeing_Result: "Rejected",
     });
-
-
-
-
 
     const topAppliedDepartments = await jobApply.aggregate([
       {
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-          departmentId: { $ne: null }
-        }
+          departmentId: { $ne: null },
+        },
       },
       {
         $lookup: {
           from: "newdepartments",
           localField: "departmentId",
           foreignField: "_id",
-          as: "departmentDetails"
-        }
+          as: "departmentDetails",
+        },
       },
       {
         $unwind: {
           path: "$departmentDetails",
-          preserveNullAndEmptyArrays: true
-        }
+          preserveNullAndEmptyArrays: true,
+        },
       },
       {
         $group: {
           _id: "$departmentId",
           departmentName: { $first: "$departmentDetails.name" },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
-        $sort: { count: -1 }
+        $sort: { count: -1 },
       },
       {
-        $limit: 500
+        $limit: 500,
       },
       {
         $project: {
           _id: 0,
           departmentId: "$_id",
           departmentName: { $ifNull: ["$departmentName", "OTHERS"] },
-          count: 1
-        }
-      }
+          count: 1,
+        },
+      },
     ]);
 
     // Get top positions
@@ -2257,28 +2423,28 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           position: { $exists: true, $ne: "" },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
           _id: "$position",
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
-        $sort: { count: -1 }
+        $sort: { count: -1 },
       },
       {
-        $limit: 500
+        $limit: 500,
       },
       {
         $project: {
           _id: 0,
           position: "$_id",
-          count: 1
-        }
-      }
+          count: 1,
+        },
+      },
     ]);
 
     // Get application source breakdown
@@ -2287,247 +2453,280 @@ console.log("endDate", endDate);
         $match: {
           createdAt: { $gte: startDate, $lte: endDate },
           knewaboutJobPostFrom: { $exists: true, $ne: null },
-          orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-        }
+          orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+        },
       },
       {
         $group: {
           _id: "$knewaboutJobPostFrom",
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       {
-        $sort: { count: -1 }
+        $sort: { count: -1 },
       },
       {
-        $limit: 500
+        $limit: 500,
       },
       {
         $project: {
           _id: 0,
           source: "$_id",
-          count: 1
-        }
-      }
+          count: 1,
+        },
+      },
     ]);
 
-// Step 1: Get job application counts
-const jobApplications = await jobApply.aggregate([
-  {
-    $match: {
-      createdAt: { $gte: startDate, $lte: endDate },
-      jobPostId: { $exists: true },
-      orgainizationId: new ObjectId(orgainizationId),
-    },
-  },
-  {
-    $group: {
-      _id: "$jobPostId",
-      count: { $sum: 1 },
-    },
-  },
-]);
-
-const jobApplicationMap = new Map(jobApplications.map(j => [j._id.toString(), j.count]));
-
-// Step 2: Sort and separate hot/cold
-const sortedApps = jobApplications.sort((a, b) => b.count - a.count);
-const hotJobPostIds = sortedApps.slice(0, 5).map(j => j._id);
-const coldJobPostIds = sortedApps
-  .filter(j => j.count <= 5 && !hotJobPostIds.includes(j._id))
-  .slice(0, 5)
-  .map(j => j._id);
-
-// Step 3: Get hot position details
-let hotPositions = await jobPostModel.aggregate([
-  {
-    $match: {
-      _id: { $in: hotJobPostIds },
-      organizationId: new ObjectId(orgainizationId),
-    },
-  },
-  {
-    $lookup: {
-      from: "newdepartments",
-      localField: "departmentId",
-      foreignField: "_id",
-      as: "departmentDetails",
-    },
-  },
-  {
-    $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
-  },
-  {
-    $addFields: {
-      daysSincePosted: {
-        $dateDiff: {
-          startDate: "$createdAt",
-          endDate: new Date(),
-          unit: "day",
+    // Step 1: Get job application counts
+    const jobApplications = await jobApply.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate },
+          jobPostId: { $exists: true },
+          orgainizationId: new ObjectId(orgainizationId),
         },
       },
-    },
-  },
-  {
-    $project: {
-      _id: 1,
-      position: 1,
-      departmentName: "$departmentDetails.name",
-      daysSincePosted: 1,
-    },
-  },
-]);
-
-hotPositions = hotPositions.map(pos => ({
-  ...pos,
-  applications: jobApplicationMap.get(pos._id.toString()) || 0,
-}));
-
-// Step 4: Get cold position details (≤ 5 apps)
-let coldPositions = await jobPostModel.aggregate([
-  {
-    $match: {
-      _id: { $in: coldJobPostIds },
-      organizationId: new ObjectId(orgainizationId),
-    },
-  },
-  {
-    $lookup: {
-      from: "newdepartments",
-      localField: "departmentId",
-      foreignField: "_id",
-      as: "departmentDetails",
-    },
-  },
-  {
-    $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
-  },
-  {
-    $addFields: {
-      daysSincePosted: {
-        $dateDiff: {
-          startDate: "$createdAt",
-          endDate: new Date(),
-          unit: "day",
+      {
+        $group: {
+          _id: "$jobPostId",
+          count: { $sum: 1 },
         },
       },
-    },
-  },
-  {
-    $project: {
-      _id: 1,
-      position: 1,
-      departmentName: "$departmentDetails.name",
-      daysSincePosted: 1,
-    },
-  },
-]);
+    ]);
 
-coldPositions = coldPositions.map(pos => ({
-  ...pos,
-  applications: jobApplicationMap.get(pos._id.toString()) || 0,
-}));
+    const jobApplicationMap = new Map(
+      jobApplications.map((j) => [j._id.toString(), j.count])
+    );
 
-// Step 5: Include 0-application jobs (fill up to 5 cold if needed)
-if (coldPositions.length < 5) {
-  const zeroApplicationPosts = await jobPostModel.aggregate([
-    {
-      $match: {
-        _id: { $nin: [...hotJobPostIds, ...coldJobPostIds] },
-        createdAt: { $lte: endDate },
-        organizationId: new ObjectId(orgainizationId),
-        status: "active",
+    // Step 2: Sort and separate hot/cold
+    const sortedApps = jobApplications.sort((a, b) => b.count - a.count);
+    const hotJobPostIds = sortedApps.slice(0, 5).map((j) => j._id);
+    const coldJobPostIds = sortedApps
+      .filter((j) => j.count <= 5 && !hotJobPostIds.includes(j._id))
+      .slice(0, 5)
+      .map((j) => j._id);
+
+    // Step 3: Get hot position details
+    let hotPositions = await jobPostModel.aggregate([
+      {
+        $match: {
+          _id: { $in: hotJobPostIds },
+          organizationId: new ObjectId(orgainizationId),
+        },
       },
-    },
-    {
-      $lookup: {
-        from: "newdepartments",
-        localField: "departmentId",
-        foreignField: "_id",
-        as: "departmentDetails",
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "departmentDetails",
+        },
       },
-    },
-    {
-      $unwind: { path: "$departmentDetails", preserveNullAndEmptyArrays: true },
-    },
-    {
-      $addFields: {
-        applications: 0,
-        daysSincePosted: {
-          $dateDiff: {
-            startDate: "$createdAt",
-            endDate: new Date(),
-            unit: "day",
+      {
+        $unwind: {
+          path: "$departmentDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          daysSincePosted: {
+            $dateDiff: {
+              startDate: "$createdAt",
+              endDate: new Date(),
+              unit: "day",
+            },
           },
         },
       },
-    },
-    {
-      $project: {
-        position: 1,
-        departmentName: "$departmentDetails.name",
-        applications: 1,
-        daysSincePosted: 1,
+      {
+        $project: {
+          _id: 1,
+          position: 1,
+          departmentName: "$departmentDetails.name",
+          daysSincePosted: 1,
+        },
       },
-    },
-    {
-      $limit: 5 - coldPositions.length,
-    },
-  ]);
+    ]);
 
-  coldPositions.push(...zeroApplicationPosts);
-}
+    hotPositions = hotPositions.map((pos) => ({
+      ...pos,
+      applications: jobApplicationMap.get(pos._id.toString()) || 0,
+    }));
 
+    // Step 4: Get cold position details (≤ 5 apps)
+    let coldPositions = await jobPostModel.aggregate([
+      {
+        $match: {
+          _id: { $in: coldJobPostIds },
+          organizationId: new ObjectId(orgainizationId),
+        },
+      },
+      {
+        $lookup: {
+          from: "newdepartments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "departmentDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$departmentDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          daysSincePosted: {
+            $dateDiff: {
+              startDate: "$createdAt",
+              endDate: new Date(),
+              unit: "day",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          position: 1,
+          departmentName: "$departmentDetails.name",
+          daysSincePosted: 1,
+        },
+      },
+    ]);
 
+    coldPositions = coldPositions.map((pos) => ({
+      ...pos,
+      applications: jobApplicationMap.get(pos._id.toString()) || 0,
+    }));
 
+    // Step 5: Include 0-application jobs (fill up to 5 cold if needed)
+    if (coldPositions.length < 5) {
+      const zeroApplicationPosts = await jobPostModel.aggregate([
+        {
+          $match: {
+            _id: { $nin: [...hotJobPostIds, ...coldJobPostIds] },
+            createdAt: { $lte: endDate },
+            organizationId: new ObjectId(orgainizationId),
+            status: "active",
+          },
+        },
+        {
+          $lookup: {
+            from: "newdepartments",
+            localField: "departmentId",
+            foreignField: "_id",
+            as: "departmentDetails",
+          },
+        },
+        {
+          $unwind: {
+            path: "$departmentDetails",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $addFields: {
+            applications: 0,
+            daysSincePosted: {
+              $dateDiff: {
+                startDate: "$createdAt",
+                endDate: new Date(),
+                unit: "day",
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            position: 1,
+            departmentName: "$departmentDetails.name",
+            applications: 1,
+            daysSincePosted: 1,
+          },
+        },
+        {
+          $limit: 5 - coldPositions.length,
+        },
+      ]);
+
+      coldPositions.push(...zeroApplicationPosts);
+    }
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate, orgainizationId);
-
+    const applicationsByDepartment = await getApplicationsByDepartment(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get current month vs previous month stats
     const currentMonth = new Date().getMonth() + 1;
-    const currentMonthStartDate = new Date(`${year}-${String(currentMonth).padStart(2, '0')}-01T00:00:00.000Z`);
-    const currentMonthEndDate = new Date(year, currentMonth, 0, 23, 59, 59, 999);
+    const currentMonthStartDate = new Date(
+      `${year}-${String(currentMonth).padStart(2, "0")}-01T00:00:00.000Z`
+    );
+    const currentMonthEndDate = new Date(
+      year,
+      currentMonth,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
     const previousMonthYear = currentMonth === 1 ? year - 1 : year;
-    const previousMonthStartDate = new Date(`${previousMonthYear}-${String(previousMonth).padStart(2, '0')}-01T00:00:00.000Z`);
-    const previousMonthEndDate = new Date(previousMonthYear, previousMonth, 0, 23, 59, 59, 999);
+    const previousMonthStartDate = new Date(
+      `${previousMonthYear}-${String(previousMonth).padStart(
+        2,
+        "0"
+      )}-01T00:00:00.000Z`
+    );
+    const previousMonthEndDate = new Date(
+      previousMonthYear,
+      previousMonth,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const currentMonthApplications = await jobApply.countDocuments({
       createdAt: { $gte: currentMonthStartDate, $lte: currentMonthEndDate },
-      orgainizationId: new ObjectId(orgainizationId) // Filter by organization
+      orgainizationId: new ObjectId(orgainizationId), // Filter by organization
     });
 
     const previousMonthApplications = await jobApply.countDocuments({
-      createdAt: { $gte: previousMonthStartDate, $lte: previousMonthEndDate }
+      createdAt: { $gte: previousMonthStartDate, $lte: previousMonthEndDate },
     });
 
     const currentMonthHired = await jobApply.countDocuments({
       createdAt: { $gte: currentMonthStartDate, $lte: currentMonthEndDate },
-      status: { $in: ["shortlisted"] }
+      status: { $in: ["shortlisted"] },
     });
 
     const previousMonthHired = await jobApply.countDocuments({
       createdAt: { $gte: previousMonthStartDate, $lte: previousMonthEndDate },
-      status: { $in: ["shortlisted"] }
+      status: { $in: ["shortlisted"] },
     });
-
 
     const currentMonthHireddatad = await jobApply.countDocuments({
       createdAt: { $gte: currentMonthStartDate, $lte: currentMonthEndDate },
-      status: { $in: ["onBoarded"] }
+      status: { $in: ["onBoarded"] },
     });
 
     const previousMonthHireddata = await jobApply.countDocuments({
       createdAt: { $gte: previousMonthStartDate, $lte: previousMonthEndDate },
-      status: { $in: ["onBoarded"] }
+      status: { $in: ["onBoarded"] },
     });
 
     // Format status counts into an object
     const statusStats = {};
-    statusCounts.forEach(item => {
+    statusCounts.forEach((item) => {
       statusStats[item._id] = item.count;
     });
 
@@ -2535,13 +2734,15 @@ if (coldPositions.length < 5) {
     const aiStats = {
       passed: 0,
       failed: 0,
-      avgMatchPercentage: 0
+      avgMatchPercentage: 0,
     };
 
-    aiScreeningStats.forEach(item => {
+    aiScreeningStats.forEach((item) => {
       if (item._id == "true") {
         aiStats.passed = item.count;
-        aiStats.avgMatchPercentage = item.avgMatch ? Number(item.avgMatch.toFixed(2)) : 0;
+        aiStats.avgMatchPercentage = item.avgMatch
+          ? Number(item.avgMatch.toFixed(2))
+          : 0;
       } else if (item._id == "false") {
         aiStats.failed = item.count;
       }
@@ -2562,46 +2763,79 @@ if (coldPositions.length < 5) {
         departmentCounts: departmentCount,
         conversionRate: conversionRate || 0,
         totalHiredCandidate: HireData[0]?.totalHired || 0,
-        avgTimeToShortlisted: timeToHireData[0]?.avgTimeToHire ? Number(timeToHireData[0].avgTimeToHire.toFixed(1)) : 0,
-        ShortlistedAVG: timeToHireData[0]?.totalHired ?
-          Number(((timeToHireData[0].totalHired / totalApplications) * 100).toFixed(2)) : 0
+        avgTimeToShortlisted: timeToHireData[0]?.avgTimeToHire
+          ? Number(timeToHireData[0].avgTimeToHire.toFixed(1))
+          : 0,
+        ShortlistedAVG: timeToHireData[0]?.totalHired
+          ? Number(
+              (
+                (timeToHireData[0].totalHired / totalApplications) *
+                100
+              ).toFixed(2)
+            )
+          : 0,
       },
 
       hotPositions: hotPositions,
       coldPositions: coldPositions,
       departments: applicationsByDepartment,
 
-
       monthOverMonth: {
         applications: {
           current: currentMonthApplications,
           previous: previousMonthApplications,
-          change_percentage: previousMonthApplications > 0 ?
-            Number((((currentMonthApplications - previousMonthApplications) / previousMonthApplications) * 100).toFixed(2)) :
-            currentMonthApplications > 0 ? 100 : 0
+          change_percentage:
+            previousMonthApplications > 0
+              ? Number(
+                  (
+                    ((currentMonthApplications - previousMonthApplications) /
+                      previousMonthApplications) *
+                    100
+                  ).toFixed(2)
+                )
+              : currentMonthApplications > 0
+              ? 100
+              : 0,
         },
         shortlisted: {
           current: currentMonthHired,
           previous: previousMonthHired,
-          changePercentage: previousMonthHired > 0 ?
-            Number((((currentMonthHired - previousMonthHired) / previousMonthHired) * 100).toFixed(2)) :
-            currentMonthHired > 0 ? 100 : 0
+          changePercentage:
+            previousMonthHired > 0
+              ? Number(
+                  (
+                    ((currentMonthHired - previousMonthHired) /
+                      previousMonthHired) *
+                    100
+                  ).toFixed(2)
+                )
+              : currentMonthHired > 0
+              ? 100
+              : 0,
         },
 
         HiredCandidate: {
           current: currentMonthHireddatad,
           previous: previousMonthHireddata,
-          changePercentage: previousMonthHireddata > 0 ?
-            Number((((currentMonthHireddatad - previousMonthHireddata) / previousMonthHireddata) * 100).toFixed(2)) :
-            currentMonthHireddatad > 0 ? 100 : 0
-
-        }
+          changePercentage:
+            previousMonthHireddata > 0
+              ? Number(
+                  (
+                    ((currentMonthHireddatad - previousMonthHireddata) /
+                      previousMonthHireddata) *
+                    100
+                  ).toFixed(2)
+                )
+              : currentMonthHireddatad > 0
+              ? 100
+              : 0,
+        },
       },
       statusBreakdown: statusStats,
       aiScreening: aiStats,
       topAppliedDepartments,
       topAppliedPositions,
-      applicationSources
+      applicationSources,
     });
   } catch (error) {
     console.error("Error in getDashboardSummary:", error);
@@ -2616,94 +2850,119 @@ if (coldPositions.length < 5) {
  */
 export const getDashboardMetrics = async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), period = "year", customStartDate,
-      customEndDate } = req.query;
+    const {
+      year = new Date().getFullYear(),
+      period = "year",
+      customStartDate,
+      customEndDate,
+    } = req.query;
 
     const orgainizationId = req.employee.organizationId;
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     let startDate, endDate;
-const now = new Date();
+    const now = new Date();
 
-// Helpers to set time to UTC start and end of day
-const setStartOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-};
+    // Helpers to set time to UTC start and end of day
+    const setStartOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    };
 
-const setEndOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
-};
+    const setEndOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(23, 59, 59, 999);
+      return d;
+    };
 
-if (period === "1days") {
-  startDate = setStartOfDayUTC(now);
-  endDate = setEndOfDayUTC(now);
-}
+    if (period === "1days") {
+      startDate = setStartOfDayUTC(now);
+      endDate = setEndOfDayUTC(now);
+    } else if (period === "7days") {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setUTCDate(now.getUTCDate() - 6); // includes today
+      startDate = setStartOfDayUTC(sevenDaysAgo);
+      endDate = setEndOfDayUTC(now);
+    } else if (period === "30days") {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setUTCDate(now.getUTCDate() - 29); // includes today
+      startDate = setStartOfDayUTC(thirtyDaysAgo);
+      endDate = setEndOfDayUTC(now);
+    } else if (period === "all") {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+      endDate = new Date(); // current time as default
+    } else if (period === "custom" && customStartDate && customEndDate) {
+      startDate = setStartOfDayUTC(new Date(customStartDate));
+      endDate = setEndOfDayUTC(new Date(customEndDate));
+    } else {
+      // Default full year range
+      startDate = new Date(`${year}-01-01T00:00:00.000Z`);
+      endDate = new Date(`${year}-12-31T23:59:59.999Z`);
+    }
 
-else if (period === "7days") {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setUTCDate(now.getUTCDate() - 6); // includes today
-  startDate = setStartOfDayUTC(sevenDaysAgo);
-  endDate = setEndOfDayUTC(now);
-}
-
-else if (period === "30days") {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setUTCDate(now.getUTCDate() - 29); // includes today
-  startDate = setStartOfDayUTC(thirtyDaysAgo);
-  endDate = setEndOfDayUTC(now);
-}
-
-else if (period === "all") {
-  startDate = new Date("2000-01-01T00:00:00.000Z");
-  endDate = new Date(); // current time as default
-}
-
-else if (period === "custom" && customStartDate && customEndDate) {
-  startDate = setStartOfDayUTC(new Date(customStartDate));
-  endDate = setEndOfDayUTC(new Date(customEndDate));
-}
-
-else {
-  // Default full year range
-  startDate = new Date(`${year}-01-01T00:00:00.000Z`);
-  endDate = new Date(`${year}-12-31T23:59:59.999Z`);
-}
-
-console.log("startDate", startDate.toISOString());
-console.log("endDate", endDate.toISOString());
-
+    console.log("startDate", startDate.toISOString());
+    console.log("endDate", endDate.toISOString());
 
     // Get applications by month
-    const applicationsByMonth = await getApplicationsByMonth(startDate, endDate, orgainizationId);
+    const applicationsByMonth = await getApplicationsByMonth(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get hiring success rate by month
-    const ShortlistedlistRate = await getHiringSuccessRate(startDate, endDate, orgainizationId);
+    const ShortlistedlistRate = await getHiringSuccessRate(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get applications by department
-    const applicationsByDepartment = await getApplicationsByDepartment(startDate, endDate, orgainizationId);
+    const applicationsByDepartment = await getApplicationsByDepartment(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get applications by status
-    const applicationsByStatus = await getApplicationsByStatus(startDate, endDate, orgainizationId);
+    const applicationsByStatus = await getApplicationsByStatus(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get AI screening metrics
-    const aiScreeningMetrics = await getAIScreeningMetrics(startDate, endDate, orgainizationId);
+    const aiScreeningMetrics = await getAIScreeningMetrics(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get positions with most applications
-    const topPositions = await getTopPositions(startDate, endDate, orgainizationId);
+    const topPositions = await getTopPositions(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get average time to hire
     const timeToHire = await getTimeToHire(startDate, endDate, orgainizationId);
 
     // Get source breakdown
-    const applicationSources = await getApplicationSources(startDate, endDate, orgainizationId);
+    const applicationSources = await getApplicationSources(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     // Get application workflow status
-    const workflowStats = await getWorkflowStats(startDate, endDate, orgainizationId);
+    const workflowStats = await getWorkflowStats(
+      startDate,
+      endDate,
+      orgainizationId
+    );
 
     return success(res, "Dashboard metrics retrieved successfully", {
       applicationsByMonth,
@@ -2714,7 +2973,7 @@ console.log("endDate", endDate.toISOString());
       topPositions,
       timeToHire,
       applicationSources,
-      workflowStats
+      workflowStats,
     });
   } catch (error) {
     console.error("Error in getDashboardMetrics:", error);
@@ -2730,27 +2989,27 @@ const getApplicationsByMonth = async (startDate, endDate, orgainizationId) => {
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
         _id: { $month: "$createdAt" },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
     {
-      $sort: { _id: 1 }
-    }
+      $sort: { _id: 1 },
+    },
   ]);
 
   // Fill in missing months with zero counts
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const result = months.map(month => {
-    const found = monthlyApplications.find(item => item._id === month);
+  const result = months.map((month) => {
+    const found = monthlyApplications.find((item) => item._id === month);
     return {
       month: getMonthName(month),
-      count: found ? found.count : 0
+      count: found ? found.count : 0,
     };
   });
 
@@ -2765,8 +3024,8 @@ const getHiringSuccessRate = async (startDate, endDate, orgainizationId) => {
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
@@ -2774,10 +3033,10 @@ const getHiringSuccessRate = async (startDate, endDate, orgainizationId) => {
         totalApplications: { $sum: 1 },
         shortlisted: {
           $sum: {
-            $cond: [{ $in: ["$status", ["shortlisted"]] }, 1, 0]
-          }
-        }
-      }
+            $cond: [{ $in: ["$status", ["shortlisted"]] }, 1, 0],
+          },
+        },
+      },
     },
     {
       $project: {
@@ -2788,25 +3047,30 @@ const getHiringSuccessRate = async (startDate, endDate, orgainizationId) => {
           $cond: [
             { $eq: ["$totalApplications", 0] },
             0,
-            { $multiply: [{ $divide: ["$shortlisted", "$totalApplications"] }, 100] }
-          ]
-        }
-      }
+            {
+              $multiply: [
+                { $divide: ["$shortlisted", "$totalApplications"] },
+                100,
+              ],
+            },
+          ],
+        },
+      },
     },
     {
-      $sort: { _id: 1 }
-    }
+      $sort: { _id: 1 },
+    },
   ]);
 
   // Fill in missing months
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const result = months.map(month => {
-    const found = monthlyStats.find(item => item._id === month);
+  const result = months.map((month) => {
+    const found = monthlyStats.find((item) => item._id === month);
     return {
       month: getMonthName(month),
       successRate: found ? Number(found.successRate.toFixed(2)) : 0,
       hired: found ? found.hired : 0,
-      totalApplications: found ? found.totalApplications : 0
+      totalApplications: found ? found.totalApplications : 0,
     };
   });
 
@@ -2816,50 +3080,54 @@ const getHiringSuccessRate = async (startDate, endDate, orgainizationId) => {
 /**
  * Helper function to get applications by department
  */
-const getApplicationsByDepartment = async (startDate, endDate, orgainizationId) => {
+const getApplicationsByDepartment = async (
+  startDate,
+  endDate,
+  orgainizationId
+) => {
   return await jobApply.aggregate([
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
         orgainizationId: new ObjectId(orgainizationId),
-        departmentId: { $ne: null }
-      }
+        departmentId: { $ne: null },
+      },
     },
     {
       $lookup: {
         from: "newdepartments",
         localField: "departmentId",
         foreignField: "_id",
-        as: "departmentDetails"
-      }
+        as: "departmentDetails",
+      },
     },
     {
       $unwind: {
         path: "$departmentDetails",
-        preserveNullAndEmptyArrays: true
-      }
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
       $group: {
         _id: "$departmentId",
         departmentName: { $first: "$departmentDetails.name" },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
     {
       $project: {
         _id: 0,
         departmentId: "$_id",
         departmentName: { $ifNull: ["$departmentName", "OTHERS"] },
-        count: 1
-      }
+        count: 1,
+      },
     },
     {
-      $sort: { count: -1 }
+      $sort: { count: -1 },
     },
     {
-      $limit: 10
-    }
+      $limit: 10,
+    },
   ]);
 };
 
@@ -2871,21 +3139,21 @@ const getApplicationsByStatus = async (startDate, endDate, orgainizationId) => {
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
         _id: "$resumeShortlisted",
-        count: { $sum: 1 }
-      }
-    }
+        count: { $sum: 1 },
+      },
+    },
   ]);
 
   // Map to more user-friendly status names
-  return statusCounts.map(item => ({
+  return statusCounts.map((item) => ({
     status: mapStatusToFriendlyName(item._id),
-    count: item.count
+    count: item.count,
   }));
 };
 
@@ -2899,14 +3167,14 @@ const getAIScreeningMetrics = async (startDate, endDate, orgainizationId) => {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
         AI_Result: { $exists: true },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
         _id: {
           month: { $month: "$createdAt" },
-          aiResult: "$AI_Result"
+          aiResult: "$AI_Result",
         },
         count: { $sum: 1 },
         avgMatchPercentage: {
@@ -2914,36 +3182,38 @@ const getAIScreeningMetrics = async (startDate, endDate, orgainizationId) => {
             $cond: [
               { $ne: ["$matchPercentage", null] },
               "$matchPercentage",
-              null
-            ]
-          }
-        }
-      }
+              null,
+            ],
+          },
+        },
+      },
     },
     {
-      $sort: { "_id.month": 1 }
-    }
+      $sort: { "_id.month": 1 },
+    },
   ]);
 
   // Process data to fill in all months
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
 
   // Create a structured result with both passed and failed for each month
-  const result = months.map(month => {
+  const result = months.map((month) => {
     const passedItem = monthlyAIResults.find(
-      item => item._id.month === month && item._id.aiResult === "true"
+      (item) => item._id.month === month && item._id.aiResult === "true"
     );
 
     const failedItem = monthlyAIResults.find(
-      item => item._id.month === month && item._id.aiResult === "false"
+      (item) => item._id.month === month && item._id.aiResult === "false"
     );
 
     return {
       month: getMonthName(month),
       passed: passedItem ? passedItem.count : 0,
       failed: failedItem ? failedItem.count : 0,
-      avgMatchPercentage: passedItem && passedItem.avgMatchPercentage ?
-        Number(passedItem.avgMatchPercentage.toFixed(2)) : 0
+      avgMatchPercentage:
+        passedItem && passedItem.avgMatchPercentage
+          ? Number(passedItem.avgMatchPercentage.toFixed(2))
+          : 0,
     };
   });
 
@@ -2959,27 +3229,27 @@ const getTopPositions = async (startDate, endDate, orgainizationId) => {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
         orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-      }
+      },
     },
     {
       $group: {
         _id: "$position",
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
     {
-      $sort: { count: -1 }
+      $sort: { count: -1 },
     },
     {
-      $limit: 100
+      $limit: 100,
     },
     {
       $project: {
         _id: 0,
         position: { $ifNull: ["$_id", "Unspecified Position"] },
-        count: 1
-      }
-    }
+        count: 1,
+      },
+    },
   ]);
 };
 
@@ -2993,8 +3263,8 @@ const getTimeToHire = async (startDate, endDate, orgainizationId) => {
         createdAt: { $gte: startDate, $lte: endDate },
         status: { $in: ["onBoarded"] },
         orgainizationId: new ObjectId(orgainizationId), // Filter by organization
-        joiningDate: { $ne: null }
-      }
+        joiningDate: { $ne: null },
+      },
     },
     {
       $project: {
@@ -3002,31 +3272,31 @@ const getTimeToHire = async (startDate, endDate, orgainizationId) => {
         timeToHire: {
           $divide: [
             { $subtract: ["$joiningDate", "$createdAt"] },
-            1000 * 60 * 60 * 24  // Convert milliseconds to days
-          ]
-        }
-      }
+            1000 * 60 * 60 * 24, // Convert milliseconds to days
+          ],
+        },
+      },
     },
     {
       $group: {
         _id: "$month",
         avgTimeToHire: { $avg: "$timeToHire" },
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
     {
-      $sort: { _id: 1 }
-    }
+      $sort: { _id: 1 },
+    },
   ]);
 
   // Fill in all months
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const result = months.map(month => {
-    const found = hiredCandidates.find(item => item._id === month);
+  const result = months.map((month) => {
+    const found = hiredCandidates.find((item) => item._id === month);
     return {
       month: getMonthName(month),
       avgDays: found ? Number(found.avgTimeToHire.toFixed(1)) : 0,
-      hires: found ? found.count : 0
+      hires: found ? found.count : 0,
     };
   });
 
@@ -3042,25 +3312,25 @@ const getApplicationSources = async (startDate, endDate, orgainizationId) => {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
         knewaboutJobPostFrom: { $exists: true, $ne: null },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
         _id: "$knewaboutJobPostFrom",
-        count: { $sum: 1 }
-      }
+        count: { $sum: 1 },
+      },
     },
     {
-      $sort: { count: -1 }
+      $sort: { count: -1 },
     },
     {
       $project: {
         _id: 0,
         source: { $ifNull: ["$_id", "Not Specified"] },
-        count: 1
-      }
-    }
+        count: 1,
+      },
+    },
   ]);
 
   return sources;
@@ -3075,8 +3345,8 @@ const getWorkflowStats = async (startDate, endDate, orgainizationId) => {
     {
       $match: {
         createdAt: { $gte: startDate, $lte: endDate },
-        orgainizationId: new ObjectId(orgainizationId) // Filter by organization
-      }
+        orgainizationId: new ObjectId(orgainizationId), // Filter by organization
+      },
     },
     {
       $group: {
@@ -3084,40 +3354,40 @@ const getWorkflowStats = async (startDate, endDate, orgainizationId) => {
         totalApplications: { $sum: 1 },
         resumeShortlisted: {
           $sum: {
-            $cond: [{ $eq: ["$resumeShortlisted", "shortlisted"] }, 1, 0]
-          }
+            $cond: [{ $eq: ["$resumeShortlisted", "shortlisted"] }, 1, 0],
+          },
         },
         hrInterviewScheduled: {
           $sum: {
-            $cond: [{ $eq: ["$hrInterviewSchedule", "scheduled"] }, 1, 0]
-          }
+            $cond: [{ $eq: ["$hrInterviewSchedule", "scheduled"] }, 1, 0],
+          },
         },
         preOfferGenerated: {
           $sum: {
-            $cond: [{ $eq: ["$preOffer", "generated"] }, 1, 0]
-          }
+            $cond: [{ $eq: ["$preOffer", "generated"] }, 1, 0],
+          },
         },
         offerGenerated: {
           $sum: {
-            $cond: [{ $eq: ["$finCooperOfferLetter", "generated"] }, 1, 0]
-          }
+            $cond: [{ $eq: ["$finCooperOfferLetter", "generated"] }, 1, 0],
+          },
         },
         hired: {
           $sum: {
-            $cond: [{ $in: ["$status", ["joined", "onBoarded"]] }, 1, 0]
-          }
-        }
-      }
+            $cond: [{ $in: ["$status", ["joined", "onBoarded"]] }, 1, 0],
+          },
+        },
+      },
     },
     {
-      $sort: { _id: 1 }
-    }
+      $sort: { _id: 1 },
+    },
   ]);
 
   // Fill in all months
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const result = months.map(month => {
-    const found = workflowData.find(item => item._id === month);
+  const result = months.map((month) => {
+    const found = workflowData.find((item) => item._id === month);
     return {
       month: getMonthName(month),
       applications: found ? found.totalApplications : 0,
@@ -3137,8 +3407,18 @@ const getWorkflowStats = async (startDate, endDate, orgainizationId) => {
  */
 const getMonthName = (monthNumber) => {
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
   return months[monthNumber - 1];
 };
@@ -3148,26 +3428,22 @@ const getMonthName = (monthNumber) => {
  */
 const mapStatusToFriendlyName = (status) => {
   const statusMap = {
-    'active': 'Active',
-    'hold': 'On Hold',
-    'inProgress': 'In Progress',
-    'reject': 'Rejected',
-    'shortlisted': 'Shortlisted',
-    'managerReview': 'Manager Review',
-    'shortlistedBYManager': 'Shortlisted by Manager',
-    'joined': 'Joined',
-    'onBoarded': 'Onboarded',
-    'notActive': 'Not Active'
+    active: "Active",
+    hold: "On Hold",
+    inProgress: "In Progress",
+    reject: "Rejected",
+    shortlisted: "Shortlisted",
+    managerReview: "Manager Review",
+    shortlistedBYManager: "Shortlisted by Manager",
+    joined: "Joined",
+    onBoarded: "Onboarded",
+    notActive: "Not Active",
   };
 
   return statusMap[status] || status;
 };
 
-
-
-
 // get candidate data //
-
 
 // export const AnalizedCandidate = async (req, res) => {
 //   try {
@@ -3279,13 +3555,16 @@ const mapStatusToFriendlyName = (status) => {
 //   }
 // };
 
-
 export const AnalizedCandidate = async (req, res) => {
   try {
-    const { position, name, mobileNumber, emailId, departmentId, search } = req.query;
+    const { position, name, mobileNumber, emailId, departmentId, search } =
+      req.query;
     const organizationId = req.employee.organizationId;
-    const targetCompany = await targetCompanyModel.findOne({ organizationId }).lean().select('deprioritizedCompanies prioritizedCompanies');
-    console.log('targetCompany', targetCompany);
+    const targetCompany = await targetCompanyModel
+      .findOne({ organizationId })
+      .lean()
+      .select("deprioritizedCompanies prioritizedCompanies");
+    console.log("targetCompany", targetCompany);
 
     // Function to check if organization matches with fuzzy logic
     // const getTargetCompanyStatus = (lastOrganizations) => {
@@ -3309,7 +3588,7 @@ export const AnalizedCandidate = async (req, res) => {
     //       const prioritizedLower = prioritized.toLowerCase().trim();
 
     //       // Fuzzy matching - check if either contains the other or if they share significant common words
-    //       if (orgLower.includes(prioritizedLower) || 
+    //       if (orgLower.includes(prioritizedLower) ||
     //           prioritizedLower.includes(orgLower) ||
     //           fuzzyMatch(orgLower, prioritizedLower)) {
     //         return "prioritized";
@@ -3330,7 +3609,7 @@ export const AnalizedCandidate = async (req, res) => {
     //       const deprioritizedLower = deprioritized.toLowerCase().trim();
 
     //       // Fuzzy matching - check if either contains the other or if they share significant common words
-    //       if (orgLower.includes(deprioritizedLower) || 
+    //       if (orgLower.includes(deprioritizedLower) ||
     //           deprioritizedLower.includes(orgLower) ||
     //           fuzzyMatch(orgLower, deprioritizedLower)) {
     //         return "deprioritized";
@@ -3341,7 +3620,6 @@ export const AnalizedCandidate = async (req, res) => {
     //   return "";
     // };
 
-
     // Updated function to get match status and company name
     const getTargetCompanyStatus = (lastOrganizations) => {
       if (!lastOrganizations || !Array.isArray(lastOrganizations)) {
@@ -3349,7 +3627,8 @@ export const AnalizedCandidate = async (req, res) => {
       }
 
       const prioritizedCompanies = targetCompany?.prioritizedCompanies || [];
-      const deprioritizedCompanies = targetCompany?.deprioritizedCompanies || [];
+      const deprioritizedCompanies =
+        targetCompany?.deprioritizedCompanies || [];
 
       for (const org of lastOrganizations) {
         if (!org) continue;
@@ -3392,13 +3671,17 @@ export const AnalizedCandidate = async (req, res) => {
 
     // Helper function for fuzzy matching based on common words
     const fuzzyMatch = (str1, str2) => {
-      const words1 = str1.split(/\s+/).filter(word => word.length > 2); // Only consider words longer than 2 chars
-      const words2 = str2.split(/\s+/).filter(word => word.length > 2);
+      const words1 = str1.split(/\s+/).filter((word) => word.length > 2); // Only consider words longer than 2 chars
+      const words2 = str2.split(/\s+/).filter((word) => word.length > 2);
 
       let commonWords = 0;
       for (const word1 of words1) {
         for (const word2 of words2) {
-          if (word1 === word2 || word1.includes(word2) || word2.includes(word1)) {
+          if (
+            word1 === word2 ||
+            word1.includes(word2) ||
+            word2.includes(word1)
+          ) {
             commonWords++;
             break;
           }
@@ -3407,37 +3690,37 @@ export const AnalizedCandidate = async (req, res) => {
 
       // Consider it a match if at least 50% of words match
       const minWords = Math.min(words1.length, words2.length);
-      return minWords > 0 && (commonWords / minWords) >= 0.5;
+      return minWords > 0 && commonWords / minWords >= 0.5;
     };
 
     // Initialize filter object properly
     let filter = {};
 
     if (position) {
-      filter.position = { $regex: position, $options: 'i' };
+      filter.position = { $regex: position, $options: "i" };
     }
 
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { mobileNumber: { $regex: search, $options: 'i' } },
-        { emailId: { $regex: search, $options: 'i' } },
-        { position: { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: "i" } },
+        { mobileNumber: { $regex: search, $options: "i" } },
+        { emailId: { $regex: search, $options: "i" } },
+        { position: { $regex: search, $options: "i" } },
       ];
     } else {
       if (name) {
-        filter.name = { $regex: name, $options: 'i' };
+        filter.name = { $regex: name, $options: "i" };
       }
 
       if (mobileNumber) {
-        filter.mobileNumber = { $regex: mobileNumber, $options: 'i' };
+        filter.mobileNumber = { $regex: mobileNumber, $options: "i" };
       }
 
       if (emailId) {
-        filter.emailId = { $regex: emailId, $options: 'i' };
+        filter.emailId = { $regex: emailId, $options: "i" };
       }
       if (position) {
-        filter.position = { $regex: position, $options: 'i' };
+        filter.position = { $regex: position, $options: "i" };
       }
     }
     if (departmentId) {
@@ -3449,16 +3732,16 @@ export const AnalizedCandidate = async (req, res) => {
         $match: {
           AI_Screeing_Status: "Completed",
           AI_Screeing_Result: { $in: ["Rejected", "Approved"] },
-          ...filter // Apply the dynamic filter
-        }
+          ...filter, // Apply the dynamic filter
+        },
       },
       {
         $lookup: {
           from: "jobposts", // Your job collection
           localField: "jobPostId",
           foreignField: "_id",
-          as: "job"
-        }
+          as: "job",
+        },
       },
       { $unwind: "$job" },
       {
@@ -3478,38 +3761,41 @@ export const AnalizedCandidate = async (req, res) => {
               AI_Confidence: "$AI_Confidence",
               appliedDate: "$createdAt",
               confidence: "$AI_Confidence",
-              resume: "$resume"
-            }
-          }
-        }
+              resume: "$resume",
+            },
+          },
+        },
       },
       {
         $addFields: {
-          averageScore: { $round: ["$averageScore", 2] }
-        }
+          averageScore: { $round: ["$averageScore", 2] },
+        },
       },
-      { $sort: { position: 1 } }
+      { $sort: { position: 1 } },
     ]);
 
     // Add targetCompany status to each candidate after aggregation
-    candidates.forEach(job => {
+    candidates.forEach((job) => {
       if (job.candidates && Array.isArray(job.candidates)) {
-        job.candidates.forEach(candidate => {
-          candidate.targetCompany = getTargetCompanyStatus(candidate.lastOrganization);
+        job.candidates.forEach((candidate) => {
+          candidate.targetCompany = getTargetCompanyStatus(
+            candidate.lastOrganization
+          );
         });
       }
     });
 
     // Flatten all candidates across positions
-    const allCandidates = candidates.flatMap(job => job.candidates || []);
+    const allCandidates = candidates.flatMap((job) => job.candidates || []);
 
     const totalCandidates = allCandidates.length;
-    const highScorers = allCandidates.filter(c => c.AI_Score >= 90).length;
+    const highScorers = allCandidates.filter((c) => c.AI_Score >= 90).length;
     const avgAIScore =
       totalCandidates > 0
         ? Math.round(
-          allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) / totalCandidates
-        )
+            allCandidates.reduce((sum, c) => sum + c.AI_Score, 0) /
+              totalCandidates
+          )
         : 0;
 
     return success(res, {
@@ -3517,8 +3803,8 @@ export const AnalizedCandidate = async (req, res) => {
       summary: {
         totalCandidates,
         highScorers,
-        avgAIScore
-      }
+        avgAIScore,
+      },
     });
   } catch (error) {
     console.error("Error in AnalizedCandidate:", error);
@@ -3536,7 +3822,9 @@ export const DeepAnalize = async (req, res) => {
       return badRequest(res, "Candidate Id not provided");
     }
 
-    let finddata = await ScreeningResultModel.findOne({ candidateId: Id }).lean();
+    let finddata = await ScreeningResultModel.findOne({
+      candidateId: Id,
+    }).lean();
     if (!finddata) {
       return success(res, "Screen Result not found");
     }
@@ -3546,8 +3834,9 @@ export const DeepAnalize = async (req, res) => {
 
     let jobdescription = null;
     if (findJd && findJd.jobDescriptionId) {
-      jobdescription = await JobDescriptionModel.findById(findJd.jobDescriptionId).lean();
-
+      jobdescription = await JobDescriptionModel.findById(
+        findJd.jobDescriptionId
+      ).lean();
     }
 
     // Merge resume into main data
@@ -3557,8 +3846,6 @@ export const DeepAnalize = async (req, res) => {
         .find({ _id: { $in: findResume.branchId } })
         .select("name address city -_id")
         .lean();
-
-
 
       // Add userInfo object
       finddata.userInfo = {
@@ -3578,20 +3865,20 @@ export const DeepAnalize = async (req, res) => {
     if (jobdescription) {
       finddata.jobdescription = {
         JobSummary: jobdescription?.jobDescription?.JobSummary || "",
-        responsibilities: jobdescription?.jobDescription?.RolesAndResponsibilities || [],
+        responsibilities:
+          jobdescription?.jobDescription?.RolesAndResponsibilities || [],
         keySkills: jobdescription?.jobDescription?.KeySkills || [],
       };
     }
 
-
-    const candidates = await ScreeningResultModel
-      .find({ organizationId: orgainizationId })
+    const candidates = await ScreeningResultModel.find({
+      organizationId: orgainizationId,
+    })
       .sort({ createdAt: -1 }) // latest created first
       .select("candidateId")
       .lean();
 
-    const index = candidates.findIndex(c => c.candidateId.toString() == Id);
-
+    const index = candidates.findIndex((c) => c.candidateId.toString() == Id);
 
     let previousCandidateId = null;
     let nextCandidateId = null;
@@ -3607,16 +3894,11 @@ export const DeepAnalize = async (req, res) => {
     finddata.previousCandidateId = previousCandidateId;
     finddata.nextCandidateId = nextCandidateId;
 
-
-
     return success(res, "fetch Screen Results", finddata);
   } catch (error) {
     return unknownError(res, error);
   }
 };
-
-
-
 
 export const getAllDeepAnalyses = async (req, res) => {
   try {
@@ -3649,7 +3931,9 @@ export const getAllDeepAnalyses = async (req, res) => {
 
         let jobdescription = null;
         if (findJd?.jobDescriptionId) {
-          jobdescription = await JobDescriptionModel.findById(findJd.jobDescriptionId).lean();
+          jobdescription = await JobDescriptionModel.findById(
+            findJd.jobDescriptionId
+          ).lean();
         }
 
         // Resume details
@@ -3672,7 +3956,8 @@ export const getAllDeepAnalyses = async (req, res) => {
         if (jobdescription) {
           result.jobdescription = {
             JobSummary: jobdescription?.jobDescription?.JobSummary || "",
-            responsibilities: jobdescription?.jobDescription?.RolesAndResponsibilities || [],
+            responsibilities:
+              jobdescription?.jobDescription?.RolesAndResponsibilities || [],
             keySkills: jobdescription?.jobDescription?.KeySkills || [],
           };
         }
@@ -3694,84 +3979,82 @@ export const getAllDeepAnalyses = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
-
 export const getDashboardOverview = async (req, res) => {
   try {
-    const { period = '30days', customStartDate, customEndDate, department } = req.query;
+    const {
+      period = "30days",
+      customStartDate,
+      customEndDate,
+      department,
+    } = req.query;
     const organizationId = req.employee.organizationId;
 
-const now = new Date();
-let startDate, endDate;
+    const now = new Date();
+    let startDate, endDate;
 
-if (period == 'custom') {
-  if (!customStartDate || !customEndDate) {
-    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
-  }
+    if (period == "custom") {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(
+          res,
+          "Both customStartDate and customEndDate are required for custom period"
+        );
+      }
 
-  startDate = new Date(customStartDate);
-  startDate.setUTCHours(0, 0, 0, 0);
+      startDate = new Date(customStartDate);
+      startDate.setUTCHours(0, 0, 0, 0);
 
-  endDate = new Date(customEndDate);
-  endDate.setUTCHours(23, 59, 59, 999);
+      endDate = new Date(customEndDate);
+      endDate.setUTCHours(23, 59, 59, 999);
+    } else if (period == "all") {
+      startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0, 0)); // Jan 1, 2000 UTC
+      endDate = new Date(); // current UTC now
+      endDate.setUTCHours(23, 59, 59, 999);
+    } else {
+      const today = new Date();
 
-} else if (period == 'all') {
-  startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0, 0)); // Jan 1, 2000 UTC
-  endDate = new Date(); // current UTC now
-  endDate.setUTCHours(23, 59, 59, 999);
+      switch (period) {
+        case "1days": {
+          const todayStart = new Date();
+          startDate = new Date(todayStart.setUTCHours(0, 0, 0, 0));
+          endDate = new Date(todayStart.setUTCHours(23, 59, 59, 999));
+          break;
+        }
 
-} else {
-  const today = new Date();
+        case "7days": {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setUTCDate(today.getUTCDate() - 7);
+          startDate = new Date(sevenDaysAgo.setUTCHours(0, 0, 0, 0));
+          endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+          break;
+        }
 
-  switch (period) {
-  case '1days': {
-  const todayStart = new Date();
-  startDate = new Date(todayStart.setUTCHours(0, 0, 0, 0));
-  endDate = new Date(todayStart.setUTCHours(23, 59, 59, 999));
-  break;
-}
+        case "90days": {
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setUTCDate(today.getUTCDate() - 90);
+          startDate = new Date(ninetyDaysAgo.setUTCHours(0, 0, 0, 0));
+          endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+          break;
+        }
 
-    case '7days': {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setUTCDate(today.getUTCDate() - 7);
-      startDate = new Date(sevenDaysAgo.setUTCHours(0, 0, 0, 0));
-      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
-      break;
+        case "30days":
+        default: {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
+          startDate = new Date(thirtyDaysAgo.setUTCHours(0, 0, 0, 0));
+          endDate = new Date(today.setUTCHours(23, 59, 59, 999));
+          break;
+        }
+      }
+      startDate.setUTCHours(0, 0, 0, 0);
     }
 
-    case '90days': {
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setUTCDate(today.getUTCDate() - 90);
-      startDate = new Date(ninetyDaysAgo.setUTCHours(0, 0, 0, 0));
-      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
-      break;
-    }
-
-    case '30days':
-    default: {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
-      startDate = new Date(thirtyDaysAgo.setUTCHours(0, 0, 0, 0));
-      endDate = new Date(today.setUTCHours(23, 59, 59, 999));
-      break;
-    }
-  }
-  startDate.setUTCHours(0, 0, 0, 0);
-}
-
-console.log("startDate", startDate);
-console.log("endDate", endDate);
-
+    console.log("startDate", startDate);
+    console.log("endDate", endDate);
 
     // Filter object
     const filter = {
       organizationId: new ObjectId(organizationId),
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { $gte: startDate, $lte: endDate },
     };
     
     // for only job apply
@@ -3784,8 +4067,7 @@ console.log("endDate", endDate);
 
     if (department) filter.department = department;
 
-
-    console.log("filter" , filter)
+    console.log("filter", filter);
 
     // Dashboard queries
     const [
@@ -3798,38 +4080,38 @@ console.log("endDate", endDate);
       PendingApplication
     ] = await Promise.all([
       ScreeningResultModel.countDocuments(filter),
-      ScreeningResultModel.countDocuments({ ...filter, decision: 'Approved' }),
-      ScreeningResultModel.countDocuments({ ...filter, decision: 'Rejected' }),
+      ScreeningResultModel.countDocuments({ ...filter, decision: "Approved" }),
+      ScreeningResultModel.countDocuments({ ...filter, decision: "Rejected" }),
       ScreeningResultModel.aggregate([
         { $match: filter },
-        { $group: { _id: null, avgSpeed: { $avg: '$AI_Processing_Speed' } } }
+        { $group: { _id: null, avgSpeed: { $avg: "$AI_Processing_Speed" } } },
       ]),
       ScreeningResultModel.aggregate([
         { $match: filter },
-        { $group: { _id: null, avgConf: { $avg: '$AI_Confidence' } } }
+        { $group: { _id: null, avgConf: { $avg: "$AI_Confidence" } } },
       ]),
       ScreeningResultModel.aggregate([
         { $match: filter },
         {
           $group: {
-            _id: '$department',
+            _id: "$department",
             total: { $sum: 1 },
             approved: {
-              $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ["$decision", "Approved"] }, 1, 0] },
             },
-            avgScore: { $avg: '$overallScore' }
-          }
+            avgScore: { $avg: "$overallScore" },
+          },
         },
         {
           $addFields: {
             passRate: {
               $cond: [
-                { $eq: ['$total', 0] },
+                { $eq: ["$total", 0] },
                 0,
-                { $multiply: [{ $divide: ['$approved', '$total'] }, 100] }
-              ]
-            }
-          }
+                { $multiply: [{ $divide: ["$approved", "$total"] }, 100] },
+              ],
+            },
+          },
         },
         { $sort: { total: -1 } }
       ]),
@@ -3863,32 +4145,30 @@ console.log("endDate", endDate);
         interviewScheduled: 0,
         aiConfidence: `${Math.round(confidence)}%`,
         activeDepartments: departmentStats.length,
-        topSkillMatch: `${approvalRate}%`
+        topSkillMatch: `${approvalRate}%`,
       },
       analytics: {
         accuracyRate: `${Math.round(confidence * 0.94)}%`,
-        highScorers: Math.round(approved * 0.6)
+        highScorers: Math.round(approved * 0.6),
       },
-      departmentPerformance: departmentStats.map(dept => ({
+      departmentPerformance: departmentStats.map((dept) => ({
         department: dept._id,
         totalApps: dept.total,
         approved: dept.approved,
         Reject: dept.total - dept.approved,
         passRate: `${Math.round(dept.passRate)}%`,
-        avgScore: Math.round(dept.avgScore || 0)
-      }))
+        avgScore: Math.round(dept.avgScore || 0),
+      })),
     };
 
     return success(res, "AI Dashboard", dashboardData);
-
   } catch (error) {
-    console.error('Dashboard Overview Error:', error);
+    console.error("Dashboard Overview Error:", error);
     return unknownError(res, error);
   }
 };
 
-
-// Screening Analytics API  
+// Screening Analytics API
 // export const getScreeningAnalytics = async (req, res) => {
 //   try {
 //     const { department, period = '30d' } = req.query;
@@ -4059,95 +4339,92 @@ console.log("endDate", endDate);
 //   }
 // };
 
-
-
-// Enhanced Screening Analytics API  
+// Enhanced Screening Analytics API
 export const getScreeningAnalytics = async (req, res) => {
   try {
-
-    const { department, period = '30days',
+    const {
+      department,
+      period = "30days",
       customStartDate,
-      customEndDate } = req.query;
+      customEndDate,
+    } = req.query;
 
+    const now = new Date();
 
-   const now = new Date();
+    // Utility functions
+    const setStartOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    };
 
-// Utility functions
-const setStartOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-};
+    const setEndOfDayUTC = (date) => {
+      const d = new Date(date);
+      d.setUTCHours(23, 59, 59, 999);
+      return d;
+    };
 
-const setEndOfDayUTC = (date) => {
-  const d = new Date(date);
-  d.setUTCHours(23, 59, 59, 999);
-  return d;
-};
+    let startDate, endDate;
 
-let startDate, endDate;
+    if (period === "custom") {
+      if (!customStartDate || !customEndDate) {
+        return badRequest(
+          res,
+          "Both customStartDate and customEndDate are required for custom period"
+        );
+      }
+      startDate = setStartOfDayUTC(new Date(customStartDate));
+      endDate = setEndOfDayUTC(new Date(customEndDate));
+    } else if (period === "all") {
+      startDate = new Date("2000-01-01T00:00:00.000Z");
+      endDate = new Date(); // now
+      endDate = setEndOfDayUTC(endDate);
+    } else {
+      const current = new Date();
+      endDate = setEndOfDayUTC(current);
 
-if (period === 'custom') {
-  if (!customStartDate || !customEndDate) {
-    return badRequest(res, "Both customStartDate and customEndDate are required for custom period");
-  }
-  startDate = setStartOfDayUTC(new Date(customStartDate));
-  endDate = setEndOfDayUTC(new Date(customEndDate));
-}
+      switch (period) {
+        case "1days": {
+          const oneDayAgo = new Date();
+          oneDayAgo.setUTCDate(current.getUTCDate());
+          startDate = setStartOfDayUTC(oneDayAgo);
+          break;
+        }
 
-else if (period === 'all') {
-  startDate = new Date("2000-01-01T00:00:00.000Z");
-  endDate = new Date(); // now
-  endDate = setEndOfDayUTC(endDate);
-}
+        case "7days": {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setUTCDate(current.getUTCDate() - 6); // Include today
+          startDate = setStartOfDayUTC(sevenDaysAgo);
+          break;
+        }
 
-else {
-  const current = new Date();
-  endDate = setEndOfDayUTC(current);
+        case "90days": {
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setUTCDate(current.getUTCDate() - 89); // Include today
+          startDate = setStartOfDayUTC(ninetyDaysAgo);
+          break;
+        }
 
-  switch (period) {
-    case '1days': {
-      const oneDayAgo = new Date();
-      oneDayAgo.setUTCDate(current.getUTCDate());
-      startDate = setStartOfDayUTC(oneDayAgo);
-      break;
+        case "30days":
+        default: {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setUTCDate(current.getUTCDate() - 29); // Include today
+          startDate = setStartOfDayUTC(thirtyDaysAgo);
+          break;
+        }
+      }
     }
 
-    case '7days': {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setUTCDate(current.getUTCDate() - 6); // Include today
-      startDate = setStartOfDayUTC(sevenDaysAgo);
-      break;
-    }
-
-    case '90days': {
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setUTCDate(current.getUTCDate() - 89); // Include today
-      startDate = setStartOfDayUTC(ninetyDaysAgo);
-      break;
-    }
-
-    case '30days':
-    default: {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setUTCDate(current.getUTCDate() - 29); // Include today
-      startDate = setStartOfDayUTC(thirtyDaysAgo);
-      break;
-    }
-  }
-}
-
-console.log("startDate:", startDate.toISOString());
-console.log("endDate:", endDate.toISOString());
-
+    console.log("startDate:", startDate.toISOString());
+    console.log("endDate:", endDate.toISOString());
 
     const filter = {
       createdAt: { $gte: startDate, $lte: endDate },
-      organizationId: new ObjectId(req.employee.organizationId)
+      organizationId: new ObjectId(req.employee.organizationId),
     };
     if (department) filter.department = department;
 
-    const finddata = await ScreeningResultModel.findOne(filter)
+    const finddata = await ScreeningResultModel.findOne(filter);
 
     // Get analytics data
     const [
@@ -4156,22 +4433,21 @@ console.log("endDate:", endDate.toISOString());
       trendsData,
       positionMetrics,
       hotPositions,
-      coldPositions
+      coldPositions,
     ] = await Promise.all([
       // Top rejection reasons
       ScreeningResultModel.aggregate([
-        { $match: { ...filter, decision: 'Rejected' } },
-        { $unwind: '$rejectReason' },
+        { $match: { ...filter, decision: "Rejected" } },
+        { $unwind: "$rejectReason" },
         {
           $group: {
-            _id: '$rejectReason.point',
-            count: { $sum: 1 }
-          }
+            _id: "$rejectReason.point",
+            count: { $sum: 1 },
+          },
         },
         { $sort: { count: -1 } },
-        { $limit: 5 }
+        { $limit: 5 },
       ]),
-
 
       // Skills assessment radar
       ScreeningResultModel.aggregate([
@@ -4179,17 +4455,17 @@ console.log("endDate:", endDate.toISOString());
         {
           $group: {
             _id: null,
-            technicalSkills: { $avg: '$breakdown.skillsMatch' },
-            experienceSkills: { $avg: '$breakdown.experienceMatch' },
-            educationMatch: { $avg: '$breakdown.educationMatch' },
-            communicationSkills: { $avg: '$breakdown.Communication_Skills' },
-            leadershipSkills: { $avg: '$breakdown.Leadership_Initiative' },
-            projectExposure: { $avg: '$breakdown.Project_Exposure' },
-            learningAbility: { $avg: '$breakdown.Learning_Ability' },
-            culturalFit: { $avg: '$breakdown.Cultural_Fit' },
-            certification: { $avg: '$breakdown.CertificateMatch' }
-          }
-        }
+            technicalSkills: { $avg: "$breakdown.skillsMatch" },
+            experienceSkills: { $avg: "$breakdown.experienceMatch" },
+            educationMatch: { $avg: "$breakdown.educationMatch" },
+            communicationSkills: { $avg: "$breakdown.Communication_Skills" },
+            leadershipSkills: { $avg: "$breakdown.Leadership_Initiative" },
+            projectExposure: { $avg: "$breakdown.Project_Exposure" },
+            learningAbility: { $avg: "$breakdown.Learning_Ability" },
+            culturalFit: { $avg: "$breakdown.Cultural_Fit" },
+            certification: { $avg: "$breakdown.CertificateMatch" },
+          },
+        },
       ]),
 
       // AI Confidence distribution
@@ -4197,73 +4473,77 @@ console.log("endDate:", endDate.toISOString());
         { $match: filter },
         {
           $bucket: {
-            groupBy: '$AI_Confidence',
+            groupBy: "$AI_Confidence",
             boundaries: [0, 60, 80, 100],
-            default: 'other',
+            default: "other",
             output: {
               count: { $sum: 1 },
-              avgScore: { $avg: '$overallScore' }
-            }
-          }
-        }
+              avgScore: { $avg: "$overallScore" },
+            },
+          },
+        },
       ]),
 
       // Weekly trends
-ScreeningResultModel.aggregate([
-  { $match: filter },
-  {
-    $group: {
-      _id: '$position', // Taking position directly from ScreeningResultModel
-      applications: { $sum: 1 },
-      approved: {
-        $sum: {
-          $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0]
-        }
-      },
-      avgScore: { $avg: '$overallScore' },
-      department: { $first: '$department' } // Optional: include department
-    }
-  },
-  {
-    $addFields: {
-      passRate: {
-        $cond: [
-          { $gt: ['$applications', 0] },
-          { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
-          0
-        ]
-      }
-    }
-  },
-  { $sort: { applications: -1 } }
-]),
-
-
+      ScreeningResultModel.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: "$position", // Taking position directly from ScreeningResultModel
+            applications: { $sum: 1 },
+            approved: {
+              $sum: {
+                $cond: [{ $eq: ["$decision", "Approved"] }, 1, 0],
+              },
+            },
+            avgScore: { $avg: "$overallScore" },
+            department: { $first: "$department" }, // Optional: include department
+          },
+        },
+        {
+          $addFields: {
+            passRate: {
+              $cond: [
+                { $gt: ["$applications", 0] },
+                {
+                  $multiply: [{ $divide: ["$approved", "$applications"] }, 100],
+                },
+                0,
+              ],
+            },
+          },
+        },
+        { $sort: { applications: -1 } },
+      ]),
 
       // Position Performance Matrix
       ScreeningResultModel.aggregate([
         { $match: filter },
         {
           $group: {
-            _id: '$position',
+            _id: "$position",
             applications: { $sum: 1 },
-            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
-            avgScore: { $avg: '$overallScore' },
-            department: { $first: '$department' }
-          }
+            approved: {
+              $sum: { $cond: [{ $eq: ["$decision", "Approved"] }, 1, 0] },
+            },
+            avgScore: { $avg: "$overallScore" },
+            department: { $first: "$department" },
+          },
         },
         {
           $addFields: {
             passRate: {
               $cond: [
-                { $gt: ['$applications', 0] },
-                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
-                0
-              ]
-            }
-          }
+                { $gt: ["$applications", 0] },
+                {
+                  $multiply: [{ $divide: ["$approved", "$applications"] }, 100],
+                },
+                0,
+              ],
+            },
+          },
         },
-        { $sort: { applications: -1, passRate: -1 } }
+        { $sort: { applications: -1, passRate: -1 } },
       ]),
 
       // Hot Positions (High volume, high success rate)
@@ -4271,32 +4551,36 @@ ScreeningResultModel.aggregate([
         { $match: filter },
         {
           $group: {
-            _id: '$position',
+            _id: "$position",
             applications: { $sum: 1 },
-            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
-            avgScore: { $avg: '$overallScore' },
-            department: { $first: '$department' }
-          }
+            approved: {
+              $sum: { $cond: [{ $eq: ["$decision", "Approved"] }, 1, 0] },
+            },
+            avgScore: { $avg: "$overallScore" },
+            department: { $first: "$department" },
+          },
         },
         {
           $addFields: {
             passRate: {
               $cond: [
-                { $gt: ['$applications', 0] },
-                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
-                0
-              ]
-            }
-          }
+                { $gt: ["$applications", 0] },
+                {
+                  $multiply: [{ $divide: ["$approved", "$applications"] }, 100],
+                },
+                0,
+              ],
+            },
+          },
         },
         {
           $match: {
             applications: { $gte: 5 }, // High volume threshold
-            passRate: { $gte: 70 }      // High success rate threshold
-          }
+            passRate: { $gte: 70 }, // High success rate threshold
+          },
         },
         { $sort: { applications: -1, passRate: -1 } },
-        { $limit: 4 }
+        { $limit: 4 },
       ]),
 
       // Cold Positions (Low volume or low success rate)
@@ -4304,52 +4588,62 @@ ScreeningResultModel.aggregate([
         { $match: filter },
         {
           $group: {
-            _id: '$position',
+            _id: "$position",
             applications: { $sum: 1 },
-            approved: { $sum: { $cond: [{ $eq: ['$decision', 'Approved'] }, 1, 0] } },
-            avgScore: { $avg: '$overallScore' },
-            department: { $first: '$department' }
-          }
+            approved: {
+              $sum: { $cond: [{ $eq: ["$decision", "Approved"] }, 1, 0] },
+            },
+            avgScore: { $avg: "$overallScore" },
+            department: { $first: "$department" },
+          },
         },
         {
           $addFields: {
             passRate: {
               $cond: [
-                { $gt: ['$applications', 0] },
-                { $multiply: [{ $divide: ['$approved', '$applications'] }, 100] },
-                0
-              ]
-            }
-          }
+                { $gt: ["$applications", 0] },
+                {
+                  $multiply: [{ $divide: ["$approved", "$applications"] }, 100],
+                },
+                0,
+              ],
+            },
+          },
         },
         {
           $match: {
             $or: [
               { applications: { $lt: 5 } }, // Low volume
-              { passRate: { $lt: 70 } }      // Low success rate
-            ]
-          }
+              { passRate: { $lt: 70 } }, // Low success rate
+            ],
+          },
         },
         { $sort: { applications: 1, passRate: 1 } },
-        { $limit: 4 }
-      ])
+        { $limit: 4 },
+      ]),
     ]);
 
     // Process rejection reasons with percentages
-    const totalRejections = rejectionReasons.reduce((sum, reason) => sum + reason.count, 0);
-    const processedRejectionReasons = rejectionReasons.map(reason => ({
-      reason: reason._id || 'Insufficient Experience',
+    const totalRejections = rejectionReasons.reduce(
+      (sum, reason) => sum + reason.count,
+      0
+    );
+    const processedRejectionReasons = rejectionReasons.map((reason) => ({
+      reason: reason._id || "Insufficient Experience",
       count: reason.count,
-      percentage: totalRejections > 0 ? Math.round((reason.count / totalRejections) * 100) : 0
+      percentage:
+        totalRejections > 0
+          ? Math.round((reason.count / totalRejections) * 100)
+          : 0,
     }));
 
     // Default rejection reasons if no data
     const defaultRejectionReasons = [
-      { reason: 'Insufficient Experience', count: 0, percentage: 0 },
-      { reason: 'Skills Mismatch', count: 0, percentage: 0 },
-      { reason: 'Poor Communication', count: 0, percentage: 0 },
-      { reason: 'Cultural Fit', count: 0, percentage: 0 },
-      { reason: 'Salary Expectations', count: 0, percentage: 0 }
+      { reason: "Insufficient Experience", count: 0, percentage: 0 },
+      { reason: "Skills Mismatch", count: 0, percentage: 0 },
+      { reason: "Poor Communication", count: 0, percentage: 0 },
+      { reason: "Cultural Fit", count: 0, percentage: 0 },
+      { reason: "Salary Expectations", count: 0, percentage: 0 },
     ];
 
     // Skills radar data
@@ -4363,7 +4657,7 @@ ScreeningResultModel.aggregate([
       leadership: Math.round(skillsData.leadershipSkills || 0),
       adaptability: Math.round(skillsData.learningAbility || 0),
       culturalFit: Math.round(skillsData.culturalFit || 0),
-      certification: Math.round(skillsData.certification || 0)
+      certification: Math.round(skillsData.certification || 0),
     };
 
     // Confidence distribution
@@ -4382,63 +4676,94 @@ ScreeningResultModel.aggregate([
     // }));
 
     // Process position metrics for dashboard cards
-    const processedPositionMetrics = positionMetrics.map(pos => ({
+    const processedPositionMetrics = positionMetrics.map((pos) => ({
       position: pos._id,
       department: pos.department,
       applications: pos.applications,
       approved: pos.approved,
       passRate: Math.round(pos.passRate),
       avgScore: Math.round(pos.avgScore || 0),
-      volume: pos.applications >= 70 ? 'High Volume' : pos.applications >= 5 ? 'Medium Volume' : 'Low Volume',
-      status: pos.passRate >= 70 ? 'Excellent' : pos.passRate >= 60 ? 'Good' : pos.passRate >= 40 ? 'Average' : 'Needs Attention'
+      volume:
+        pos.applications >= 70
+          ? "High Volume"
+          : pos.applications >= 5
+          ? "Medium Volume"
+          : "Low Volume",
+      status:
+        pos.passRate >= 70
+          ? "Excellent"
+          : pos.passRate >= 60
+          ? "Good"
+          : pos.passRate >= 40
+          ? "Average"
+          : "Needs Attention",
     }));
 
     // Process hot positions
-    const processedHotPositions = hotPositions.map(pos => ({
+    const processedHotPositions = hotPositions.map((pos) => ({
       position: pos._id,
       department: pos.department,
       applications: pos.applications,
       passRate: Math.round(pos.passRate),
       avgScore: Math.round(pos.avgScore || 0),
-      status: 'Trending'
+      status: "Trending",
     }));
 
-    // Process cold positions  
-    const processedColdPositions = coldPositions.map(pos => ({
+    // Process cold positions
+    const processedColdPositions = coldPositions.map((pos) => ({
       position: pos._id,
       department: pos.department,
       applications: pos.applications,
       passRate: Math.round(pos.passRate),
       avgScore: Math.round(pos.avgScore || 0),
-      status: 'Needs Attention'
+      status: "Needs Attention",
     }));
 
     // Calculate dashboard summary metrics
-    const totalApplications = processedPositionMetrics.reduce((sum, pos) => sum + pos.applications, 0);
-    const totalApproved = processedPositionMetrics.reduce((sum, pos) => sum + pos.approved, 0);
-    const overallPassRate = totalApplications > 0 ? Math.round((totalApproved / totalApplications) * 100) : 0;
+    const totalApplications = processedPositionMetrics.reduce(
+      (sum, pos) => sum + pos.applications,
+      0
+    );
+    const totalApproved = processedPositionMetrics.reduce(
+      (sum, pos) => sum + pos.approved,
+      0
+    );
+    const overallPassRate =
+      totalApplications > 0
+        ? Math.round((totalApproved / totalApplications) * 100)
+        : 0;
 
     const analyticsData = {
       period,
-      rejectionReasons: processedRejectionReasons.length > 0 ? processedRejectionReasons : defaultRejectionReasons,
+      rejectionReasons:
+        processedRejectionReasons.length > 0
+          ? processedRejectionReasons
+          : defaultRejectionReasons,
       skillsRadar,
       // confidenceDistribution: processedConfidenceData,
 
-      trends: trendsData.map(trend => ({
+      trends: trendsData.map((trend) => ({
         week: trend._id,
         applications: trend.applications,
         approved: trend.approved,
-        approvalRate: trend.applications > 0 ? Math.round((trend.approved / trend.applications) * 100) : 0,
-        avgScore: Math.round(trend.avgScore || 0)
+        approvalRate:
+          trend.applications > 0
+            ? Math.round((trend.approved / trend.applications) * 100)
+            : 0,
+        avgScore: Math.round(trend.avgScore || 0),
       })),
 
       dashboard: {
         hotPositions: processedHotPositions.slice(0, 4),
         coldPositions: processedColdPositions.slice(0, 4),
         positionMatrix: {
-          highVolume: processedPositionMetrics.filter(pos => pos.applications >= 5),
-          lowVolume: processedPositionMetrics.filter(pos => pos.applications < 20)
-        }
+          highVolume: processedPositionMetrics.filter(
+            (pos) => pos.applications >= 5
+          ),
+          lowVolume: processedPositionMetrics.filter(
+            (pos) => pos.applications < 20
+          ),
+        },
       },
 
       summary: {
@@ -4446,26 +4771,33 @@ ScreeningResultModel.aggregate([
         totalApplications,
         totalApproved,
         overallPassRate,
-        topRejectionReason: processedRejectionReasons[0]?.reason || 'Insufficient Experience',
-        avgSkillScore: Math.round(Object.values(skillsRadar).reduce((a, b) => a + b, 0) / Object.keys(skillsRadar).length),
+        topRejectionReason:
+          processedRejectionReasons[0]?.reason || "Insufficient Experience",
+        avgSkillScore: Math.round(
+          Object.values(skillsRadar).reduce((a, b) => a + b, 0) /
+            Object.keys(skillsRadar).length
+        ),
         hotPositionsCount: processedHotPositions.length,
         coldPositionsCount: processedColdPositions.length,
-        topPerformingPosition: processedPositionMetrics[0]?.position || 'N/A',
-        avgPassRate: processedPositionMetrics.length > 0
-          ? Math.round(processedPositionMetrics.reduce((sum, pos) => sum + pos.passRate, 0) / processedPositionMetrics.length)
-          : 0
-      }
+        topPerformingPosition: processedPositionMetrics[0]?.position || "N/A",
+        avgPassRate:
+          processedPositionMetrics.length > 0
+            ? Math.round(
+                processedPositionMetrics.reduce(
+                  (sum, pos) => sum + pos.passRate,
+                  0
+                ) / processedPositionMetrics.length
+              )
+            : 0,
+      },
     };
 
     return success(res, "analyticsData", analyticsData);
-
   } catch (error) {
-    console.error('Screening Analytics Error:', error);
+    console.error("Screening Analytics Error:", error);
     return unknownError(res, error);
   }
 };
-
-
 
 export const getJobApplyFields = async (req, res) => {
   try {
@@ -4479,55 +4811,61 @@ export const getJobApplyFields = async (req, res) => {
   }
 };
 
-
-
 export const calculatexcelcount = async (req, res) => {
   try {
-
     const orgainizationId = req.employee.organizationId;
     const count = req.body.count;
     if (!orgainizationId) {
       return badRequest(res, "Organization ID not provided");
     }
 
-    const activePlan = await organizationPlanModel.findOne({ organizationId: orgainizationId, isActive: true }).lean();
+    const activePlan = await organizationPlanModel
+      .findOne({ organizationId: orgainizationId, isActive: true })
+      .lean();
     if (!activePlan) {
       return badRequest(res, "No active plan found for this organization");
     }
 
-    const createdAt = new Date(activePlan.createdAt);
-    const expiryDate = new Date(createdAt);
-    expiryDate.setDate(expiryDate.getDate() + (activePlan.Numberofdownloads || 0));
+    const PlanDate = new Date(activePlan.PlanDate);
+    const expiryDate = new Date(PlanDate);
+    expiryDate.setDate(
+      expiryDate.getDate() + (activePlan.Numberofdownloads || 0)
+    );
 
     if (new Date() > expiryDate) {
-      return badRequest(res, "Your plan has expired. Please renew your plan to continue using the service.");
+      return badRequest(
+        res,
+        "Your plan has expired. Please renew your plan to continue using the service."
+      );
     }
-
 
     if (count > activePlan.Numberofdownloads) {
-      return badRequest(res, `You can only download ${activePlan.Numberofdownloads} times. Please upgrade your plan to download more.`);
+      return badRequest(
+        res,
+        `You can only download ${activePlan.Numberofdownloads} times. Please upgrade your plan to download more.`
+      );
     }
-
 
     // decrese Numberofdownloads from active plan
 
     if (activePlan.Numberofdownloads > 0) {
-      const Updateservice = await organizationPlanModel.findOneAndUpdate(
-        { organizationId: orgainizationId, isActive: true },
-        { $inc: { Numberofdownloads: -count } },
-        { new: true }
-      ).lean();
+      const Updateservice = await organizationPlanModel
+        .findOneAndUpdate(
+          { organizationId: orgainizationId, isActive: true },
+          { $inc: { Numberofdownloads: -count } },
+          { new: true }
+        )
+        .lean();
     }
 
-
-    return success(res, "Excel download successfully", { remainingDownloads: activePlan.Numberofdownloads - count });
-  }
-  catch (error) {
+    return success(res, "Excel download successfully", {
+      remainingDownloads: activePlan.Numberofdownloads - count,
+    });
+  } catch (error) {
     console.error("Error in calculatexcelcount:", error);
     return unknownError(res, error);
   }
-}
-
+};
 
 export const exportJobApplicationsExcel = async (req, res) => {
   try {
@@ -4653,7 +4991,10 @@ export const exportJobApplicationsExcel = async (req, res) => {
       return success(res, "No job applications found", []);
     }
 
-    const fileUrl = await generateExcelAndUpload(jobAppliedDetails, "Job_Applications_Report");
+    const fileUrl = await generateExcelAndUpload(
+      jobAppliedDetails,
+      "Job_Applications_Report"
+    );
 
     return success(res, "Excel file generated and uploaded", { url: fileUrl });
   } catch (error) {
@@ -4661,8 +5002,6 @@ export const exportJobApplicationsExcel = async (req, res) => {
     return unknownError(res, error);
   }
 };
-
-
 
 export const assignCandidateUniqueIds = async (req, res) => {
   try {
@@ -4672,7 +5011,8 @@ export const assignCandidateUniqueIds = async (req, res) => {
       return badRequest(res, "Valid organizationId is required");
     }
 
-    const candidates = await jobApply.find({ orgainizationId: organizationId })
+    const candidates = await jobApply
+      .find({ orgainizationId: organizationId })
       .sort({ createdAt: 1 }) // Sort by latest first
       .select("_id")
       .lean();
@@ -4686,8 +5026,8 @@ export const assignCandidateUniqueIds = async (req, res) => {
       return {
         updateOne: {
           filter: { _id: candidate._id },
-          update: { $set: { candidateUniqueId: `FIN${paddedNumber}` } }
-        }
+          update: { $set: { candidateUniqueId: `FIN${paddedNumber}` } },
+        },
       };
     });
 
@@ -4702,38 +5042,31 @@ export const assignCandidateUniqueIds = async (req, res) => {
   }
 };
 
-
-
-
-
-
 export const convertBranchIdToArray = async (req, res) => {
   try {
     const updated = await jobApply.updateMany(
-      { branchId: { $type: 'objectId' } }, // Only those where branchId is a single ID
+      { branchId: { $type: "objectId" } }, // Only those where branchId is a single ID
       [
         {
           $set: {
-            branchId: ["$branchId"] // Wrap the current value into an array
-          }
-        }
+            branchId: ["$branchId"], // Wrap the current value into an array
+          },
+        },
       ]
     );
 
     return res.status(200).json({
-      message: 'branchId converted to array successfully',
+      message: "branchId converted to array successfully",
       matchedCount: updated.matchedCount,
-      modifiedCount: updated.modifiedCount
+      modifiedCount: updated.modifiedCount,
     });
   } catch (error) {
-    console.error('Error updating branchId:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error updating branchId:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-
 // Upload Bulk Resume //
-
 
 // export const bulkJobApplyWithResumeExtraction = async (req, res) => {
 //   try {
@@ -4802,7 +5135,6 @@ export const convertBranchIdToArray = async (req, res) => {
 
 //     results.push({ resume: resumeUrl, status: "success" });
 
-
 //       // ✅ Queue folder & file save operation
 //         fileOpsQueue.push(
 //           (async () => {
@@ -4860,7 +5192,6 @@ export const convertBranchIdToArray = async (req, res) => {
 //           })()
 //         );
 
-
 //     if (AIdata) {
 //       aiQueue.push(
 //         processAIScreeningForCandidate({
@@ -4896,24 +5227,31 @@ export const convertBranchIdToArray = async (req, res) => {
 //   }
 // };
 
-
-
 export const bulkJobApplyWithResumeExtraction = async (req, res) => {
   try {
     const { resumes, jobPostId, branchId } = req.body;
 
     if (!jobPostId || !resumes?.length || !branchId?.length) {
-      return badRequest(res, "Missing required fields: resumes, jobPostId, or branchId.");
+      return badRequest(
+        res,
+        "Missing required fields: resumes, jobPostId, or branchId."
+      );
     }
 
     const jobPost = await jobPostModel.findById(jobPostId).lean();
     if (!jobPost) return badRequest(res, "Invalid Job Post");
 
     const organizationId = jobPost.organizationId;
-    const AIdata = await AiScreening.findOne({ autoScreening: true, organizationId });
+    const AIdata = await AiScreening.findOne({
+      autoScreening: true,
+      organizationId,
+    });
 
-    const findDesignation = await designationModel.findById(jobPost.designationId).lean();
-    if (!findDesignation) return badRequest(res, "Designation not found for this job post.");
+    const findDesignation = await designationModel
+      .findById(jobPost.designationId)
+      .lean();
+    if (!findDesignation)
+      return badRequest(res, "Designation not found for this job post.");
 
     const results = [];
     const fileOpsQueue = [];
@@ -4923,21 +5261,27 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
       const parsedData = await extractCandidateDataFromResume(resumeUrl);
 
       if (!parsedData || !parsedData.name || !parsedData.emailId) {
-        results.push({ resume: resumeUrl, status: "failed", reason: "Resume parsing failed" });
+        results.push({
+          resume: resumeUrl,
+          status: "failed",
+          reason: "Resume parsing failed",
+        });
         continue;
       }
 
       try {
-        const existing = await jobApply.findOne({
-          emailId: parsedData.emailId.trim(),
-          jobPostId: jobPostId
-        }).lean();
+        const existing = await jobApply
+          .findOne({
+            emailId: parsedData.emailId.trim(),
+            jobPostId: jobPostId,
+          })
+          .lean();
 
         if (existing) {
           results.push({
             resume: resumeUrl,
             status: "skipped",
-            reason: "Candidate with this email has already applied"
+            reason: "Candidate with this email has already applied",
           });
           continue;
         }
@@ -4945,18 +5289,18 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
         const jobPayload = {
           name: parsedData.name.trim(),
           emailId: parsedData.emailId.trim(),
-          mobileNumber: parsedData.mobileNumber || '',
+          mobileNumber: parsedData.mobileNumber || "",
           resume: resumeUrl,
           jobPostId,
           branchId,
-          pincode: parsedData.pincode || '',
+          pincode: parsedData.pincode || "",
           orgainizationId: new ObjectId(organizationId),
           departmentId: jobPost.departmentId,
           subDepartmentId: jobPost.subDepartmentId,
           position: findDesignation.name,
           JobType: jobPost.JobType || "",
           jobFormType: "request",
-          BulkResume: "true"
+          BulkResume: "true",
         };
 
         const jobFormInstance = new jobApply(jobPayload);
@@ -4964,12 +5308,19 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
         results.push({ resume: resumeUrl, status: "success" });
 
         // ✅ Update totalApplicants count
-        await jobPostModel.findByIdAndUpdate(jobPostId, { $inc: { totalApplicants: 1 } });
+        await jobPostModel.findByIdAndUpdate(jobPostId, {
+          $inc: { totalApplicants: 1 },
+        });
 
         // ✅ Check and deactivate job post if limit reached
         const totalApplications = await jobApply.countDocuments({ jobPostId });
-        if (jobPost.numberOfApplicant > 0 && totalApplications >= jobPost.numberOfApplicant) {
-          await jobPostModel.findByIdAndUpdate(jobPostId, { status: 'inactive' });
+        if (
+          jobPost.numberOfApplicant > 0 &&
+          totalApplications >= jobPost.numberOfApplicant
+        ) {
+          await jobPostModel.findByIdAndUpdate(jobPostId, {
+            status: "inactive",
+          });
 
           const budget = await BudgetModel.findOne({
             organizationId: jobPost.organizationId,
@@ -4981,7 +5332,10 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
             const noOfPosition = Number(jobPost.noOfPosition || 0);
 
             budget.usedBudget = Math.max(0, budget.usedBudget - budgetImpact);
-            budget.jobPostForNumberOfEmployees = Math.max(0, budget.jobPostForNumberOfEmployees - noOfPosition);
+            budget.jobPostForNumberOfEmployees = Math.max(
+              0,
+              budget.jobPostForNumberOfEmployees - noOfPosition
+            );
             await budget.save();
           }
         }
@@ -4990,23 +5344,33 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
         fileOpsQueue.push(
           (async () => {
             try {
-              const rootFolderKey = 'job-posts';
+              const rootFolderKey = "job-posts";
               const formatFolderName = (name) =>
-                name.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('_');
+                name
+                  .trim()
+                  .split(/\s+/)
+                  .map(
+                    (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
+                  )
+                  .join("_");
 
-              const folderKey = `${rootFolderKey}/${formatFolderName(findDesignation.name)}_${jobPost.jobPostId}/`;
+              const folderKey = `${rootFolderKey}/${formatFolderName(
+                findDesignation.name
+              )}_${jobPost.jobPostId}/`;
 
-              const parentFolder = await folderSchema.findOne({
-                organizationId: new ObjectId(organizationId),
-                key: folderKey
-              }).lean();
+              const parentFolder = await folderSchema
+                .findOne({
+                  organizationId: new ObjectId(organizationId),
+                  key: folderKey,
+                })
+                .lean();
 
               let parentId;
               const candidateFolderKey = `${folderKey}${jobApplyForm.candidateUniqueId}/`;
 
               let candidateFolder = await folderSchema.findOne({
                 organizationId: new ObjectId(organizationId),
-                key: candidateFolderKey
+                key: candidateFolderKey,
               });
 
               if (!candidateFolder) {
@@ -5015,10 +5379,10 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
                   candidateId: null,
                   parentId: parentFolder?._id || null,
                   name: `${jobApplyForm.candidateUniqueId}`,
-                  type: 'folder',
+                  type: "folder",
                   key: candidateFolderKey,
-                  mimetype: 'application/x-directory',
-                  status: 'active',
+                  mimetype: "application/x-directory",
+                  status: "active",
                 });
 
                 const newCreateRootFolder = await newRootFolder.save();
@@ -5031,7 +5395,7 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
                 fileUrl: resumeUrl,
                 parentId,
                 organizationId,
-                candidateId: null
+                candidateId: null,
               });
             } catch (err) {
               console.error("File ops error:", resumeUrl, "->", err.message);
@@ -5045,13 +5409,21 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
             jobPostId,
             resume: resumeUrl,
             candidateId: jobApplyForm._id,
-            organizationId
+            organizationId,
           });
         }
-
       } catch (err) {
-        console.error("Error saving job apply for resume:", resumeUrl, "->", err.message);
-        results.push({ resume: resumeUrl, status: "failed", reason: err.message });
+        console.error(
+          "Error saving job apply for resume:",
+          resumeUrl,
+          "->",
+          err.message
+        );
+        results.push({
+          resume: resumeUrl,
+          status: "failed",
+          reason: err.message,
+        });
       }
     }
 
@@ -5068,33 +5440,39 @@ export const bulkJobApplyWithResumeExtraction = async (req, res) => {
           try {
             await processAIScreeningForCandidate(item);
           } catch (err) {
-            console.error("AI screening error:", item.resume, "->", err.message);
+            console.error(
+              "AI screening error:",
+              item.resume,
+              "->",
+              err.message
+            );
           }
         });
       });
     }
-
   } catch (err) {
     console.error("Error in bulk job apply:", err);
     return unknownError(res, err);
   }
 };
 
-
-
-
-
 export const pincodeByLatitudeAndLongitude = async (req, res) => {
- try {
+  try {
     // 1. Get all unique pincodes from jobApply collection
-    const uniquePincodes = await jobApply.distinct("pincode", { pincode: { $ne: null } });
+    const uniquePincodes = await jobApply.distinct("pincode", {
+      pincode: { $ne: null },
+    });
 
-    const savedPincodes = await pincodeLocationModel.find({
-      pincode: { $in: uniquePincodes }
-    }).distinct("pincode");
+    const savedPincodes = await pincodeLocationModel
+      .find({
+        pincode: { $in: uniquePincodes },
+      })
+      .distinct("pincode");
 
     // 2. Filter pincodes that are not yet saved
-    const pincodesToSave = uniquePincodes.filter(pc => !savedPincodes.includes(pc));
+    const pincodesToSave = uniquePincodes.filter(
+      (pc) => !savedPincodes.includes(pc)
+    );
 
     const saved = [];
     const failed = [];
@@ -5108,7 +5486,7 @@ export const pincodeByLatitudeAndLongitude = async (req, res) => {
           longitude: latlng.longitude,
           state: latlng.state,
           district: latlng.district,
-          area:latlng.area,
+          area: latlng.area,
         });
         saved.push(pincode);
       } else {
@@ -5120,11 +5498,40 @@ export const pincodeByLatitudeAndLongitude = async (req, res) => {
       totalJobApplyPincodes: uniquePincodes.length,
       saved: saved.length,
       failed: failed.length,
-      failedPincodes: failed
+      failedPincodes: failed,
     });
-
   } catch (error) {
     console.error("Error syncing pincodes:", error);
     return unknownError(res, error);
   }
-}
+};
+
+
+
+
+
+export const updateJobApplyById = async (req, res) => {
+  try {
+    const { id } = req.params;  // ID in URL
+    const updateData = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return badRequest(res, "Invalid job application ID");
+    }
+
+    const updatedJobApply = await jobApply.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedJobApply) {
+      return notFound(res, "Job application not found");
+    }
+
+    return success(res, "Job application updated successfully", updatedJobApply);
+  } catch (error) {
+    console.error("Update JobApply Error:", error);
+    return unknownError(res, "Failed to update job application", error);
+  }
+};

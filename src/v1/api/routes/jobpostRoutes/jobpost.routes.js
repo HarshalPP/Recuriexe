@@ -13,6 +13,10 @@ import {jobPostAdd , getAllJobPost , updateJobPost , getAllJobPostwithoutToken ,
       getApplicantsLocationByJob,
       getAllJobPostForLocation,
       filemanagerOldData,
+      getRecruiterDashboard,
+      setAIScoreForPending,
+      getRecruiterData,
+      getALLRecruiterData,
      } from "../../controllers/jobpostController/jobpost.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
@@ -35,4 +39,8 @@ router.get("/qualificationDataUpdate", qualificationDataUpdate )
 router.get("/getAllJobPostForLocation",verifyEmployeeToken , getAllJobPostForLocation)
 
 router.get("/filemanagerOldData", filemanagerOldData)
+router.get("/getRecruiterDashboard" , verifyEmployeeToken , getRecruiterDashboard)
+router.post("/setAIScoreForPending"  , setAIScoreForPending)
+router.get("/getRecruiterData" , verifyEmployeeToken , getRecruiterData)
+router.get("/getALLRecruiterData" , verifyEmployeeToken , getALLRecruiterData)
 export default router;   

@@ -7,7 +7,6 @@ import {getAvailablePlaceholders , createTemplate , listTemplates , getTemplate 
 import { verifyEmployeeToken } from '../../middleware/authicationmiddleware.js';
 
 
-
 router.get("/getAvailablePlaceholders" , getAvailablePlaceholders)
 router.post("/create" , verifyEmployeeToken , createTemplateTest)
 router.get("/listTemplates" , verifyEmployeeToken , listTemplates)
@@ -16,8 +15,5 @@ router.post('/update',verifyEmployeeToken , updateTemplate)
 router.post("/generateLinkedInPostAndPdf" , verifyEmployeeToken , generateLinkedInPostAndPdfDynamic)
 router.post("/deleteTemplate" , verifyEmployeeToken , deleteTemplate)
 
-// router.post("/createtest" , verifyEmployeeToken , createTemplateTest)
-// router.post("/generateLinkedInPostAndPdfDynamic" , verifyEmployeeToken , generateLinkedInPostAndPdfDynamic )
-
-
 export default router;
+

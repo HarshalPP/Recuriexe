@@ -29,12 +29,16 @@ const interviewSchema = new Schema({
   interviewModel: { type: String, enum: ["AI", "HUMAN"], default: "HUMAN" },
   interviewType: { type: String, enum: ["Online", "Walk-In", "Call"], default: "Online" },
   candidateId: { type: ObjectId, ref: "jobApplyForm", required: true },
-  interviewerId: { type: ObjectId, ref: "employee", required: true },
-
+  interviewerId: { type: ObjectId, ref: "employee", default:null },
+  interviewerName: { type: String, default: "" },
+  AIInterviewId: { type: ObjectId, ref: "AIInterview", default: null },
+  interviewfeedbackStatus :{ type: String, default: "" },
   roundName: { type: String, default: "" },
+  description: { type: String, default: "" },
   roundNumber: { type: Number, default: 1 },
   durationMinutes: { type: Number, default: "" },
   scheduleDate: { type: Date, default: null },
+  hrId : { type: ObjectId, ref: "employee", default:null },
   status: {
     type: String,
     enum: ["pending", "schedule","running","reSchedule", "cancel", "complete"],

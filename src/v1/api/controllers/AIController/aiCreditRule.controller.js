@@ -1,4 +1,5 @@
 import AICreditRuleModel from "../../models/AiModel/AICreditRuleModel .js"
+import PlanModel from "../../models/PlanModel/Plan.model.js"
 import {
   success,
   badRequest,
@@ -9,11 +10,16 @@ import {
 // CREATE a new rule
 export const createCreditRule = async (req, res) => {
   try {
-    const { actionType, creditsRequired, description } = req.body;
+    const { actionType, creditsRequired, description , planId} = req.body;
 
     if (!actionType || !creditsRequired) {
       return badRequest(res, "actionType and creditsRequired are required");
     }
+
+    // const findPlan = await PlanModel.findById(planId);
+    // if (!findPlan) {
+    //   return badRequest(res, "Plan not found");
+    // }
 
     const existing = await AICreditRuleModel.findOne({ actionType });
     if (existing) return badRequest(res, "Rule for this actionType already exists");

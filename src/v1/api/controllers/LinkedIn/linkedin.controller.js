@@ -42,7 +42,7 @@ export const redirectToLinkedIn = asyncHandler(async (req, res) => {
   if (!org) return badRequest(res, "Organization not found");
 
   const state = orgId;
-  const scope = "openid profile email w_member_social";
+  const scope = "openid profile email w_member_social w_organization_social";
 
   const authURL = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
     org.linkedinClientId
@@ -64,7 +64,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
   }
 
   // Get access token and user info from LinkedIn
-  const { accessToken, memberId, name, email, picture } =
+  const { accessToken, memberId, name, email, picture,linkedInPages,} =
     await linkedinService.exchangeCodeForToken(org, code);
 
   // Check for existing LinkedIn account with same name and memberId
@@ -91,6 +91,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
   org.linkedinName = name;
   org.linkedinEmail = email;
   org.linkedinProfilePic = picture;
+  org.LinkedInorganizationPages = linkedInPages; // Save pages
   await org.save();
 
   // res.status(200).json(new ApiResponse(200, null, "LinkedIn connected successfully"));
@@ -2061,6 +2062,16 @@ export const generatePostText = asyncHandler(async (req, res) => {
     return badRequest(res, "no active plan found for this Analizer.");
   }
 
+  if (
+    !(activePlan.NumberofAnalizers > 0) &&
+    !(activePlan.addNumberOfAnalizers > 0)
+  ) {
+    return badRequest(
+      res,
+      "AI limit reached for this organization. Please upgrade your plan."
+    );
+  }
+
   const jobData = await jobPostModel
     .findById(mainJobId)
     .populate(
@@ -2125,6 +2136,26 @@ export const getPostGenStatus = asyncHandler(async (req, res) => {
     return badRequest(res, "no active plan found for this Analizer.");
   }
 
+  if (
+    !(activePlan.NumberofAnalizers > 0) &&
+    !(activePlan.addNumberOfAnalizers > 0)
+  ) {
+    return badRequest(
+      res,
+      "AI limit reached for this organization. Please upgrade your plan."
+    );
+  }
+
+  // if (!doc) throw new ApiError(404, 'Generation task not found');
+  if (!doc) {
+    return badRequest(res, "Generation task not found");
+  }
+
+  // 202 until ready, 200 when done
+  const httpCode = doc.status === "ready" ? 200 : 202;
+  success(res, "AI-generated message retrieved successfully.", doc);
+  // res.status(httpCode).json(doc);
+
   const CreditRules = await AICreditRule.findOne({
     actionType: "LINKEDIN_AI",
   });
@@ -2157,16 +2188,6 @@ export const getPostGenStatus = asyncHandler(async (req, res) => {
       "AI limit reached for this organization. Please upgrade your plan."
     );
   }
-
-  // if (!doc) throw new ApiError(404, 'Generation task not found');
-  if (!doc) {
-    return badRequest(res, "Generation task not found");
-  }
-
-  // 202 until ready, 200 when done
-  const httpCode = doc.status === "ready" ? 200 : 202;
-  return success(res, "AI-generated message retrieved successfully.", doc);
-  // res.status(httpCode).json(doc);
 });
 
 // export const generatePostText = async (req, res) => {
@@ -2249,45 +2270,22 @@ export const generateLinkedotherInPost = async (req, res) => {
     const { title } = req.query;
     const organizationId = req.employee?.organizationId;
 
-  const activePlan = await oganizationPlan
-    .findOne({ organizationId: organizationId, isActive: true })
-    .lean();
-  if (!activePlan) {
-    return badRequest(res, "no active plan found for this Analizer.");
-  }
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: organizationId, isActive: true })
+      .lean();
+    if (!activePlan) {
+      return badRequest(res, "no active plan found for this Analizer.");
+    }
 
-  const CreditRules = await AICreditRule.findOne({
-    actionType: "LINKEDIN_AI",
-  });
-
-  // if (!CreditRules) {
-  //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
-  // }
-
-  const creditsNeeded = CreditRules.creditsRequired || 1;
-
-  // Update candidate with AI screening result
-  if (activePlan.NumberofAnalizers > 0) {
-    const Updateservice = await oganizationPlan.findOneAndUpdate(
-      { organizationId: organizationId },
-      { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
-      { new: true }
-    );
-  }
-
-  // If main is 0, try to decrement from addNumberOfAnalizers
-  else if (activePlan.addNumberOfAnalizers > 0) {
-    await oganizationPlan.findOneAndUpdate(
-      { organizationId: organizationId },
-      { $inc: { addNumberOfAnalizers: -creditsNeeded } },
-      { new: true }
-    );
-  } else {
-    return badRequest(
-      res,
-      "AI limit reached for this organization. Please upgrade your plan."
-    );
-  }
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
 
     // Validate input
     if (!title || typeof title !== "string") {
@@ -2343,9 +2341,42 @@ export const generateLinkedotherInPost = async (req, res) => {
     }
 
     // Return success response
-    return success(res, "LinkedIn post generated successfully.", {
+    success(res, "LinkedIn post generated successfully.", {
       message: postContent,
     });
+
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "LINKEDIN_AI",
+    });
+
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
+
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+
+    // Update candidate with AI screening result
+    if (activePlan.NumberofAnalizers > 0) {
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationId },
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+        { new: true }
+      );
+    }
+
+    // If main is 0, try to decrement from addNumberOfAnalizers
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationId },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+        { new: true }
+      );
+    } else {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
   } catch (error) {
     console.error("Error generating LinkedIn post:", error);
     return unknownError(res);

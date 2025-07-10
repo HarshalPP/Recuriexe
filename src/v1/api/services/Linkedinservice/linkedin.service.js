@@ -88,13 +88,32 @@ export const exchangeCodeForToken = async (org, code) => {
     } else if (userData.profilePicture && userData.profilePicture.displayImageURLWithFocalPoint) {
       picture = userData.profilePicture.displayImageURLWithFocalPoint; // Fallback
     }
+        // Step 3: Get organizations where the user has administrative access
+    const orgsRes = await axios.get(
+      'https://api.linkedin.com/rest/organizationalEntityAcls ',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': '202402',
+        },
+      }
+    );
+
+    const linkedInPages = orgsRes.data.elements.map(el => ({
+      id: el.organizationUrn.split(':').pop(), // Extract numeric ID
+      urn: el.organizationUrn,
+      role: el.role,
+      isPrimary: el.isPrimary,
+    }));
 
     return {
       accessToken,
       memberId: userData.sub, // Unique user ID from LinkedIn
       name,
       email,
-      picture
+      picture,
+      linkedInPages
     };
   } catch (error) {
     console.error('Error exchanging code for token:', error.response?.data || error.message);
@@ -295,7 +314,7 @@ export const postToLinkedInUGC = async (org, message, imageUrls = []) => {
 // Function to post as organization (company page)
 export const postToLinkedInAsOrganization = async (org, message, imageUrls = []) => {
   try {
-    const orgUrn = `urn:li:organization:${org.organizationId}`;
+    const orgUrn = `urn:li:organization:${org.LinkedInorganizationPages.id}`;
     
     const postBody = {
       author: orgUrn,

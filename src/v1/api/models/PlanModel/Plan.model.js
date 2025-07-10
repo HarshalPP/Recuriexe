@@ -57,7 +57,11 @@ const planSchema = new Schema({
     Numberofdownloads: {
         type: Number,
         default: 0,
-    }
+    },
+    fileManagerLimit: {
+        type: Number,
+        default: 0,
+    },
 
     
     }, { timestamps: true });

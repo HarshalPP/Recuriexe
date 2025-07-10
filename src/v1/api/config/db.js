@@ -15,7 +15,7 @@ const connectDB = async () => {
     console.log("⚙️ Initializing scheduled LinkedIn jobs...");
     await initializeScheduledJobs();
 
-    schedulePlanExpiryCheck();
+    await schedulePlanExpiryCheck();
 
   } catch (error) {
     console.error("MongoDB connection error:", error);

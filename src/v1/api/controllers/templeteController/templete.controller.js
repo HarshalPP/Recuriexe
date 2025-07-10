@@ -10,12 +10,14 @@ import path from 'path';
 import uploadToSpaces from "../../services/spaceservices/space.service.js"
 import mongoose from 'mongoose';
 import { ObjectId } from "mongodb";
-
+import branchModel from "../../models/branchModel/branch.model.js"
 import Organization from '../../models/organizationModel/organization.model.js';
 import Department from '../../models/deparmentModel/deparment.model.js';
 import Designation from '../../models/designationModel/designation.model.js';
 import WorkLocation from '../../models/worklocationModel/worklocation.model.js';
 import Qualification from '../../models/QualificationModel/qualification.model.js'
+import employmentTypeModel from "../../models/employeementTypemodel/employeementtype.model.js"
+import employeeTypeModel from "../../models/employeeType/employeeType.model.js" 
 import { badRequest, notFound, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 
 
@@ -338,10 +340,13 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
       ? (await Department.findById(job.departmentId))?.name || 'N/A'
       : 'N/A';
 
-    placeholders['{{location}}'] = job.workLocationId
+    placeholders['{{jobApplyworkLocation}}'] = job.workLocationId
       ? (await WorkLocation.findById(job.workLocationId))?.name || 'N/A'
       : 'N/A';
-
+        placeholders['{{jobApplyBranch}}'] = Array.isArray(job?.branchId)
+      ? (await branchModel.find({ _id: { $in: job.branchId } }))
+        .map(q => q?.name || '').filter(Boolean).join(', ')
+      : 'N/A';
     // ----------- JOB POST (FROM job.jobPostId) --------------
     // let jobPost = null;
     // console.log('job.jobPostId--',job.jobPostIdRef)
@@ -428,6 +433,11 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
         .map(q => q?.name || '').filter(Boolean).join(', ')
       : 'N/A';
 
+         placeholders['{{branch}}'] = Array.isArray(job?.branchId)
+      ? (await branchModel.find({ _id: { $in: job.branchId } }))
+        .map(q => q?.name || '').filter(Boolean).join(', ')
+      : 'N/A';
+
     placeholders['{{companyName}}'] = job.organizationId
       ? (await Organization.findById(job.organizationId))?.name || 'N/A'
       : 'N/A';
@@ -439,6 +449,29 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
     placeholders['{{designation}}'] = job.designationId
       ? (await Designation.findById(job.designationId))?.name || 'N/A'
       : 'N/A';
+
+      const department = await Department.findById(job.departmentId);
+
+let subDepartmentName = 'N/A';
+
+if (department) {
+  const subDept = department.subDepartments.id(job.subDepartmentId);
+  if (subDept) subDepartmentName = subDept.name;
+}
+placeholders['{{subDepartment}}'] = subDepartmentName;
+
+      //  placeholders['{{subDepartment}}'] = job.subDepartmentId
+      // ? (await Department.findById(job.subDepartmentId))?.name || 'N/A'
+      // : 'N/A';
+
+    placeholders['{{employeeType}}'] = job.employeeTypeId
+      ? (await employeeTypeModel.findById(job.employeeTypeId))?.title || 'N/A'
+      : 'N/A';
+
+    placeholders['{{employmentType}}'] = job.employmentTypeId
+      ? (await employmentTypeModel.findById(job.employmentTypeId))?.title || 'N/A'
+      : 'N/A';
+
 
     placeholders['{{location}}'] = job.Worklocation
       ? (await WorkLocation.findById(job.Worklocation))?.name || 'N/A'
@@ -501,7 +534,7 @@ function getSchemaPlaceholders() {
   }
 
   // Handle nested jobDescription fields
-  placeholders.jobDescription.jobSummary = '{{jobSummary}}';
+  placeholders.jobSummary = '{{jobSummary}}';
   placeholders.jobDescription.rolesAndResponsibilities = '{{rolesAndResponsibilities}}';
   placeholders.jobDescription.keySkills = '{{keySkills}}';
 
@@ -671,55 +704,128 @@ export async function updateTemplate(req, res) {
       let placeholders = {};
 
       // 🧠 Use template.modelType to generate placeholders
-      if (template.modelType === "jobPost") {
-        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-          customFields: {
-            companyName: 'companyName',
-            department: 'department',
-            designation: 'designation',
-            location: 'location'
-          }
-        });
+      // if (template.modelType === "jobPost") {
+      //   placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+      //     ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+      //     customFields: {
+      //       companyName: 'companyName',
+      //       department: 'department',
+      //       designation: 'designation',
+      //       location: 'location'
+      //     }
+      //   });
 
-        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-          customFields: {
-            jobSummary: 'jobSummary',
-            rolesAndResponsibilities: 'rolesAndResponsibilities',
-            keySkills: 'keySkills'
-          }
-        });
+      //   placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+      //     ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+      //     customFields: {
+      //       jobSummary: 'jobSummary',
+      //       rolesAndResponsibilities: 'rolesAndResponsibilities',
+      //       keySkills: 'keySkills'
+      //     }
+      //   });
 
-      } else if (template.modelType === "jobApply") {
-        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
-        });
+      // } else if (template.modelType === "jobApply") {
+      //   placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+      //     ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+      //   });
 
-      } else if (template.modelType === "jobPostAndApply") {
-        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-          customFields: {
-            companyName: 'companyName',
-            department: 'department',
-            designation: 'designation',
-            location: 'location'
-          }
-        });
+      // } else if (template.modelType === "jobPostAndApply") {
+      //   placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+      //     ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+      //     customFields: {
+      //       companyName: 'companyName',
+      //       department: 'department',
+      //       designation: 'designation',
+      //       location: 'location'
+      //     }
+      //   });
 
-        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-          customFields: {
-            jobSummary: 'jobSummary',
-            rolesAndResponsibilities: 'rolesAndResponsibilities',
-            keySkills: 'keySkills'
-          }
-        });
+      //   placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+      //     ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+      //     customFields: {
+      //       jobSummary: 'jobSummary',
+      //       rolesAndResponsibilities: 'rolesAndResponsibilities',
+      //       keySkills: 'keySkills'
+      //     }
+      //   });
 
-        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
-        });
-      }
+      //   placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+      //     ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner']
+      //   });
+      // }
+
+        if (template.modelType === "jobPost") {
+      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+            customFields: {
+          companyName: 'companyName',
+          department: 'department',
+          designation: 'designation',
+          location: 'location',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
+        }
+      });
+
+      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        customFields: {
+          jobSummary: 'jobSummary',
+          rolesAndResponsibilities: 'rolesAndResponsibilities',
+          keySkills: 'keySkills'
+        }
+      });
+
+    } else if (template.modelType === "jobApply") {
+      console.log('1')
+      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        customFields: {
+            jobApplyworkLocation: 'jobApplyworkLocation',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
+      });
+
+    } else if (template.modelType === "jobPostAndApply") {
+      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+        customFields: {
+           companyName: 'companyName',
+          department: 'department',
+          designation: 'designation',
+          location: 'location',
+          employmentType: 'employmentType',
+          employeeType: 'employeeType',
+          subDepartment: 'subDepartment',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
+        }
+      });
+
+      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        customFields: {
+          jobSummary: 'jobSummary',
+          rolesAndResponsibilities: 'rolesAndResponsibilities',
+          keySkills: 'keySkills'
+        }
+      });
+
+      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        customFields: {
+         jobApplyworkLocation: 'jobApplyworkLocation',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          jobApplyBranch: 'jobApplyBranch',
+        }
+      });
+    } else {
+      return badRequest(res, "Invalid type");
+    }
 
       const invalidPlaceholders = validateTemplateContentTest(content, placeholders);
 
@@ -748,7 +854,7 @@ export async function updateTemplate(req, res) {
 
 
 
-function extractPlaceholdersFromSchema(model, options = {}) {
+export function extractPlaceholdersFromSchema(model, options = {}) {
   const {
     ignoreFields = [],
     prefix = '', // Optional prefix for nested naming
@@ -788,23 +894,23 @@ export async function getAvailablePlaceholders(req, res) {
 
     if (!type || type === "jobPost") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType'],
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType','jobPostApproveRemark'],
         customFields: {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          jobPostWorklocation: 'jobPostWorklocation',
+          location: 'location',
           employmentType: 'employmentType',
           employeeType: 'employeeType',
           subDepartment: 'subDepartment',
-          jobPostBranch: 'jobPostBranch',
-          jobPostVacancyRequest: 'jobPostVacancyRequest',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
       // Extract jobDescription fields, nested under jobDescription
       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
         // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
         customFields: {
           jobSummary: 'jobSummary',
@@ -817,7 +923,7 @@ export async function getAvailablePlaceholders(req, res) {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
           customFields: {
           jobApplyworkLocation: 'jobApplyworkLocation',
-          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
       });
@@ -828,18 +934,18 @@ export async function getAvailablePlaceholders(req, res) {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          jobPostWorklocation: 'jobPostWorklocation',
+          location: 'location',
           employmentType: 'employmentType',
           employeeType: 'employeeType',
           subDepartment: 'subDepartment',
-          jobPostBranch: 'jobPostBranch',
-          jobPostVacancyRequest: 'jobPostVacancyRequest',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
       // Extract jobDescription fields, nested under jobDescription
       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
         // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
         customFields: {
           jobSummary: 'jobSummary',
@@ -852,7 +958,7 @@ export async function getAvailablePlaceholders(req, res) {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
         customFields: {
           jobApplyworkLocation: 'jobApplyworkLocation',
-          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
       });
@@ -957,6 +1063,9 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
       .populate('jobDescriptionId')
       .populate('designationId')
       .populate('departmentId')
+      .populate('branchId')
+      .populate('employmentTypeId')
+      .populate('employeeTypeId')
       .populate('Worklocation');
     if (!job) throw new Error("Job not found");
     const jobDescription = await JobDescriptionModel.findById(job.jobDescriptionId);
@@ -984,6 +1093,7 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
       .populate('jobDescriptionId')
       .populate('designationId')
       .populate('departmentId')
+      .populate('branchId')
       .populate('Worklocation')
       .populate('employmentTypeId')
       .populate('employeeTypeId')
@@ -1092,12 +1202,12 @@ export async function createTemplateTest(req, res) {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          jobPostWorklocation: 'jobPostWorklocation',
+          location: 'location',
           employmentType: 'employmentType',
           employeeType: 'employeeType',
           subDepartment: 'subDepartment',
-          jobPostBranch: 'jobPostBranch',
-          jobPostVacancyRequest: 'jobPostVacancyRequest',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -1116,7 +1226,7 @@ export async function createTemplateTest(req, res) {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
         customFields: {
             jobApplyworkLocation: 'jobApplyworkLocation',
-          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
       });
@@ -1128,12 +1238,12 @@ export async function createTemplateTest(req, res) {
            companyName: 'companyName',
           department: 'department',
           designation: 'designation',
-          jobPostWorklocation: 'jobPostWorklocation',
+          location: 'location',
           employmentType: 'employmentType',
           employeeType: 'employeeType',
           subDepartment: 'subDepartment',
-          jobPostBranch: 'jobPostBranch',
-          jobPostVacancyRequest: 'jobPostVacancyRequest',
+          branch: 'branch',
+          // jobPostVacancyRequest: 'jobPostVacancyRequest',
         }
       });
 
@@ -1150,7 +1260,7 @@ export async function createTemplateTest(req, res) {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
         customFields: {
          jobApplyworkLocation: 'jobApplyworkLocation',
-          jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
       });

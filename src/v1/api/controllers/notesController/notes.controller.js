@@ -13,6 +13,8 @@ import {
   import employeModel  from "../../models/employeemodel/employee.model.js";
   import boardModel  from "../../models/notesModel/board.model.js";
   import subBoardModel  from "../../models/notesModel/subBoard.model.js";
+  import { generateNotesResponse } from "../../services/Geminiservices/gemini.service.js";
+  import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 
 
@@ -879,6 +881,78 @@ export const updateSubBoardTitle = async (req, res) => {
     success(res, "SubBoard title updated successfully", subBoard);
   } catch (error) {
     console.error(error);
+    unknownError(res, error);
+  }
+}
+
+
+// Use Gemini api for Notes //
+
+
+export const generateNotesAIResponse = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    const orgainizationId = req.employee.organizationId;
+
+    if (!prompt || prompt.trim() === "") {
+      return badRequest(res, "Prompt is required");
+    }
+
+    // Validate organizationId AND check if the organization has an active plan
+       const activePlan = await oganizationPlan
+         .findOne({ organizationId: orgainizationId, isActive: true })
+         .lean();
+       if (!activePlan) {
+         return badRequest(res, "no active plan found for this Analizer.");
+       }
+
+      
+          if (
+            !(activePlan.NumberofAnalizers > 0) &&
+            !(activePlan.addNumberOfAnalizers > 0)
+          ) {
+            return badRequest(
+              res,
+              "AI limit reached for this organization. Please upgrade your plan."
+            );
+          }
+
+    // Call the Gemini service to generate a response
+    const aiResponse = await generateNotesResponse(prompt);
+
+
+    if (!aiResponse) {
+      return badRequest(res, "No AI response generated");
+    }
+
+      // Calculate the number of credits needed
+        if (activePlan.NumberofAnalizers > 0) {
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { NumberofAnalizers: -1 } }, // Decrement the count
+        { new: true }
+      );
+    }
+
+    // If main is 0, try to decrement from addNumberOfAnalizers
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { addNumberOfAnalizers: -1 } },
+        { new: true }
+      );
+    } else {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
+
+
+
+    success(res, "AI response generated successfully", { response: aiResponse });
+  } catch (error) {
+    console.error("Error generating AI response:", error);
     unknownError(res, error);
   }
 }

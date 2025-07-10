@@ -1,4 +1,3 @@
-
 import {
   addDepartment,
   updateDepartment,
@@ -15,36 +14,41 @@ import {
   getDepartmentFromJobApply,
 } from "../../services/departmentservices/department.services.js";
 
-
-import newdesingationModel from "../../models/designationModel/designation.model.js";4
+import newdesingationModel from "../../models/designationModel/designation.model.js";
+4;
 import employeModel from "../../models/employeemodel/employee.model.js";
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import JobApplyModel from "../../models/jobformModel/jobform.model.js";
 import DepartmentBudget from "../../models/budgedModel/budged.model.js";
 import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
-import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js";
 
 // Import Gemini //
 
+import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js";
+import { generateDepartmentPrompt } from "../../prompt/resumeprompt.js";
 
-import {generateAIResponse} from "../../services/Geminiservices/gemini.service.js"
-import {generateDepartmentPrompt} from "../../prompt/resumeprompt.js"
-
-import AIConfigModel from "../../models/AiModel/ai.model.js"
+import AIConfigModel from "../../models/AiModel/ai.model.js";
 
 import newDepartmentModel from "../../models/deparmentModel/deparment.model.js";
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
 import {
   badRequest,
   success,
-  unknownError
+  unknownError,
 } from "../../formatters/globalResponse.js";
 import { populate } from "dotenv";
 
 // ------------------------- Formatters ------------------------- //
 
 export const formatDepartmentDataForAdd = (bodyData) => {
-  const { name, subDepartments = [] , isSubDepartment , createdBy , organizationId } = bodyData;
+  const {
+    name,
+    subDepartments = [],
+    isSubDepartment,
+    createdBy,
+    organizationId,
+  } = bodyData;
 
   const formattedSubDepartments = subDepartments.map((subDept) => ({
     name: subDept.name?.trim(),
@@ -57,10 +61,10 @@ export const formatDepartmentDataForAdd = (bodyData) => {
   return {
     name: name?.trim(),
     subDepartments: formattedSubDepartments,
-    isSubDepartment: true, 
+    isSubDepartment: true,
     createdBy,
     organizationId,
-     organizationId,
+    organizationId,
   };
 };
 
@@ -70,7 +74,7 @@ export const formatDepartmentDataForAddBulk = (bodyData) => {
 
   const formattedSubDepartments = subDepartments.map((subDept) => ({
     name: subDept.name?.trim(),
-    isActive: subDept.isActive !== false
+    isActive: subDept.isActive !== false,
   }));
 
   return {
@@ -78,14 +82,13 @@ export const formatDepartmentDataForAddBulk = (bodyData) => {
     isSubDepartment: !!isSubDepartment,
     subDepartments: formattedSubDepartments,
     isActive: bodyData.isActive !== false,
-    createdBy
+    createdBy,
   };
 };
 
-
 export const formatDepartmentDataForUpdate = (bodyData) => {
-  console.log(bodyData , "bodydata")
-  const { name, subDepartments = [] , isActive } = bodyData;
+  console.log(bodyData, "bodydata");
+  const { name, subDepartments = [], isActive } = bodyData;
 
   const formattedSubDepartments = subDepartments.map((subDept) => ({
     name: subDept.name?.trim(),
@@ -95,7 +98,9 @@ export const formatDepartmentDataForUpdate = (bodyData) => {
   return {
     ...(name && { name: name.trim() }),
     isActive,
-    ...(subDepartments.length > 0 && { subDepartments: formattedSubDepartments })
+    ...(subDepartments.length > 0 && {
+      subDepartments: formattedSubDepartments,
+    }),
   };
 };
 
@@ -105,8 +110,8 @@ export const formatDepartmentDataForUpdate = (bodyData) => {
 export const addNewDepartment = async (req, res) => {
   try {
     const formattedData = formatDepartmentDataForAdd(req.body);
-    formattedData.createdBy=req.employee.id;
-    formattedData.organizationId=req.employee.organizationId;
+    formattedData.createdBy = req.employee.id;
+    formattedData.organizationId = req.employee.organizationId;
     const { status, message, data } = await addDepartment(formattedData);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
@@ -118,8 +123,11 @@ export const addNewDepartment = async (req, res) => {
 export const updateDepartmentData = async (req, res) => {
   try {
     const formattedData = formatDepartmentDataForUpdate(req.body);
-    console.log("formattedData" , formattedData)
-    const { status, message, data } = await updateDepartment(req.params.departmentId, formattedData);
+    console.log("formattedData", formattedData);
+    const { status, message, data } = await updateDepartment(
+      req.params.departmentId,
+      formattedData
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -129,24 +137,21 @@ export const updateDepartmentData = async (req, res) => {
 // Get All Departments
 export const getDepartmentList = async (req, res) => {
   try {
-    const { status, message, data } = await getAllDepartments(req)
+    const { status, message, data } = await getAllDepartments(req);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
-
 
 export const getDepartmentDropDown = async (req, res) => {
   try {
-    const { status, message, data } = await departmentDropDown(req)
+    const { status, message, data } = await departmentDropDown(req);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
-
-
 
 // Get All Departments for Candidate Side
 export const getDepartmentListForCandidate = async (req, res) => {
@@ -156,8 +161,7 @@ export const getDepartmentListForCandidate = async (req, res) => {
   } catch (error) {
     return unknownError(res, error.message);
   }
-}
-
+};
 
 // Get All Departments for Candidate Side
 export const getDepartmentJobApply = async (req, res) => {
@@ -167,7 +171,7 @@ export const getDepartmentJobApply = async (req, res) => {
   } catch (error) {
     return unknownError(res, error.message);
   }
-}
+};
 
 // Get All Departments for Candidate Side
 export const getDepartmentListByToken = async (req, res) => {
@@ -177,7 +181,7 @@ export const getDepartmentListByToken = async (req, res) => {
   } catch (error) {
     return unknownError(res, error.message);
   }
-}
+};
 
 // Get All Departments
 export const getactivelist = async (req, res) => {
@@ -192,7 +196,9 @@ export const getactivelist = async (req, res) => {
 // Get Sub-Departments by Department ID
 export const getSubDepartmentList = async (req, res) => {
   try {
-    const { status, message, data } = await getSubDepartmentsByDepartmentId(req.params.departmentId);
+    const { status, message, data } = await getSubDepartmentsByDepartmentId(
+      req.params.departmentId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -212,7 +218,9 @@ export const getMainDepartmentList = async (req, res) => {
 // Get Department by ID
 export const getDepartmentByIdData = async (req, res) => {
   try {
-    const { status, message, data } = await getDepartmentById(req.params.departmentId);
+    const { status, message, data } = await getDepartmentById(
+      req.params.departmentId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -222,30 +230,50 @@ export const getDepartmentByIdData = async (req, res) => {
 // Deactivate Department
 export const deactivateDepartmentById = async (req, res) => {
   try {
-    const { status, message, data } = await deactivateDepartment(req.params.departmentId);
+    const { status, message, data } = await deactivateDepartment(
+      req.params.departmentId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
 
-
 export const DeparmentGemini = async (req, res) => {
   try {
     const orgainizationId = req.employee.organizationId;
 
-    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
-        if(!activePlan){
-          return badRequest(res, "no active plan found for this Analizer.");
-        }
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: orgainizationId, isActive: true })
+      .lean();
+    if (!activePlan) {
+      return badRequest(res, "no active plan found for this Analizer.");
+    }
+
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
 
     const findOrganization = await OrganizationModel.findById(orgainizationId)
-      .populate({ path: 'typeOfIndustry', select: 'name' })
-      .populate({ path: 'typeOfSector', select: 'name' })
-      .select('typeOfIndustry typeOfSector');
+      .populate({ path: "typeOfIndustry", select: "name" })
+      .populate({ path: "typeOfSector", select: "name" })
+      .select("typeOfIndustry typeOfSector");
 
-    if (!findOrganization || !findOrganization.typeOfIndustry || !findOrganization.typeOfSector) {
-      return badRequest(res, "Missing industry or sector data for the organization");
+    if (
+      !findOrganization ||
+      !findOrganization.typeOfIndustry ||
+      !findOrganization.typeOfSector
+    ) {
+      return badRequest(
+        res,
+        "Missing industry or sector data for the organization"
+      );
     }
 
     const industryName = findOrganization.typeOfIndustry.name;
@@ -253,7 +281,7 @@ export const DeparmentGemini = async (req, res) => {
 
     const checkAnalizercheck = await AIConfigModel.findOne({
       title: "Department Analizer",
-      enableAIResumeParsing: true
+      enableAIResumeParsing: true,
     });
 
     if (!checkAnalizercheck) {
@@ -267,55 +295,58 @@ The company operates in the "${industryName}" industry and focuses on the "${sec
 Based on this context, generate a structured list of major departments and their respective sub-departments typically found in such organizations. Ensure the department names are clear and sub-departments are logically grouped. The output should be suitable for organizational structuring and HRMS system setup.
 `;
 
-
     const prompt = generateDepartmentPrompt(inputText);
     const aiResult = await generateAIResponse(prompt);
 
-    if (!Array.isArray(aiResult) || aiResult.length === 0 || !aiResult[0]?.name) {
-      return badRequest(res, "Invalid or empty department structure received from AI.");
+    if (
+      !Array.isArray(aiResult) ||
+      aiResult.length === 0 ||
+      !aiResult[0]?.name
+    ) {
+      return badRequest(
+        res,
+        "Invalid or empty department structure received from AI."
+      );
     }
 
-    const CreditRules = await AICreditRule.findOne({ actionType: "DESIGNATION_AI" });
+    success(res, "Department structure generated successfully", aiResult);
+
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "DESIGNATION_AI",
+    });
 
     // if (!CreditRules) {
     //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
     // }
 
     const creditsNeeded = CreditRules.creditsRequired || 1;
-    
-    success(res, "Department structure generated successfully", aiResult);
+    // Update candidate with AI screening result
+    if (activePlan.NumberofAnalizers > 0) {
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+        { new: true }
+      );
+    }
 
-
-            // Update candidate with AI screening result
-        if(activePlan.NumberofAnalizers > 0){
-          const Updateservice = await oganizationPlan.findOneAndUpdate(
-            { organizationId: orgainizationId },
-            { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
-            { new: true }
-          );
-        }
-    
-        // If main is 0, try to decrement from addNumberOfAnalizers
-      else if (activePlan.addNumberOfAnalizers > 0) {
+    // If main is 0, try to decrement from addNumberOfAnalizers
+    else if (activePlan.addNumberOfAnalizers > 0) {
       await oganizationPlan.findOneAndUpdate(
         { organizationId: orgainizationId },
         { $inc: { addNumberOfAnalizers: -creditsNeeded } },
         { new: true }
       );
-     } 
-    
-    else {
-      return badRequest(res , "AI limit reached for this organization. Please upgrade your plan.");
+    } else {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
     }
-
   } catch (error) {
     console.error("❌ DeparmentGemini Error:", error.message);
     return unknownError(res, "Failed to generate department structure.");
   }
 };
-
-  
-
 
 export const addDepartmentsBulk = async (req, res) => {
   try {
@@ -325,7 +356,6 @@ export const addDepartmentsBulk = async (req, res) => {
     if (!Array.isArray(departments) || departments.length === 0) {
       return badRequest(res, "No department data provided.");
     }
-
 
     const createdBy = req.employee?.id;
     const results = [];
@@ -359,7 +389,10 @@ export const addDepartmentsBulk = async (req, res) => {
             }))
           );
           await existingDepartment.save();
-          results.push({ action: "updated", department: existingDepartment.name });
+          results.push({
+            action: "updated",
+            department: existingDepartment.name,
+          });
         } else {
           results.push({
             action: "skipped",
@@ -384,30 +417,22 @@ export const addDepartmentsBulk = async (req, res) => {
       }
     }
 
-      success(res, "Departments processed successfully", results);
-
-
+    success(res, "Departments processed successfully", results);
   } catch (error) {
     console.error("Bulk Create/Update Error:", error);
     return unknownError(res, error.message);
   }
 };
 
-
-
-
 // Get All Departments candidate side
 export const getDepartmentCandidantSide = async (req, res) => {
   try {
-    const { status, message, data } = await getDepartmentCandidantSides(req)
+    const { status, message, data } = await getDepartmentCandidantSides(req);
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
-
-
-
 
 export const toggleSubDepartmentStatus = async (req, res) => {
   try {
@@ -420,10 +445,10 @@ export const toggleSubDepartmentStatus = async (req, res) => {
     const department = await newDepartmentModel.findOneAndUpdate(
       {
         _id: departmentId,
-        "subDepartments._id": subDepartmentId
+        "subDepartments._id": subDepartmentId,
       },
       {
-        $set: { "subDepartments.$.isActive": isActive }
+        $set: { "subDepartments.$.isActive": isActive },
       },
       { new: true }
     );
@@ -432,17 +457,17 @@ export const toggleSubDepartmentStatus = async (req, res) => {
       return badRequest(res, "Department or sub-department not found");
     }
 
-   return success(res, "Sub-department status updated successfully", department);
-
+    return success(
+      res,
+      "Sub-department status updated successfully",
+      department
+    );
   } catch (err) {
-   return unknownError(res, err.message);
+    return unknownError(res, err.message);
   }
 };
 
-
-
 // Delete Department but we have condiftion not include in desingtion / job apply / job post // employee  //
-
 
 export const deleteDepartment = async (req, res) => {
   try {
@@ -459,33 +484,48 @@ export const deleteDepartment = async (req, res) => {
       if (!department) {
         undeletedDepartments.push({
           departmentId: deptId,
-          reason: "Department not found"
+          reason: "Department not found",
         });
         continue;
       }
 
       const issues = [];
 
-      const isUsedInJobPosts = await newdesingationModel.findOne({ departmentId: deptId, isActive: true });
+      const isUsedInJobPosts = await newdesingationModel.findOne({
+        departmentId: deptId,
+        isActive: true,
+      });
       if (isUsedInJobPosts) issues.push("linked to active designations");
 
-      const isUsedInEmployees = await employeModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInEmployees = await employeModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInEmployees) issues.push("linked to active employees");
 
-      const isUsedInJobApplications = await jobPostModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobApplications = await jobPostModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobApplications) issues.push("linked to active job posts");
 
-      const isUsedInJobForms = await JobApplyModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobForms = await JobApplyModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobForms) issues.push("linked to active job applications");
 
-      const isUsedInBudgets = await DepartmentBudget.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInBudgets = await DepartmentBudget.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInBudgets) issues.push("linked to active department budgets");
 
       if (issues.length > 0) {
         undeletedDepartments.push({
           departmentId: deptId,
           departmentName: department.name,
-          reason: `Cannot delete - ${issues.join(", ")}`
+          reason: `Cannot delete - ${issues.join(", ")}`,
         });
         continue;
       }
@@ -498,17 +538,12 @@ export const deleteDepartment = async (req, res) => {
 
     return success(res, {
       message: `${deletedCount} department(s) deleted successfully`,
-      notDeleted: undeletedDepartments
+      notDeleted: undeletedDepartments,
     });
-
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
-
-
-
-
 
 export const deleteSubdepartment = async (req, res) => {
   try {
@@ -526,7 +561,7 @@ export const deleteSubdepartment = async (req, res) => {
       if (!department) {
         undeletedDepartments.push({
           departmentId: deptId,
-          reason: "Department not found"
+          reason: "Department not found",
         });
         continue;
       }
@@ -541,7 +576,7 @@ export const deleteSubdepartment = async (req, res) => {
           undeletedDepartments.push({
             departmentId: deptId,
             subDepartmentId,
-            reason: "Sub-department not found in department"
+            reason: "Sub-department not found in department",
           });
           continue;
         }
@@ -552,7 +587,7 @@ export const deleteSubdepartment = async (req, res) => {
         modifiedSubDepartments.push({
           departmentId: deptId,
           subDepartmentId,
-          message: "Sub-department deactivated successfully"
+          message: "Sub-department deactivated successfully",
         });
 
         continue; // Skip full department deletion logic
@@ -561,26 +596,41 @@ export const deleteSubdepartment = async (req, res) => {
       // Department-level usage checks
       const issues = [];
 
-      const isUsedInJobPosts = await newdesingationModel.findOne({ departmentId: deptId, isActive: true });
+      const isUsedInJobPosts = await newdesingationModel.findOne({
+        departmentId: deptId,
+        isActive: true,
+      });
       if (isUsedInJobPosts) issues.push("linked to active designations");
 
-      const isUsedInEmployees = await employeModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInEmployees = await employeModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInEmployees) issues.push("linked to active employees");
 
-      const isUsedInJobApplications = await jobPostModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobApplications = await jobPostModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobApplications) issues.push("linked to active job posts");
 
-      const isUsedInJobForms = await JobApplyModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobForms = await JobApplyModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobForms) issues.push("linked to active job applications");
 
-      const isUsedInBudgets = await DepartmentBudget.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInBudgets = await DepartmentBudget.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInBudgets) issues.push("linked to active department budgets");
 
       if (issues.length > 0) {
         undeletedDepartments.push({
           departmentId: deptId,
           departmentName: department.name,
-          reason: `Cannot delete - ${issues.join(", ")}`
+          reason: `Cannot delete - ${issues.join(", ")}`,
         });
         continue;
       }
@@ -598,21 +648,17 @@ export const deleteSubdepartment = async (req, res) => {
         ? `${modifiedSubDepartments.length} sub-department(s) deactivated successfully`
         : `${deletedCount} department(s) deleted successfully`,
       modifiedSubDepartments,
-      notDeleted: undeletedDepartments
+      notDeleted: undeletedDepartments,
     });
-
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
 
-
-
 export const deleteDepartmentOrSubdepartment = async (req, res) => {
   try {
     const { departmentIds, subDepartmentId } = req.body;
-    const orgainizationId=req.employee.organizationId
-
+    const orgainizationId = req.employee.organizationId;
 
     if (!Array.isArray(departmentIds) || departmentIds.length === 0) {
       return badRequest(res, "Please provide valid departmentIds as an array.");
@@ -626,7 +672,7 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
       if (!department) {
         undeletedDepartments.push({
           departmentId: deptId,
-          reason: "Department not found"
+          reason: "Department not found",
         });
         continue;
       }
@@ -641,7 +687,7 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
           undeletedDepartments.push({
             departmentId: deptId,
             subDepartmentId,
-            reason: "Sub-department not found in department"
+            reason: "Sub-department not found in department",
           });
           continue;
         }
@@ -652,7 +698,7 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
         modifiedSubDepartments.push({
           departmentId: deptId,
           subDepartmentId,
-          message: "Sub-department deactivated successfully"
+          message: "Sub-department deactivated successfully",
         });
 
         continue; // Skip department deletion
@@ -661,16 +707,28 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
       // Department-level usage checks
       const issues = [];
 
-      const isUsedInJobPosts = await newdesingationModel.findOne({ departmentId: deptId, isActive: true });
+      const isUsedInJobPosts = await newdesingationModel.findOne({
+        departmentId: deptId,
+        isActive: true,
+      });
       if (isUsedInJobPosts) issues.push("linked to active designations");
 
-      const isUsedInEmployees = await employeModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInEmployees = await employeModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInEmployees) issues.push("linked to active employees");
 
-      const isUsedInJobApplications = await jobPostModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobApplications = await jobPostModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobApplications) issues.push("linked to active job posts");
 
-      const isUsedInJobForms = await JobApplyModel.findOne({ departmentId: deptId, status: "active" });
+      const isUsedInJobForms = await JobApplyModel.findOne({
+        departmentId: deptId,
+        status: "active",
+      });
       if (isUsedInJobForms) issues.push("linked to active job applications");
 
       // const isUsedInBudgets = await DepartmentBudget.findOne({ departmentId: deptId, status: "active" });
@@ -680,7 +738,7 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
         undeletedDepartments.push({
           departmentId: deptId,
           departmentName: department.name,
-          reason: `Cannot delete - ${issues.join(", ")}`
+          reason: `Cannot delete - ${issues.join(", ")}`,
         });
         continue;
       }
@@ -698,17 +756,14 @@ export const deleteDepartmentOrSubdepartment = async (req, res) => {
         ? `${modifiedSubDepartments.length} sub-department(s) deactivated successfully`
         : `${deletedCount} department(s) deleted successfully`,
       modifiedSubDepartments,
-      notDeleted: undeletedDepartments
+      notDeleted: undeletedDepartments,
     });
-
   } catch (error) {
     return unknownError(res, error.message);
   }
 };
 
-
 //Update Department //
-
 
 // export const updateDepartmentOrSubdepartment = async (req, res) => {
 //   try {
@@ -800,7 +855,11 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
     }
 
     // Update sub-department name by ID
-    if (subDepartmentId && subDepartmentName && typeof subDepartmentName === "string") {
+    if (
+      subDepartmentId &&
+      subDepartmentName &&
+      typeof subDepartmentName === "string"
+    ) {
       const subDeptIndex = department.subDepartments.findIndex(
         (sub) => sub._id.toString() === subDepartmentId
       );
@@ -840,16 +899,8 @@ export const updateDepartmentOrSubdepartment = async (req, res) => {
       message: "Update successful",
       ...responseData,
     });
-
   } catch (error) {
     console.log(error);
     return unknownError(res, error.message);
   }
 };
-
-
-
-
-
-
-

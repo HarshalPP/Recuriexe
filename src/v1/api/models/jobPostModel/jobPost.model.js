@@ -67,6 +67,7 @@ const jobPostingModelSchema = new Schema(
     },
     branchId: [{ type: ObjectId, ref: "newbranch" }],
     createdByHrId: { type: ObjectId, ref: "employee", default: null },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "employee", default:null},
     position: { type: String, required: [true, "Position Is Required"] ,default:""},
     // eligibility: { type: String, required: [true, "Eligibility Is Required"] },
     //    qualificationId: {
@@ -160,6 +161,17 @@ const jobPostingModelSchema = new Schema(
       type: ObjectId,
       ref: "newworklocation",
       default: null,
+    },
+
+
+    AI_Post:{
+    type:String,
+    default:"false"
+    },
+
+    AI_Post_New:{
+      type:String,
+      default:"false"
     },
 
     screeningCriteria: [ScreeningCriteria],

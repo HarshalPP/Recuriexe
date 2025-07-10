@@ -54,8 +54,8 @@ export const newEmployeeLogin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) return badRequest(res, 'Wrong password');
 
-
-
+    let orgainzation = await OrganizationModel.findById(employee.organizationId);
+    
     // Determine role IDs
     const roleIds = Array.isArray(employee.roleId) && employee.roleId.length > 0
       ? employee.roleId:[];
@@ -71,7 +71,9 @@ export const newEmployeeLogin = async (req, res) => {
       Id: employee._id,
       roleName: roleNames,
       roleId: roleDetails[0]?._id,
-      organizationId: employee.organizationId
+      userType : employee.UserType,
+      organizationId: employee.organizationId,
+      permission : orgainzation.permission
     };
     // console.log(payload,"payload<>")
     const token = jwt.sign(payload, process.env.JWT_EMPLOYEE_TOKEN); // move secret to env in production
@@ -83,9 +85,12 @@ export const newEmployeeLogin = async (req, res) => {
       roleName: roleNames,
       roleId: roleDetails[0]._id,
       employeePhoto: employee.employeePhoto || null,
+      userType : employee.UserType,
+      permission :orgainzation.permission,
       token,
       trackingMode: 'active',
-      OrganizationModule:employee.OrganizationModule || "Company"
+      OrganizationModule:employee.OrganizationModule || "Company",
+      Hirefor: orgainzation.Hirefor || "YourSelf",
     };
 
     return success(res, 'Employee Logged in successfully', data);
@@ -112,6 +117,7 @@ export const SuperAdminRegister = async (req, res) => {
       userName,
       email,
       password,
+      permission,
       UserType,
       OrganizationModule,
       allocatedModule = []  // Expecting multiple ObjectIds
@@ -145,6 +151,7 @@ export const SuperAdminRegister = async (req, res) => {
       contactPerson: "Owner",
       contactNumber: "",
       contactEmail: email,
+      permission:permission,
       OrganizationModule:OrganizationModule,
       allocatedModule: allocatedModule, // Store allocated modules
     });
@@ -153,7 +160,7 @@ export const SuperAdminRegister = async (req, res) => {
 
 
     const adminRole = new roleModel({
-      roleName: "SuperAdmin",
+      roleName: "Admin",
       status: "active",
       organizationId: newOrganization._id
     });
@@ -184,7 +191,7 @@ export const SuperAdminRegister = async (req, res) => {
       password: hashedPassword,
       UserType: "Owner",
       roleId:adminRole._id,
-      // roleId: roleIds,
+      // roleId: roleIds,+
       status: 'active',
       organizationId: newOrganization._id,
       OrganizationModule:OrganizationModule
@@ -415,21 +422,40 @@ export const createNewEmployee = async (req, res) => {
     }
     const orgainizationDetail = await OrganizationModel.findById(organizationId).select('name');
 
-    // ✅ Check active plan for organization
+    // // ✅ Check active plan for organization
     const activePlan = await organizationPlanModel.findOne({ organizationId: organizationId, isActive: true });
     if (!activePlan) {
       return badRequest(res, "No active plan found for this organization");
     }
 
 
-    // ✅ Check number of job posts against plan limit
-    const currentJobPostCount = await employeModel.countDocuments({ organizationId: organizationId });
-    if (currentJobPostCount >= activePlan.NumberOfUsers) {
-      return badRequest(
-        res,
-        `Job post limit reached. Allowed: ${activePlan.NumberOfUsers}, Current: ${currentJobPostCount}. Please upgrade your plan.`
-      );
-    }
+    // // ✅ Check number of job posts against plan limit
+    // const currentJobPostCount = await employeModel.countDocuments({ organizationId: organizationId });
+    // if (currentJobPostCount >= activePlan.NumberOfUsers) {
+    //   return badRequest(
+    //     res,
+    //     `User limit reached. Allowed: ${activePlan.NumberOfUsers}, Current: ${currentJobPostCount}. Please upgrade your plan.`
+    //   );
+    // }
+
+
+    // ✅ Calculate plan window
+const planStart = new Date(activePlan.PlanDate);
+const planEnd = new Date(planStart);
+planEnd.setDate(planEnd.getDate() + (activePlan.planDurationInDays || 0));
+
+// ✅ Count only users created during the active plan window
+const currentUserCount = await employeModel.countDocuments({
+  organizationId: organizationId,
+  createdAt: { $gte: planStart, $lt: planEnd },
+});
+
+if (currentUserCount >= activePlan.NumberOfUsers) {
+  return badRequest(
+    res,
+    `User limit reached , Please upgrade your plan.`
+  );
+}
 
     // Check if user already exists
     const existingUser = await employeModel.findOne({ email });
@@ -643,7 +669,7 @@ export const getAllEmployeeInfodata = async (req, res) => {
     const organizationId = req.employee.organizationId;
 
     const matchStage = {
-      status: status ? status : "active",
+      // status: status ? status : "active",
       organizationId: new mongoose.Types.ObjectId(organizationId)
     };
 
@@ -1232,7 +1258,7 @@ export const updateEmployee = async (req, res) => {
 
 export const adminByUpdateEmployeeId = async (req, res) => {
   try {
-    const { employeeId, email, employeName, userName, designationId, departmentId, subDepartmentId } = req.body;
+    const { employeeId, email, employeName, userName, designationId, departmentId, subDepartmentId ,status } = req.body;
 
     const organizationId = req.employee.organizationId
 
@@ -1268,6 +1294,8 @@ export const adminByUpdateEmployeeId = async (req, res) => {
     if (email) updateFields.email = email.trim();
     if (employeName) updateFields.employeName = employeName.trim();
     if (userName) updateFields.userName = userName.trim();
+    if (status) updateFields.status = status.trim();
+
     if (designationId && mongoose.Types.ObjectId.isValid(designationId)) {
       updateFields.designationId = new mongoose.Types.ObjectId(designationId);
     }
@@ -1283,6 +1311,41 @@ export const adminByUpdateEmployeeId = async (req, res) => {
       { $set: updateFields },
       { new: true }
     );
+
+
+
+    // ✅ Update NumberOfUsers in organization's active plan
+    const orgPlan = await organizationPlanModel.findOne({
+      organizationId: employee.organizationId,
+      isActive: true,
+    });
+
+  if (
+      orgPlan &&
+      employee.status == "active" &&
+      updateFields.status == "inactive",
+      employee.AI_User=="false"
+    ) {
+      // Update NumberOfUsers
+      orgPlan.NumberOfUsers += 1;
+      await orgPlan.save();
+
+      // ✅ Mark AI_User as true (or whatever your field name is)
+      updatedEmployee.AI_User = "true"; // adjust field name and type as needed
+      await updatedEmployee.save();
+    }
+
+    else if(orgPlan &&  employee.status == "inactive" && updateFields.status =="active" , employee.AI_User_New=="false")
+      {
+      // Update NumberOfUsers
+      orgPlan.NumberOfUsers -= 1;
+      await orgPlan.save();
+
+      // ✅ Mark AI_User as true (or whatever your field name is)
+      updatedEmployee.AI_User_New = "true"; // adjust field name and type as needed
+      await updatedEmployee.save();
+    }
+
 
 return success(res ,"Employee updated successfully",{ data: updatedEmployee});
 

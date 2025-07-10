@@ -157,125 +157,7 @@ export const afterCallConnect = async (req, res) => {
 };
 
 
-export const initiateC2C22 = async (req, res) => {
-    try {
-        const { vnm, agent, caller } = req.body;
-
-        // Validate required fields
-        if (!vnm || !agent || !caller) {
-            return badRequest(res, "vnm, agent, and caller are required.");
-        }
-
-        const token = 'DqazlkMZ6Rk3nHLyyDDHLqLUh9vSav7DadnLmzx5z76FWYYDQRtY1fsoyN4PMC1S'; 
-
-        // Prepare form data
-        const formData = new URLSearchParams();
-        formData.append('vnm', vnm);
-        formData.append('agent', agent);
-        formData.append('caller', caller);
-        formData.append('token', token);
-
-        // Make API request
-        const apiResponse = await axios.post(
-            'https://airphone.in/api/c2c',
-            formData.toString(),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                timeout: 10000 // Optional timeout
-            }
-        );
-
-        return success(res, "Call dialed successfully.", {
-            airphoneResponse: apiResponse.data
-        });
-
-    } catch (error) {
-        console.error('Error calling Airphone API:', error.message);
-
-        if (error.response) {
-            return res.status(error.response.status).json({
-                status: 'error',
-                message: error.response.data?.message || 'Airphone API error',
-                details: error.response.data
-            });
-        }
-
-        return unknownError(res, error);
-    }
-};
-
-// ...existing code...
-// export const initiateC2C = async (req, res) => {
-//     try {
-//         const { vnm, agent, caller, reqId } = req.body;
-//         console.log("vnm", vnm);
-
-//         if (!vnm || !agent || !caller) {
-//             return badRequest(res, "vnm, agent, and caller are required.");
-//         }
-
-//         const token = 'DqazlkMZ6Rk3nHLyyDDHLqLUh9vSav7DadnLmzx5z76FWYYDQRtY1fsoyN4PMC1S';
-
-//         const formData = new URLSearchParams();
-//         formData.append('vnm', vnm);
-//         formData.append('agent', agent);
-//         formData.append('caller', caller);
-//         formData.append('token', token);
-
-//         // Airphone API call
-//         const apiResponse = await axios.post(
-//             'https://airphone.in/api/c2c',
-//             formData.toString(),
-//             {
-//                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-//                 timeout: 10000
-//             }
-//         );
-//         console.log('Airphone API Response:', apiResponse.data);
-
-//         // Get unique_id from Airphone API response
-//         const uniqueId = apiResponse.data.unique_id || apiResponse.data.uniqueId;
-
-        
-
-//         // Find agent in DB
-//         // const agentDoc = await Agent.findOne({ mobile: agent });
-//         // if (!agentDoc) {
-//         //     return badRequest(res, "Agent not found in database.");
-//         // }
-
-//         // Save C2C call in DB
-//         const newC2CCall = new C2CCall({
-//             vnm,
-//             agent,
-//             caller,
-            
-//             callToken: token,
-//             uniqueId // Make sure your model has this field
-//         });
-//         const savedC2CCall = await newC2CCall.save();
-
-//         return success(res, "Call dialed successfully.", {
-//             // airphoneResponse: apiResponse.data,
-//             unique_id: apiResponse.data.unique_id,
-//             status: apiResponse.data.status ,
-//             message: apiResponse.data.message ,
-//             _id: savedC2CCall._id,
-//             // uniqueId: uniqueId
-//         });
-
-//     } catch (error) {
-//         console.error('Error calling Airphone API:', error.message);
-
-//         if (error.response) {
-//             return badRequest(res, error.response.data?.message || 'Airphone API error', error.response.data);
-//         }
-
-//         return unknownError(res, error);
-//     }
-// };
+ 
 
 export const initiateC2C = async (req, res) => {
   try {
@@ -355,8 +237,10 @@ export const initiateC2C = async (req, res) => {
 
 export const addAgent = async (req, res) => {
     try {
-        const { name, mobile, status, virtual_number, product,employeeId } = req.body;
+        const { name, mobile, product,employeeId } = req.body;
     const organizationId = req.employee.organizationId;
+    const virtual_number =  7935295038; 
+    const status = "Active"; // Default status
 
         if (!organizationId) {
             return badRequest(res, 'Missing organizationId in headers');
@@ -411,7 +295,7 @@ export const addAgent = async (req, res) => {
     }
 };
 
-export const updateAgentStatus = async (req, res) => {
+export const updateAgentStatus1 = async (req, res) => {
     try {
         const updateAgentData = req.body;
         const { mobile, status } = updateAgentData;
@@ -447,6 +331,74 @@ export const updateAgentStatus = async (req, res) => {
         });
     } catch (error) {
         handleApiError(res, error, 'Error updating agent status and MongoDB:');
+    }
+};
+
+export const updateAgentStatus = async (req, res) => {
+    try {
+        const { mobile, status, virtual_number } = req.body;
+        const organizationId = req.employee?.organizationId;
+        console.log("Organization ID:", organizationId);
+
+        if (!organizationId) {
+            return badRequest(res, 'Missing organizationId in token.');
+        }
+
+        if (!mobile || !status || !virtual_number) {
+            return badRequest(res, 'Missing required fields: mobile, status or virtual_number.');
+        }
+
+        const auth_token = AIRPHONE_AUTH_TOKEN;
+        if (!auth_token) {
+            return badRequest(res, 'Airphone auth token not configured in environment variables.');
+        }
+
+        // Prepare form data for external API
+        const formData = new FormData();
+        formData.append('mobile', mobile);
+        formData.append('status', status);
+        formData.append('virtual_number', virtual_number);
+        formData.append('auth_token', auth_token);
+
+        // Call Airphone update API
+        const apiResponse = await axios.post(
+            `https://airphone.in/api/update-c2c-agent`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    ...formData.getHeaders?.() // for Node environments
+                },
+                timeout: AIRPHONE_API_CONFIG.timeout
+            }
+        );
+
+        const apiData = apiResponse.data;
+
+        if (apiData.status !== "1") {
+            return badRequest(res, `Airphone API Error: ${apiData.message}`);
+        }
+
+        // Update agent in MongoDB
+        const updatedAgent = await Agent.findOneAndUpdate(
+            { mobile, organizationId },
+            { status, virtual_number },
+            { new: true }
+        );
+
+        if (!updatedAgent) {
+            return badRequest(res, "Agent not found with given mobile number and organization.");
+        }
+
+        return success(res, "Agent updated successfully.", {
+            _id: updatedAgent._id,
+            status: updatedAgent.status,
+            virtual_number: updatedAgent.virtual_number
+        });
+
+    } catch (error) {
+        console.error('Error updating agent:', error.message);
+        return unknownError(res, error);
     }
 };
 

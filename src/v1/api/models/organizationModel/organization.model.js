@@ -111,17 +111,60 @@ const organizationSchema = new mongoose.Schema(
     // Add other fields as needed
 
     permission: {
-      EmployeeManagement: { type: Boolean, default: false },
       RecruitmentHiring: { type: Boolean, default: false },
-      AdditionalFeatures: { type: Boolean, default: false },
-      SystemConfiguration: { type: Boolean, default: false },
-      LinkedInPostManagement: { type: Boolean, default: false },
+      managementFeatures: { type: Boolean, default: false },
+      assetManagement: { type: Boolean, default: false },
+      CommandExe: { type: Boolean, default: false },
+      expenseManagement :  { type: Boolean, default: false },
+      LeadExe :{ type: Boolean, default: false },
+      fileManager :{ type: Boolean, default: false },
+      notes :{ type: Boolean, default: false },
+      chat :{ type: Boolean, default: false },
       InterviewManagement: { type: Boolean, default: false },
-      CustomPdf: { type: Boolean, default: false },
-      Commandexe: { type: Boolean, default: false },
-      Leadexe :{ type: Boolean, default: false },
-    }
+      // EmployeeManagement: { type: Boolean, default: false },
+      // AdditionalFeatures: { type: Boolean, default: false },
+      // SystemConfiguration: { type: Boolean, default: false },
+      // LinkedInPostManagement: { type: Boolean, default: false },
+      // CustomPdf: { type: Boolean, default: false },
+    },
+     // comadexe data
+   reportingCommunication :{
+     communicationTo : String,
+    communicationCC : [String]
+   },
+   invoiceCommunication : {
+     communicationTo : String,
+    communicationCC : [String],
+   },
+   physicalReportCommunication:{
+     communicationTo : String,
+    communicationCC : [String],
+   },
+    enach : {
+        type : String,
+        default : "physical",
+        // enum : ["physical","esign","upload"]
+    },
+    sign :{
+        type : String
+    },
+    gstin :String,
+     abbreviation: String,
+    companyType: String,
+    dateOfIncorporation: String,
+    cinNumber: String,
+    registeredAddress: String,
+    corporateAddress: String,
+    invoiceCycle:String,
+     invoiceRaise:String,
+     invoiceStartDate : Date,
+     invoiceEndDate : Date,
+     Hirefor:{
+      type:String,
+      default:"YourSelf"
+     }
   },
+ 
   {
     timestamps: true,
   }

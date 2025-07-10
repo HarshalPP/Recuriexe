@@ -62,11 +62,20 @@ const planSchema = new Schema(
       type: Number,
       default: 0,
     },
+    fileManagerLimit: {
+        type: Number,
+        default: 0,
+    },
 
   reminderSent: {
   type: Boolean,
   default: false,
-}
+},
+
+PlanDate:{
+  type:Date,
+  default:Date.now()
+},
 
   },
   { timestamps: true }

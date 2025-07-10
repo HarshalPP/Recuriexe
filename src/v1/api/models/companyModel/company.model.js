@@ -28,7 +28,20 @@ const companyModelSchema = new Schema({
     enum: ["active", "inactive"],
     default: "active",
   },
-
+ gstin: {
+        type: String,
+    },
+    pan: String,
+    email: {
+        type: String,
+    },
+    phone: String,
+    websiteUrl: String,
+    country: String,
+    defaultCurrency: String,
+    domain: String,
+    address: String,
+    taxId: String,
   workWeekStart: {
     type: Number,
     default: 1, // Monday
@@ -59,7 +72,37 @@ const companyModelSchema = new Schema({
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'employee',
-  }
+  },
+  reportingCommunication :{
+     communicationTo : String,
+    communicationCC : [String]
+   },
+   invoiceCommunication : {
+     communicationTo : String,
+    communicationCC : [String],
+   },
+   physicalReportCommunication:{
+     communicationTo : String,
+    communicationCC : [String],
+   },
+    enach : {
+        type : String,
+        default : "physical",
+        // enum : ["physical","esign","upload"]
+    },
+    sign :{
+        type : String
+    },
+     abbreviation: String,
+    companyType: String,
+    dateOfIncorporation: String,
+    cinNumber: String,
+    registeredAddress: String,
+    corporateAddress: String,
+    invoiceCycle:String,
+     invoiceRaise:String,
+     invoiceStartDate : Date,
+     invoiceEndDate : Date,
 }, {
   timestamps: true,
 });

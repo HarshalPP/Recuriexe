@@ -6,8 +6,28 @@ import uploadToSpaces from "../spaceservices/space.service.js"
  * @param {string} folderName - Folder name in the bucket
  * @returns {Promise<string>} - URL of uploaded file
  */
-// export const handleSingleFileUpload = async (file, folderName = 'uploads') => {
-//   const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf', 'image/webp'];
+
+
+
+// export const handleSingleFileUpload = async (file, folderName = 'DOCS') => {
+//   const allowedMimeTypes = [
+//     'image/jpeg',
+//     'image/png',
+//     'image/webp',
+//     'application/pdf',
+//     'application/msword',                    // .doc
+//     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+//     'application/vnd.ms-excel',              // .xls
+//     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+//     'text/plain', 
+    
+//         // Videos
+//     'video/mp4',
+//     'video/x-msvideo', // .avi
+//     'video/quicktime', // .mov
+//     'video/x-matroska', // .mkv
+//     'video/webm',// .txt
+//   ];
 
 //   if (!allowedMimeTypes.includes(file.mimetype)) {
 //     throw new Error(`Unsupported file type: ${file.mimetype}`);
@@ -16,7 +36,20 @@ import uploadToSpaces from "../spaceservices/space.service.js"
 //   const contentType = file.mimetype;
 //   const extension = file.originalname.split('.').pop();
 //   const timestamp = Date.now();
-//   const filePathInBucket = `${process.env.PATH_BUCKET}/HRMS/IMAGE/${Date.now()}_${file.originalname}`;
+
+//   // Dynamic folder based on file type
+//   let fileTypeFolder = 'OTHERS';
+//   if (contentType.startsWith('image/')) fileTypeFolder = 'IMAGE';
+//   else if (
+//     contentType.startsWith('application/pdf') ||
+//     contentType.includes('word') ||
+//     contentType.includes('excel') ||
+//     contentType === 'text/plain'
+//   ) {
+//     fileTypeFolder = folderName;
+//   }
+
+//   const filePathInBucket = `${process.env.PATH_BUCKET}/HRMS/${fileTypeFolder}/${timestamp}_${file.originalname}`;
 //   const fileContent = file.buffer;
 
 //   const url = await uploadToSpaces(
@@ -33,15 +66,25 @@ import uploadToSpaces from "../spaceservices/space.service.js"
 
 export const handleSingleFileUpload = async (file, folderName = 'DOCS') => {
   const allowedMimeTypes = [
+    // Images
     'image/jpeg',
     'image/png',
     'image/webp',
+
+    // Documents
     'application/pdf',
-    'application/msword',                    // .doc
+    'application/msword', // .doc
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/vnd.ms-excel',              // .xls
+    'application/vnd.ms-excel', // .xls
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'text/plain'                             // .txt
+    'text/plain', // .txt
+
+    // Videos
+    'video/mp4',
+    'video/x-msvideo', // .avi
+    'video/quicktime', // .mov
+    'video/x-matroska', // .mkv
+    'video/webm',
   ];
 
   if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -54,8 +97,14 @@ export const handleSingleFileUpload = async (file, folderName = 'DOCS') => {
 
   // Dynamic folder based on file type
   let fileTypeFolder = 'OTHERS';
-  if (contentType.startsWith('image/')) fileTypeFolder = 'IMAGE';
-  else if (
+
+  if (contentType.startsWith('image/')) {
+    fileTypeFolder = 'IMAGE';
+  } else if (
+    contentType.startsWith('video/')
+  ) {
+    fileTypeFolder = 'VIDEO';
+  } else if (
     contentType.startsWith('application/pdf') ||
     contentType.includes('word') ||
     contentType.includes('excel') ||

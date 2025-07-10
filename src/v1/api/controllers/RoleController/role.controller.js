@@ -59,36 +59,36 @@ export async function roleAdd(req, res) {
       req.body.roleName = req.body.roleName.trim();
     }
 
-      if (req.body.roleName.trim().toLowerCase() === "productowner") {
+    if (req.body.roleName.trim().toLowerCase() === "productowner") {
       return badRequest(res, "You are not allowed to create the 'productowner' role.");
     }
 
 
     const normalizedRoleName = req.body.roleName.trim().toLowerCase();
 
-const existing = await roleModel.aggregate([
-  {
-    $match: {
-      organizationId: new mongoose.Types.ObjectId(organizationId),
-      $expr: {
-        $eq: [
-          { $toLower: { $trim: { input: "$roleName" } } },
-          normalizedRoleName
-        ]
+    const existing = await roleModel.aggregate([
+      {
+        $match: {
+          organizationId: new mongoose.Types.ObjectId(organizationId),
+          $expr: {
+            $eq: [
+              { $toLower: { $trim: { input: "$roleName" } } },
+              normalizedRoleName
+            ]
+          }
+        }
       }
-    }
-  }
-]);
+    ]);
 
-if (existing.length > 0) {
-  return badRequest(res, "Role name already exists");
-}
+    if (existing.length > 0) {
+      return badRequest(res, "Role name already exists");
+    }
 
 
     // If admin role, set all booleans (including nested) to true
     // if (req.body.roleName?.toLowerCase() === "admin") {
     const role = req.body.roleName?.toLowerCase();
-if (role === "admin" || role === "productowner"){
+    if (role === "admin" || role === "productowner") {
       const roleDefaults = new roleModel(); // create a new empty instance to inspect all keys
       const allKeys = Object.keys(roleDefaults.toObject());
 
@@ -274,16 +274,16 @@ export async function updateRole(req, res) {
     // Check if the role being updated is SuperAdmin
     const existingRole = await roleModel.findById(roleId);
     if (!existingRole) {
-      return badRequest(res ,"Role not found" );
+      return badRequest(res, "Role not found");
     }
 
-      if (updateFields.roleName?.trim().toLowerCase() === "productowner") {
+    if (updateFields.roleName?.trim().toLowerCase() === "productowner") {
       return badRequest(res, "You are not allowed to create the 'productowner' role.");
     }
 
     if (existingRole.roleName.toLowerCase() === "superadmin") {
-      return badRequest(res , "Cannot update the SuperAdmin role" );
-    } 
+      return badRequest(res, "Cannot update the SuperAdmin role");
+    }
     // Clean and format the roleName if present
     if (typeof updateFields.roleName === "string") {
       updateFields.roleName = updateFields?.roleName?.trim();
@@ -301,8 +301,8 @@ export async function updateRole(req, res) {
 
     const updateData = await roleModel
       .findByIdAndUpdate(roleId, updateFields, { new: true })
-      .populate("permissions");
-   return success(res, "Updated Role", updateData);
+      // .populate("permissions");
+    return success(res, "Updated Role", updateData);
     // await roleGoogleSheet(updateData);
   } catch (error) {
     console.log(error);
@@ -320,18 +320,18 @@ export async function getAllRole(req, res) {
         errors: errors.array(),
       });
     }
-    const { id,  organizationId } = req.employee;
- const notShowRole = ["productowner"].map(r => r.trim().toLowerCase());
+    const { id, organizationId } = req.employee;
+    const notShowRole = ["productowner"].map(r => r.trim().toLowerCase());
 
 
     let roleDetail = await roleModel
       .find({ organizationId })
       .collation({ locale: "en", strength: 3 })
       .sort({ roleName: 1 })
-      .populate("permissions")
-      .populate("organizationId","name");
-      
-       roleDetail = roleDetail.filter(role => {
+      // .populate("permissions")
+      .populate("organizationId", "name");
+
+    roleDetail = roleDetail.filter(role => {
       const normalizedRole = role.roleName?.trim().toLowerCase();
       return !notShowRole.includes(normalizedRole);
     });
@@ -353,16 +353,16 @@ export async function getRoleDropDown(req, res) {
         errors: errors.array(),
       });
     }
-    const {  organizationId } = req.employee;
+    const { organizationId } = req.employee;
 
-    const {status} = req.query
+    const { status } = req.query
 
-    const roleList = await roleModel.find({ organizationId : new mongoose.Types.ObjectId(organizationId) , status:status?status:'active' }).select('roleName status')
+    const roleList = await roleModel.find({ organizationId: new mongoose.Types.ObjectId(organizationId), status: status ? status : 'active' }).select('roleName status')
 
     return success(res, "Role List", roleList);
   } catch (error) {
     console.log(error);
-   return unknownError(res, error);
+    return unknownError(res, error);
   }
 }
 // ------------------Admin Master Get Role By Type---------------------------------------
@@ -427,156 +427,115 @@ export async function getCollectionRoleEmploye(req, res) {
   }
 }
 
-
-// export async function roleDetail(req, res) {
-//   try {
-
-//     const { roleId } = req.query;
-//     if(!roleId){
-//       return badRequest(res , "role Id required")
-//     }
-//    const roleDetail = await roleModel
-//       .findById(roleId)
-//       // .populate("permissions") 
-//       .lean(); 
-
-//     if (!roleDetail) {
-//       return badRequest(res, "Role Not Found");
-//     }
-
-//     const normalizedRoleName = roleDetail.roleName?.trim().toLowerCase();
-
-//     if (normalizedRoleName === "productowner") {
-//       if (roleDetail.permissions && typeof roleDetail.permissions === "object") {
-//         for (const key in roleDetail.permissions) {
-//           if (Object.hasOwn(roleDetail.permissions, key)) {
-//             roleDetail.permissions[key] = true;
-//           }
-//         }
-//       }
-//     }
-//       const organizationId = roleDetail.organizationId;
-//     if (!organizationId) return badRequest(res, "Organization ID not found in role");
-
-//     const organization = await organizationModel.findById(organizationId).lean();
-//     if (!organization) return badRequest(res, "Organization not found");
-
-//     const orgPermissions = organization.permission || {}; // assuming this field
-
-//     // console.log('orgPermissions',orgPermissions)
-//     // Merge permissions (role overrides org by default)
-//     const finalPermissions = {
-//       ...orgPermissions,
-//       ...roleDetail.permissions
-//     };
-
-//     // Attach to response
-//     roleDetail.permissions = finalPermissions;
-
-//    return success(res, `Role Detail`, roleDetail);
-//   } catch (error) {
-//     // console.log(error);
-//    return unknownError(res, error);
-//   }
-// }
-
-
-
-/*─────────────────────────────────────────────
-  Map each top‑level permission to its children
-─────────────────────────────────────────────*/
+// role get organization Kye wise permisstion for admin and productOwner
 const DEPENDENCIES = {
-  EmployeeManagement: [
-    "designationSetup",
-    "employeeTypeSetup",
-    "workModeSetup",
-    "roleAssignment",
-    "idSetup",
-    "roleSetup"
-  ],
   RecruitmentHiring: [
-    "hiringFlowSetup",
-    "candidateProfileSetup",
-    "budgetSetup",
-    "jobDescriptionSetup",
-    "aiSetup",
-    "careerPageSetting",
-    "qualificationSetup",
-     "jobPostDashboard" ,
-        "jobApplications"   
+    "RecruitmentHiring",
+    // "budgetSetup",
+    // "aiSetup",
+    // "careerPageSetting",
+    // "idSetup",
+    // "qualificationSetup",
+    // "linkedin",              // whole object
+    // "targetCompany",
+    // "agencySetup",
+    // "workModeSetup",
+    // "jobDescriptionSetup",
+    // "jobPostDashboard",
+    // "jobApplications",
+    // "hiringFlowSetup",
   ],
-  AdditionalFeatures: [
-    "fileManager",
+  CommandExe: [
+  ],
+  expenseManagement: [
+    "expenseManagement"
+    // "expensePoliciesSetup",
+    // "expenseConfigSetup",
+    // "expenseCategoriesSetup",
+    // "expenseTypesSetup",
+    // "expenseRolePermissionSetup",
+  ],
+  LeadExe: [
+  ],
+  fileManager: [
+    "fileManager"
+  ],
+  notes: [
     "notes"
   ],
-  SystemConfiguration: [
-    "masterDropdownSetup"
+  chat: [
+    "chat"
   ],
-  LinkedInPostManagement: [
-    "linkedin",              // whole object
-    "linkedinSetUp",
-    "linkedinPostApprove"
+  assetManagement: [
+    "assetManagement"
+    // "assetPermissionsSetup",
+    // "assetCategoriesSetup",
+    // "assetEquipmentSetup",
   ],
-  CustomPdf :[
-    "CustomPdfTemplate"
+  managementFeatures: [
+    "managementFeatures"
+    // "mailSwitchSetup",
+    // "masterDropdownSetup",
+    // "CustomPdfTemplate"
   ],
-  Leadexe:[
-
-  ],
-  Commandexe : [
-
-  ],
+  InterviewManagement: [
+    "InterviewManagement"
+    // "callingAgentCreation",
+    // "interviewCanViewSelf",
+    // "interviewCanViewAll"
+  ]
 };
 
-/* Helper – recursively set every boolean in an object to `false` */
-function deepFalse(obj) {
+function deepSet(obj, val) {
   if (obj && typeof obj === "object") {
     Object.keys(obj).forEach(k => {
-      if (typeof obj[k] === "object") deepFalse(obj[k]);
-      else                            obj[k] = false;
+      if (typeof obj[k] === "object") deepSet(obj[k], val);
+      else obj[k] = val;
     });
   }
 }
 
 export async function roleDetail(req, res) {
   try {
-    /* 1️⃣  Basic checks & lookup */
+    const { organizationId } = req.employee
     const { roleId } = req.query;
     if (!roleId) return badRequest(res, "role Id required");
 
+    if (!organizationId) {
+      return badRequest(res, "Invalid Token Organization Not Found");
+    }
     const roleDetail = await roleModel.findById(roleId).lean();
     if (!roleDetail) return badRequest(res, "Role Not Found");
 
-    /* 2️⃣  “ProductOwner” gets every flag = true */
-    if (roleDetail.roleName?.trim().toLowerCase() === "productowner") {
-      if (roleDetail.permissions && typeof roleDetail.permissions === "object") {
-        for (const key in roleDetail.permissions) {
-          if (Object.hasOwn(roleDetail.permissions, key)) {
-            roleDetail.permissions[key] = true;
-          }
-        }
-      }
+    const roleName = roleDetail.roleName?.trim().toLowerCase();
+    const isPowerRole = roleName === "productowner" || roleName === "admin";
+
+    if (isPowerRole && roleDetail.permissions && typeof roleDetail.permissions === "object") {
+      Object.keys(roleDetail.permissions).forEach(k => {
+        roleDetail.permissions[k] = true;
+      });
     }
 
-    /* 3️⃣  Merge with org‑level defaults (role overrides org) */
-    const org = await organizationModel
-      .findById(roleDetail.organizationId)
-      .lean();
+    const org = await organizationModel.findById(organizationId).lean();
     if (!org) return badRequest(res, "Organization not found");
 
-    const orgPerm = org.permission || {};
-    roleDetail.permissions = { ...orgPerm, ...roleDetail.permissions };
+    roleDetail.permissions = { ...org.permission, ...roleDetail.permissions };
 
-    /* 4️⃣  Apply dependency rules: flip children → false when parent flag is false */
     for (const [parentFlag, children] of Object.entries(DEPENDENCIES)) {
       const parentValue = roleDetail.permissions?.[parentFlag];
+
       if (parentValue === false) {
-        children.forEach(childKey => {
-          if (typeof roleDetail[childKey] === "object") {
-            deepFalse(roleDetail[childKey]);      // nested object
-          } else {
-            roleDetail[childKey] = false;         // simple boolean
-          }
+        children.forEach(child => {
+          if (typeof roleDetail[child] === "object") deepSet(roleDetail[child], false);
+          else roleDetail[child] = false;
+        });
+        continue;
+      }
+
+      if (isPowerRole && parentValue === true) {
+        children.forEach(child => {
+          if (typeof roleDetail[child] === "object") deepSet(roleDetail[child], true);
+          else roleDetail[child] = true;
         });
       }
     }
@@ -588,27 +547,130 @@ export async function roleDetail(req, res) {
 }
 
 export async function roleAssignToEmployee(req, res) {
-    try {
-        const { employeeId } = req.query;
-        const { roleId } = req.query;
-        // Validate input
-        if (!roleId) {
-            return badRequest(res, "Role ID is required.");
-        }
-        const employee = await employeeModel.findById(employeeId);
-        if (!employee) {
-            return notFound(res, "Employee not found.");
-        }
-        // Check if the role exists
-        const role = await roleModel.findById(roleId);
-        if (!role) {
-            return notFound(res, "Role not found.");
-        }
-        employee.roleId = roleId; // Assign the role
-        await employee.save();
-        return success(res,  "Role assigned successfully.", employee);
-    } catch (error) {
-        console.error("Error assigning role:", error);
-        return unknownError(res, error);
+  try {
+    const { employeeId } = req.query;
+    const { roleId } = req.query;
+    // Validate input
+    if (!roleId) {
+      return badRequest(res, "Role ID is required.");
     }
+    const employee = await employeeModel.findById(employeeId);
+    if (!employee) {
+      return notFound(res, "Employee not found.");
+    }
+    // Check if the role exists
+    const role = await roleModel.findById(roleId);
+    if (!role) {
+      return notFound(res, "Role not found.");
+    }
+    employee.roleId = roleId; // Assign the role
+    await employee.save();
+    return success(res, "Role assigned successfully.", employee);
+  } catch (error) {
+    console.error("Error assigning role:", error);
+    return unknownError(res, error);
+  }
 }
+
+
+
+
+const updatedPermissions = {
+  organizationSetup: {
+    organizationSetup: true,
+    branchSetup: true,
+    workLocationSetup: true,
+    workModeSetup: true,
+    departmentTypeSetup: true,
+    designationSetup: true,
+    employeeTypeSetup: true,
+    employeeAndRoleManagement: true,
+  },
+  RecruitmentHiring: {
+    budgetSetup: true,
+    aiSetup: true,
+    careerPageSetting: true,
+    idSetup: true,
+    qualificationSetup: true,
+    linkedin: {
+      setup: true,
+      dashboard: true,
+      createPost: true,
+    },
+    targetCompany: true,
+    agencySetup: true,
+    jobDescriptionSetup: true,
+    hiringFlowSetup: true,
+    jobPostDashboard: {
+      canViewAll: true,
+      canViewSelf: true,
+      newJobPost: true,
+      canToggleStatus: true,
+      jobPostApprove: true,
+    },
+    jobApplications: {
+      canViewAll: false,
+      canViewSelf: false,
+      canApproveReject: false,
+      candidateMap: false,
+    },
+  },
+  managementFeatures: {
+    CustomPdfTemplate: false,
+    masterDropdownSetup: false,
+    mailSwitchSetup: false,
+  },
+  InterviewManagement: {
+    callingAgentCreation: false,
+    interviewCanViewSelf: false,
+    interviewCanViewAll: false,
+    callingLogDashboard:false
+  },
+  expenseManagement: {
+    expensePoliciesSetup: true,
+    expenseConfigSetup: true,
+    expenseCategoriesSetup: true,
+    expenseTypesSetup: true,
+    expenseRolePermissionSetup: true,
+    // tabsView:true
+  },
+  assetManagement: {
+    assetEquipmentSetup: false,
+    assetCategoriesSetup: false,
+    assetPermissionsSetup: false,
+  },
+  fileManager: false,
+  notes: false,
+  chat: false,
+};
+
+const fieldsToKeep = ['updateBy', 'createdBy', 'organizationId', 'status', 'roleName'];
+
+export const cleanAndUpdateRoles = async (req, res) => {
+  try {
+    const roles = await roleModel.find({
+    });
+
+    for (const role of roles) {
+      const newData = {};
+
+      for (const key of fieldsToKeep) {
+        if (role[key] !== undefined) {
+          newData[key] = role[key];
+        }
+      }
+
+      newData.permissions = updatedPermissions;
+
+      // Overwrite true: removes all unlisted keys
+      await roleModel.replaceOne({ _id: role._id }, newData);
+    }
+
+    console.log("✅ All roles updated successfully.");
+    res.status(200).json({ message: "Roles updated successfully" });
+  } catch (err) {
+    console.error("❌ Error updating roles:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+

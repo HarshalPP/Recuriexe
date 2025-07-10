@@ -15,9 +15,19 @@ const employeSchema = new Schema(
 
     UserType: [{
       type: String,
-      enum: ["employee", "User", "Owner"],
+      enum: ["employee", "User", "Owner","Client"],
       default: "User",
     }],
+
+    AI_User:{
+      type:String,
+      default:"false"
+    },
+
+    AI_User_New:{
+      type:String,
+      default:"false"
+    },
     
     userName: { type: String },
     email: { type: String, default: "" },

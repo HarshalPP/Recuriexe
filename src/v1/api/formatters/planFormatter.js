@@ -12,6 +12,7 @@ export const formatPlan = (plan) => {
     NumberOfJobPosts: plan.NumberOfJobPosts,
     NumberOfUsers: plan.NumberOfUsers,
     NumberofAnalizers: plan.NumberofAnalizers,
+    fileManagerLimit: plan.fileManagerLimit,
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt,
   };

@@ -4,40 +4,40 @@ import {
   notFound,
   unknownError,
 } from "../../formatters/globalResponse.js";
-import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import designationModel from "../../models/designationModel/designation.model.js";
 import aiModel from "../../models/AiModel/ai.model.js";
 import jobApply from "../../models/jobformModel/jobform.model.js";
-import { screenApplicant } from "../../services/screeningAI/screeningAi.services.js"
-import AIRole from "../../models/AiScreeing/AIRule.model.js"
+import { screenApplicant } from "../../services/screeningAI/screeningAi.services.js";
+import AIRole from "../../models/AiScreeing/AIRule.model.js";
 import { generateAIScreening } from "../../services/Geminiservices/gemini.service.js";
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js";
-import Qualification from "../../models/QualificationModel/qualification.model.js"
-import departmentModel from "../../models/deparmentModel/deparment.model.js"
-import screenai from "../../models/AiScreeing/AiScreening.model.js"
-import CandidateAIScreeningModel from "../../models/screeningResultModel/screeningResult.model.js"
+import Qualification from "../../models/QualificationModel/qualification.model.js";
+import departmentModel from "../../models/deparmentModel/deparment.model.js";
+import screenai from "../../models/AiScreeing/AiScreening.model.js";
+import CandidateAIScreeningModel from "../../models/screeningResultModel/screeningResult.model.js";
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
-import BugedModel from "../../models/budgedModel/budged.model.js"
+import BugedModel from "../../models/budgedModel/budged.model.js";
 import mongoose from "mongoose";
-import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
+import { jobApplyToGoogleSheet } from "../../controllers/googleSheet/jobApplyGoogleSheet.js";
 import { ObjectId } from "mongodb";
-
 
 import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
-import AIConfigModel from "../../models/AiModel/ai.model.js"
+import AIConfigModel from "../../models/AiModel/ai.model.js";
 import { sendEmail } from "../../Utils/sendEmail.js";
-import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
-
-
-
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js";
 
 export const createAIConfig = async (req, res) => {
   try {
     const { organizationId, title, enableAIResumeParsing } = req.body;
 
     // Validate required fields
-    if (!organizationId || !title || typeof enableAIResumeParsing !== 'boolean') {
+    if (
+      !organizationId ||
+      !title ||
+      typeof enableAIResumeParsing !== "boolean"
+    ) {
       return badRequest(res, "Missing or invalid required fields.");
     }
 
@@ -52,12 +52,10 @@ export const createAIConfig = async (req, res) => {
 
     return success(res, "AI config created successfully", result);
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return unknownError(res, error.message || "Internal server error");
   }
 };
-
-
 
 export const updateAIConfig = async (req, res) => {
   try {
@@ -70,7 +68,8 @@ export const updateAIConfig = async (req, res) => {
       { new: true }
     );
 
-    if (!updatedConfig) return notFound(res, "AI config not found for this organization.");
+    if (!updatedConfig)
+      return notFound(res, "AI config not found for this organization.");
 
     return success(res, "AI config updated successfully", updatedConfig);
   } catch (error) {
@@ -78,13 +77,15 @@ export const updateAIConfig = async (req, res) => {
   }
 };
 
-
 export const deleteAIConfig = async (req, res) => {
   try {
     const { organizationId } = req.params;
 
-    const deletedConfig = await AIConfigModel.findOneAndDelete({ organizationId });
-    if (!deletedConfig) return notFound(res, "AI config not found for this organization.");
+    const deletedConfig = await AIConfigModel.findOneAndDelete({
+      organizationId,
+    });
+    if (!deletedConfig)
+      return notFound(res, "AI config not found for this organization.");
 
     return success(res, "AI config deleted successfully", deletedConfig);
   } catch (error) {
@@ -92,16 +93,15 @@ export const deleteAIConfig = async (req, res) => {
   }
 };
 
-
-
 // get All config //
 export const getAllAIConfigs = async (req, res) => {
   try {
-    const configs = await AIConfigModel.find().populate({
-      path: "organizationId",
-      select: 'name'
-    })
-      .sort({ createdAt: -1 })
+    const configs = await AIConfigModel.find()
+      .populate({
+        path: "organizationId",
+        select: "name",
+      })
+      .sort({ createdAt: -1 });
 
     if (configs.length === 0) {
       return success(res, "No AI configs found.");
@@ -113,33 +113,40 @@ export const getAllAIConfigs = async (req, res) => {
   }
 };
 
-
 // AI Screening Dashboard //
-
 
 export const screenApplicantAPI = async (req, res) => {
   try {
     const { jobPostId, resume, candidateId } = req.body;
 
-
     if (!jobPostId || !resume) {
-      return badRequest(res, "Missing required fields: jobPostId, resume, or candidateId");
+      return badRequest(
+        res,
+        "Missing required fields: jobPostId, resume, or candidateId"
+      );
     }
 
     const candidateIdExists = await jobApply.findOne({ candidateId });
 
     if (!candidateIdExists) {
-      return badRequest(res, "candidateId does not exist in the job application.");
+      return badRequest(
+        res,
+        "candidateId does not exist in the job application."
+      );
     }
 
     const jobPost = await jobPostModel.findById(jobPostId).lean();
     if (!jobPost) return badRequest(res, "Job post not found");
 
     // Fetch designation
-    const designation = await designationModel.findById(jobPost.designationId).lean();
+    const designation = await designationModel
+      .findById(jobPost.designationId)
+      .lean();
     if (!designation) return badRequest(res, "Designation not found");
 
-    const aiScreeningEnabled = await AIRole.findOne(AutomaticScreening => AutomaticScreening == true).lean();
+    const aiScreeningEnabled = await AIRole.findOne(
+      (AutomaticScreening) => AutomaticScreening == true
+    ).lean();
 
     if (!aiScreeningEnabled) {
       return badRequest(res, "AI screening is not enabled..");
@@ -148,7 +155,6 @@ export const screenApplicantAPI = async (req, res) => {
     if (aiScreeningEnabled.AI_Screening.length == 0) {
       return badRequest(res, "No AI screening rules found.");
     }
-
 
     const result = await screenApplicant(jobPostId, resume);
 
@@ -165,10 +171,7 @@ export const screenApplicantAPI = async (req, res) => {
         requiredPercentage,
         designation: designation.name,
       },
-    }
-
-    );
-
+    });
   } catch (error) {
     console.error("AI Screening Error:", error);
     unknownError(res, error);
@@ -188,8 +191,6 @@ export const screenApplicantAPI = async (req, res) => {
 //     const job = await jobPostModel.findById(jobPostId).lean();
 //     if (!job) return badRequest(res, "Job not found");
 
-
-
 //     const [
 //   findJd,
 //   Qualificationdata,
@@ -208,8 +209,6 @@ export const screenApplicantAPI = async (req, res) => {
 // if (!designation) return badRequest(res, "Designation not found");
 // if (!department) return badRequest(res, "Department not found");
 
-
-
 //     const aiRule = await AIRole.findOne({ AutomaticScreening: true }).lean();
 
 //     const AiScreeing = await screenai.find({}).lean();
@@ -217,8 +216,6 @@ export const screenApplicantAPI = async (req, res) => {
 //     const coreSettings = AiScreeing[0]?.coreSettings || {};
 //     const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
 //     const confidenceThresholdScore = coreSettings.confidenceThreshold || 50;
-
-
 
 //     let screeningRules = [];
 
@@ -315,11 +312,6 @@ export const screenApplicantAPI = async (req, res) => {
 //       })
 //       .join('\n\n');
 
-
-    
-
-
-
 //     // Build an array of applied rules for prompt
 //     const appliedRules = screeningRules.map(rule => ({
 //       name: rule.name,
@@ -341,7 +333,6 @@ export const screenApplicantAPI = async (req, res) => {
 // - Cultural fit
 // - Communication skills
 // - Learning ability
-
 
 // Each match should be scored from 0-100. Then calculate the overall AI score using weights:
 
@@ -488,8 +479,6 @@ export const screenApplicantAPI = async (req, res) => {
 
 //     // console.log("AI Screening Prompt:", prompt);
 
-
-
 //     const aiResult = await generateAIScreening(prompt, resume);
 
 //     if (!aiResult || aiResult.error) {
@@ -519,8 +508,6 @@ export const screenApplicantAPI = async (req, res) => {
 //       confidenceThreshold,
 //       improvementSuggestions,
 //       riskFactors
-
-
 
 //     } = aiResult;
 
@@ -558,7 +545,6 @@ export const screenApplicantAPI = async (req, res) => {
 //       riskFactors,
 //     };
 
-        
 //     success(res,  "AI_Screening" , updateData);
 
 //     const data = await jobApply.findOneAndUpdate(
@@ -572,9 +558,6 @@ export const screenApplicantAPI = async (req, res) => {
 //   { new: true }
 // );
 
-
-
-
 //         // Upsert operation: update if exists, else create
 //     await CandidateAIScreeningModel.findOneAndUpdate(
 //       filter,
@@ -582,198 +565,207 @@ export const screenApplicantAPI = async (req, res) => {
 //       { new: true, upsert: true }
 //     );
 
-
-
-
 //   } catch (error) {
 //     console.error("Error in screenCandidateAIProfile", error);
 //     return unknownError(res, error);
 //   }
 // };
 
-
-
 //--- Qualification Required ---
-// ${Qualificationdata?.name || "N/A"} 
+// ${Qualificationdata?.name || "N/A"}
 export const screenCandidateAIProfile = async (req, res) => {
   try {
     const { jobPostId, resume, candidateId } = req.body;
-    const orgainizationId=req.employee.organizationId;
+    const orgainizationId = req.employee.organizationId;
     if (!orgainizationId) {
       return badRequest(res, "Organization ID is required.");
     }
 
-
-    const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: orgainizationId, isActive: true })
+      .lean();
 
     if (!activePlan) {
-     return badRequest(res, "no active plan found for this Analizer.");
+      return badRequest(res, "no active plan found for this Analizer.");
     }
 
-    const createdAt = new Date(activePlan?.createdAt);
-    console.log("createdAt", createdAt);
+    const PlanDate = new Date(activePlan?.PlanDate);
+    console.log("createdAt", PlanDate);
 
-    const expiryDate = new Date(createdAt);
-    expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
-
+    const expiryDate = new Date(PlanDate);
+    expiryDate.setDate(
+      expiryDate.getDate() + (activePlan.planDurationInDays || 0)
+    );
 
     if (new Date() > expiryDate) {
-      return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
+      return badRequest(
+        res,
+        "Your plan has expired. Please renew your plan to continue using AI screening."
+      );
     }
 
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
 
     // check AI screeing Usages //
-    
-    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: orgainizationId });
+
+    const currentAICount = await CandidateAIScreeningModel.countDocuments({
+      organizationId: orgainizationId,
+    });
     // if (currentAICount >= activePlan.NumberofAnalizers) {
     //   return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
     // }
 
-
-
     if (!jobPostId || !resume) {
-      return badRequest(res, "Missing required fields: jobPostId, resume, aiRoleId");
+      return badRequest(
+        res,
+        "Missing required fields: jobPostId, resume, aiRoleId"
+      );
     }
 
     // Fetch job details
     const job = await jobPostModel.findById(jobPostId).lean();
     if (!job) return badRequest(res, "Job not found");
 
-
-
     const [
-  findJd,
-  // Qualificationdata,
-  designation,
-  department,
-  candidate
+      findJd,
+      // Qualificationdata,
+      designation,
+      department,
+      candidate,
+    ] = await Promise.all([
+      JobDescriptionModel.findById(job.jobDescriptionId).lean(),
+      // Qualification.findById(job.qualificationId).lean(),
+      designationModel.findById(job.designationId).lean(),
+      departmentModel.findById(job.departmentId).lean(),
+      jobApply.findById(candidateId).lean(), // Fetch candidate details
+    ]);
 
-] = await Promise.all([
-  JobDescriptionModel.findById(job.jobDescriptionId).lean(),
-  // Qualification.findById(job.qualificationId).lean(),
-  designationModel.findById(job.designationId).lean(),
-  departmentModel.findById(job.departmentId).lean(),
-  jobApply.findById(candidateId).lean() // Fetch candidate details
-]);
+    // Candidate Buged //
 
-// Candidate Buged //
+    // Error checks
+    if (!findJd) return badRequest(res, "Job description not found");
+    // if (!Qualificationdata) return badRequest(res, "Qualification not found");
+    if (!designation) return badRequest(res, "Designation not found");
+    if (!department) return badRequest(res, "Department not found");
 
+    const expectedCTCString = candidate.currentCTC
+      ?.toString()
+      .replace(/,/g, "");
+    const expectedCTC = Number(expectedCTCString);
+    console.log("expectedCTC", expectedCTC);
 
+    // Step: Budget validation (after resume validation, before AI screening prompt)
+    if (expectedCTC && designation?._id) {
+      const budgetData = await BugedModel.findOne({
+        organizationId: orgainizationId,
+        desingationId: designation._id,
+      });
 
+      const perEmployeeBudget =
+        budgetData?.allocatedBudget && budgetData?.numberOfEmployees
+          ? Math.floor(
+              budgetData.allocatedBudget / budgetData.numberOfEmployees
+            )
+          : null;
 
+      if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
+        const rejectionData = {
+          jobPostId,
+          candidateId,
+          position: job.position,
+          department: department.name,
+          AI_Confidence: 90,
+          AI_Processing_Speed: 1,
+          Accuracy: 100,
+          qualificationThreshold: 0,
+          CandidateAIExperince: 0, // Extract experience in number of years from resume
+          confidenceThreshold: 0,
+          overallScore: 0,
+          decision: "Rejected",
+          breakdown: {
+            skillsMatch: 0,
+            experienceMatch: 0,
+            educationMatch: 0,
+            CertificateMatch: 0,
+            Project_Exposure: 0,
+            Leadership_Initiative: 0,
+            Cultural_Fit: 0,
+            Communication_Skills: 0,
+            Learning_Ability: 0,
+          },
+          criteria: [
+            {
+              criteria: "CTC Validation",
+              description:
+                "Current CTC exceeds per-employee budget for this role",
+              weight: 100,
+              score: 0,
+              reason: `Candidate Current CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+            },
+          ],
+          acceptReason: [],
+          rejectReason: [
+            {
+              point: "CTC Expectation Too High",
+              description: `Candidate currrent CTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+              percentage: "0%",
+              weight: "Critical",
+              impact: "High",
+            },
+          ],
+          recommendation:
+            "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+          improvementSuggestions: [
+            "Reassess salary expectations",
+            "Ensure alignment with job market benchmarks and internal ranges",
+          ],
+          riskFactors: [
+            {
+              factor: "Budget Breach Risk",
+              level: "Critical",
+              description: "Current CTC exceeds available per-head allocation",
+              mitigation: "Negotiate or increase allocated budget",
+            },
+          ],
+          organizationId: orgainizationId,
+        };
 
+        await jobApply.findOneAndUpdate(
+          { _id: new mongoose.Types.ObjectId(candidateId) },
+          {
+            AI_Screeing_Result: "Rejected",
+            AI_Screeing_Status: "Completed",
+            AI_Score: 0,
+            AI_Confidence: 90,
+            lastOrganization: "CTC Validation Failed",
+          },
+          { new: true }
+        );
 
-// Error checks
-if (!findJd) return badRequest(res, "Job description not found");
-// if (!Qualificationdata) return badRequest(res, "Qualification not found");
-if (!designation) return badRequest(res, "Designation not found");
-if (!department) return badRequest(res, "Department not found");
+        await CandidateAIScreeningModel.findOneAndUpdate(
+          { candidateId },
+          rejectionData,
+          { new: true, upsert: true }
+        );
 
+        return success(
+          res,
+          "AI Screening Rejected due to CTC mismatch",
+          rejectionData
+        );
+      }
+    }
 
-  const expectedCTCString = candidate.currentCTC?.toString().replace(/,/g, '');
-const expectedCTC = Number(expectedCTCString);
-console.log("expectedCTC" , expectedCTC)
-
-
-// Step: Budget validation (after resume validation, before AI screening prompt)
-if (expectedCTC && designation?._id) {
-const budgetData = await BugedModel.findOne({
-  organizationId: orgainizationId,
-  desingationId: designation._id
-});
-
-
-
-  const perEmployeeBudget = budgetData?.allocatedBudget && budgetData?.numberOfEmployees
-    ? Math.floor(budgetData.allocatedBudget / budgetData.numberOfEmployees)
-    : null;
-
-  if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
-    const rejectionData = {
-      jobPostId,
-      candidateId,
-      position: job.position,
-      department: department.name,
-      AI_Confidence: 90,
-      AI_Processing_Speed: 1,
-      Accuracy: 100,
-      qualificationThreshold: 0,
-      CandidateAIExperince:0, // Extract experience in number of years from resume
-      confidenceThreshold: 0,
-      overallScore: 0,
-      decision: "Rejected",
-      breakdown: {
-        skillsMatch: 0,
-        experienceMatch: 0,
-        educationMatch: 0,
-        CertificateMatch: 0,
-        Project_Exposure: 0,
-        Leadership_Initiative: 0,
-        Cultural_Fit: 0,
-        Communication_Skills: 0,
-        Learning_Ability: 0
-      },
-      criteria: [{
-        criteria: "CTC Validation",
-        description: "Current CTC exceeds per-employee budget for this role",
-        weight: 100,
-        score: 0,
-        reason: `Candidate Current CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
-      }],
-      acceptReason: [],
-      rejectReason: [
-        {
-          point: "CTC Expectation Too High",
-          description: `Candidate currrent CTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
-          percentage: "0%",
-          weight: "Critical",
-          impact: "High"
-        }
-      ],
-      recommendation: "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
-      improvementSuggestions: [
-        "Reassess salary expectations",
-        "Ensure alignment with job market benchmarks and internal ranges"
-      ],
-      riskFactors: [
-        {
-          factor: "Budget Breach Risk",
-          level: "Critical",
-          description: "Current CTC exceeds available per-head allocation",
-          mitigation: "Negotiate or increase allocated budget"
-        }
-      ],
-      organizationId: orgainizationId
-    };
-
-    await jobApply.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(candidateId) },
-      {
-        AI_Screeing_Result: "Rejected",
-        AI_Screeing_Status: "Completed",
-        AI_Score: 0,
-        AI_Confidence: 90,
-        lastOrganization: "CTC Validation Failed"
-      },
-      { new: true }
-    );
-
-    await CandidateAIScreeningModel.findOneAndUpdate(
-      { candidateId },
-      rejectionData,
-      { new: true, upsert: true }
-    );
-
-    return success(res, "AI Screening Rejected due to CTC mismatch", rejectionData);
-  }
-}
-
-
-
-
-
-// Resume Validation //
-const validationPrompt = `
+    // Resume Validation //
+    const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
@@ -800,13 +792,17 @@ Respond ONLY with a JSON object in this exact format:
 }
 `;
 
-
-// Validate resume first
-    const validationResult = await generateAIScreening(validationPrompt, resume);
-if (validationResult.status == 429) {
-  return badRequest(res, "You have reached your AI usage limit. Please upgrade your plan to continue.");
-}
-
+    // Validate resume first
+    const validationResult = await generateAIScreening(
+      validationPrompt,
+      resume
+    );
+    if (validationResult.status == 429) {
+      return badRequest(
+        res,
+        "You have reached your AI usage limit. Please upgrade your plan to continue."
+      );
+    }
 
     if (!validationResult || validationResult.error) {
       throw new Error("Resume validation failed");
@@ -824,7 +820,7 @@ if (validationResult.status == 429) {
         AI_Processing_Speed: 2,
         Accuracy: 100,
         qualificationThreshold: 0,
-        confidenceThreshold:0,
+        confidenceThreshold: 0,
         overallScore: 0,
         decision: "Rejected",
         breakdown: {
@@ -836,15 +832,17 @@ if (validationResult.status == 429) {
           Leadership_Initiative: 0,
           Cultural_Fit: 0,
           Communication_Skills: 0,
-          Learning_Ability: 0
+          Learning_Ability: 0,
         },
-        criteria: [{
-          criteria: "Resume Validation",
-          description: "Verify if resume belongs to the candidate",
-          weight: 100,
-          score: 0,
-          reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`
-        }],
+        criteria: [
+          {
+            criteria: "Resume Validation",
+            description: "Verify if resume belongs to the candidate",
+            weight: 100,
+            score: 0,
+            reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`,
+          },
+        ],
         acceptReason: [],
         rejectReason: [
           {
@@ -852,30 +850,32 @@ if (validationResult.status == 429) {
             description: validationResult.reason,
             percentage: "0%",
             weight: "Critical",
-            impact: "High"
+            impact: "High",
           },
           {
             point: "Identity Mismatch",
             description: `Expected: ${candidate.name} but resume contains different information`,
             percentage: "0%",
             weight: "Critical",
-            impact: "High"
-          }
+            impact: "High",
+          },
         ],
-        recommendation: "Please upload the correct resume that matches your application details",
+        recommendation:
+          "Please upload the correct resume that matches your application details",
         improvementSuggestions: [
           "Upload your own resume with correct personal information",
-          "Ensure name, email, and mobile number match your application"
+          "Ensure name, email, and mobile number match your application",
         ],
         riskFactors: [
           {
             factor: "Wrong Resume Upload",
             level: "Critical",
-            description: "Candidate uploaded resume that doesn't match their application details",
-            mitigation: "Require resume re-upload with validation"
-          }
+            description:
+              "Candidate uploaded resume that doesn't match their application details",
+            mitigation: "Require resume re-upload with validation",
+          },
         ],
-        organizationId: orgainizationId
+        organizationId: orgainizationId,
       };
 
       // Update candidate with rejection
@@ -886,7 +886,9 @@ if (validationResult.status == 429) {
           AI_Screeing_Status: "Completed",
           AI_Score: 0,
           AI_Confidence: 95,
-          lastOrganization: validationResult.resumeName ? "Resume Validation Failed" : ""
+          lastOrganization: validationResult.resumeName
+            ? "Resume Validation Failed"
+            : "",
         },
         { new: true }
       );
@@ -898,108 +900,111 @@ if (validationResult.status == 429) {
         { new: true, upsert: true }
       );
 
-      success(res, "AI Screening Rejected due to resume validation failure", rejectionData);
+      success(
+        res,
+        "AI Screening Rejected due to resume validation failure",
+        rejectionData
+      );
       // return await jobApplyToGoogleSheet(jobApplyForm._id)
     }
 
-// 1. Fetch AI Screening config from DB
-const screenaiDocs = await screenai.find({ organizationId: orgainizationId }).lean();
-const coreSettings = screenaiDocs[0]?.coreSettings || {};
-const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
+    // 1. Fetch AI Screening config from DB
+    const screenaiDocs = await screenai
+      .find({ organizationId: orgainizationId })
+      .lean();
+    const coreSettings = screenaiDocs[0]?.coreSettings || {};
+    const qualificationThresholdScore =
+      coreSettings.qualificationThreshold || 50;
 
-// 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
-// Fetch from the first document (screenaiDocs[0])'s screeningCriteria
-let screeningRules = [];
+    // 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
+    // Fetch from the first document (screenaiDocs[0])'s screeningCriteria
+    let screeningRules = [];
 
-if (job && Array.isArray(job.screeningCriteria)) {
-  screeningRules = job.screeningCriteria.map(item => ({
-    name: item.name,
-    description: item.description,
-    weight: item.weight,
-    confidence: item.confidence,
-    isActive: item.isActive
-  }));
-}
+    if (job && Array.isArray(job.screeningCriteria)) {
+      screeningRules = job.screeningCriteria.map((item) => ({
+        name: item.name,
+        description: item.description,
+        weight: item.weight,
+        confidence: item.confidence,
+        isActive: item.isActive,
+      }));
+    } else {
+      console.warn("No valid AI screening rules found, using default rule");
+      screeningRules = [
+        {
+          name: "Default Screening Rule",
+          description: "Fallback AI rule using internal logic",
+          priority: "Medium",
+          isActive: true,
+          screeningCriteria: [
+            {
+              name: "Skills",
+              description: "Match with required skills from JD",
+              weight: 30,
+              confidence: 60,
+              experience: null,
+              isActive: true,
+            },
+            {
+              name: "Experience",
+              description: "Compare years of experience",
+              weight: 30,
+              confidence: 50,
+              experience: job.experience || null,
+              isActive: true,
+            },
+            {
+              name: "Education",
+              description: "Match educational qualifications",
+              weight: 20,
+              confidence: 70,
+              experience: null,
+              isActive: true,
+            },
+            {
+              name: "Certifications",
+              description: "Check for relevant certifications",
+              weight: 10,
+              confidence: 50,
+              experience: null,
+              isActive: true,
+            },
+            {
+              name: "Cultural Fit",
+              description: "Evaluate based on values and tone",
+              weight: 10,
+              confidence: 40,
+              experience: null,
+              isActive: true,
+            },
+          ],
+        },
+      ];
+    }
 
-else {
+    // 4. Flatten + filter valid screening criteria for AI prompt
+    const filteredCriteria = screeningRules
+      .filter((c) => c?.name && c?.weight > 0)
+      .map((c) => ({
+        name: c.name.trim(),
+        description: c.description || "",
+        weight: c.weight,
+        confidence: c.confidence || 0,
+      }));
 
-  console.warn("No valid AI screening rules found, using default rule");
-  screeningRules = [{
-    name: "Default Screening Rule",
-    description: "Fallback AI rule using internal logic",
-    priority: "Medium",
-    isActive: true,
-    screeningCriteria: [
-      {
-        name: "Skills",
-        description: "Match with required skills from JD",
-        weight: 30,
-        confidence: 60,
-        experience: null,
-        isActive: true
-      },
-      {
-        name: "Experience",
-        description: "Compare years of experience",
-        weight: 30,
-        confidence: 50,
-        experience: job.experience || null,
-        isActive: true
-      },
-      {
-        name: "Education",
-        description: "Match educational qualifications",
-        weight: 20,
-        confidence: 70,
-        experience: null,
-        isActive: true
-      },
-      {
-        name: "Certifications",
-        description: "Check for relevant certifications",
-        weight: 10,
-        confidence: 50,
-        experience: null,
-        isActive: true
-      },
-      {
-        name: "Cultural Fit",
-        description: "Evaluate based on values and tone",
-        weight: 10,
-        confidence: 40,
-        experience: null,
-        isActive: true
-      }
-    ]
-  }];
-}
+    // console.log("filteredCriteria:", filteredCriteria);
 
+    // 5. Create JSON-style string for each criteria (e.g., for LLM prompt formatting)
+    const criteriaArrayString = filteredCriteria
+      .map(
+        (c) =>
+          `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
+      )
+      .join(",\n");
 
-// 4. Flatten + filter valid screening criteria for AI prompt
-const filteredCriteria = screeningRules
-  .filter(c => c?.name && c?.weight > 0)
-  .map(c => ({
-    name: c.name.trim(),
-    description: c.description || '',
-    weight: c.weight,
-    confidence: c.confidence || 0,
-  }));
+    console.log("criteriaArrayString", criteriaArrayString);
 
-
-
-
-// console.log("filteredCriteria:", filteredCriteria);
-
-// 5. Create JSON-style string for each criteria (e.g., for LLM prompt formatting)
-const criteriaArrayString = filteredCriteria.map(c =>
-  `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
-).join(',\n');
-
-console.log("criteriaArrayString" , criteriaArrayString)
-
-// console.log("Criteria Array String:", criteriaArrayString);
-
-
+    // console.log("Criteria Array String:", criteriaArrayString);
 
     const prompt = `
 You are an intelligent AI screening system.
@@ -1134,7 +1139,11 @@ Experience Required: ${job.experience}
 ${findJd.jobDescription.JobSummary || "N/A"}
 
 --- Roles and Responsibilities ---
-${findJd.jobDescription.RolesAndResponsibilities.map((item, idx) => `${idx + 1}. ${item}`).join("\n") || "N/A"}
+${
+  findJd.jobDescription.RolesAndResponsibilities.map(
+    (item, idx) => `${idx + 1}. ${item}`
+  ).join("\n") || "N/A"
+}
 
 --- Key Skills ---
 ${findJd.jobDescription.KeySkills.join(", ") || "N/A"}
@@ -1145,19 +1154,13 @@ ${resume}
 
     // console.log("AI Screening Prompt:", prompt);
 
-
-
     const aiResult = await generateAIScreening(prompt, resume);
-
 
     if (!aiResult || aiResult.error) {
       return badRequest(res, "AI screening failed");
     }
 
-    
-
-
-       // ✅ Add weighted score calculator
+    // ✅ Add weighted score calculator
     const calculateWeightedScore = (criteria = []) => {
       let totalWeight = 0;
       let weightedSum = 0;
@@ -1174,7 +1177,6 @@ ${resume}
 
     // 🧮 Calculate true weighted score from AI result
     const verifiedOverallScore = calculateWeightedScore(aiResult.criteria);
-
 
     const {
       skillsMatch,
@@ -1199,18 +1201,15 @@ ${resume}
       qualificationThreshold,
       improvementSuggestions,
       riskFactors,
-      CandidateAIExperince
-
-
+      CandidateAIExperince,
     } = aiResult;
 
+    // Override decision based on verifiedOverallScore
+    const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
 
-        // Override decision based on verifiedOverallScore
-const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
-
-        // Upsert AI screening data
+    // Upsert AI screening data
     const filter = { candidateId };
-      const updateData = {
+    const updateData = {
       jobPostId,
       candidateId,
       position: job.position,
@@ -1219,8 +1218,8 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       AI_Processing_Speed,
       Accuracy,
       qualificationThreshold,
-      overallScore:verifiedOverallScore,
-      decision:finalDecision,
+      overallScore: verifiedOverallScore,
+      decision: finalDecision,
       breakdown: {
         skillsMatch,
         experienceMatch,
@@ -1230,7 +1229,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
         Leadership_Initiative,
         Cultural_Fit,
         Communication_Skills,
-        Learning_Ability
+        Learning_Ability,
       },
       criteria,
       acceptReason,
@@ -1240,14 +1239,13 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       riskFactors,
       CandidateAIExperince,
       orgainizationId: orgainizationId, // Include organization ID
-
     };
 
+    success(res, "AI_Screening", updateData);
 
-        
-    success(res,  "AI_Screening" , updateData);
-
-    const CreditRules = await AICreditRule.findOne({ actionType: "AI_SCREENING" });
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "AI_SCREENING",
+    });
 
     // if (!CreditRules) {
     //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
@@ -1256,7 +1254,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
     const creditsNeeded = CreditRules.creditsRequired || 1;
 
     // Update candidate with AI screening result
-    if(activePlan.NumberofAnalizers > 0){
+    if (activePlan.NumberofAnalizers > 0) {
       const Updateservice = await oganizationPlan.findOneAndUpdate(
         { organizationId: orgainizationId },
         { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
@@ -1265,88 +1263,104 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
     }
 
     // If main is 0, try to decrement from addNumberOfAnalizers
-  else if (activePlan.addNumberOfAnalizers > 0) {
-  await oganizationPlan.findOneAndUpdate(
-    { organizationId: orgainizationId },
-    { $inc: { addNumberOfAnalizers: -creditsNeeded } },
-    { new: true }
-  );
- } 
-
-else {
-  return badRequest(res , "AI screening limit reached for this organization. Please upgrade your plan.");
-}
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+        { new: true }
+      );
+    } else {
+      return badRequest(
+        res,
+        "AI screening limit reached for this organization. Please upgrade your plan."
+      );
+    }
 
     const data = await jobApply.findOneAndUpdate(
-  { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
-  {
-    AI_Screeing_Result: `${updateData?.decision}`,
-    AI_Screeing_Status: "Completed",
-    AI_Score:Number(updateData.overallScore),
-    AI_Confidence:0,
-    lastOrganization:Array.isArray(lastOrganization) ? lastOrganization : []
-  },
-  { new: true }
-);
-
-
-
-
-        // Upsert operation: update if exists, else create
-    await CandidateAIScreeningModel.findOneAndUpdate(
-      filter,
-      updateData,
-      { new: true, upsert: true }
+      { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
+      {
+        AI_Screeing_Result: `${updateData?.decision}`,
+        AI_Screeing_Status: "Completed",
+        AI_Score: Number(updateData.overallScore),
+        AI_Confidence: 0,
+        lastOrganization: Array.isArray(lastOrganization)
+          ? lastOrganization
+          : [],
+      },
+      { new: true }
     );
 
-//  await jobApplyToGoogleSheet(jobApplyForm._id)
+    // Upsert operation: update if exists, else create
+    await CandidateAIScreeningModel.findOneAndUpdate(filter, updateData, {
+      new: true,
+      upsert: true,
+    });
 
-
+    //  await jobApplyToGoogleSheet(jobApplyForm._id)
   } catch (error) {
     console.error("Error in screenCandidateAIProfile", error);
     return unknownError(res, error);
   }
 };
 
-
-
-
-
-export const processAIScreeningForCandidate = async ({ jobPostId, resume, candidateId, organizationId }) => {
+export const processAIScreeningForCandidate = async ({
+  jobPostId,
+  resume,
+  candidateId,
+  organizationId,
+}) => {
   try {
-    if (!jobPostId || !resume || !candidateId || !organizationId)  {
-      throw new Error("Missing required fields: jobPostId, resume, candidateId");
+    if (!jobPostId || !resume || !candidateId || !organizationId) {
+      throw new Error(
+        "Missing required fields: jobPostId, resume, candidateId"
+      );
     }
 
     const job = await jobPostModel.findById(jobPostId).lean();
     if (!job) throw new Error("Job not found");
 
-    const activePlan = await oganizationPlan.findOne({organizationId: organizationId , isActive:true}).lean();
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: organizationId, isActive: true })
+      .lean();
 
-    if (!activePlan) {
-     return badRequest(res, "no active plan found for this Analizer.");
+    if (!activePlan) throw new Error("no active plan found for this Analizer.");
+
+    const PlanDate = new Date(activePlan?.PlanDate);
+    const expiryDate = new Date(PlanDate);
+    expiryDate.setDate(
+      expiryDate.getDate() + (activePlan.planDurationInDays || 0)
+    );
+
+    if (new Date() > expiryDate)
+      throw new Error(
+        "Your plan has expired. Please renew your plan to continue using AI screening"
+      );
+
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      throw new Error(
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
     }
 
-    const createdAt = new Date(activePlan?.createdAt);
-    const expiryDate = new Date(createdAt);
-    expiryDate.setDate(expiryDate.getDate() + (activePlan.planDurationInDays || 0));
+    // check AI screeing Usages //
 
-    if (new Date() > expiryDate) {
-      return badRequest(res, "Your plan has expired. Please renew your plan to continue using AI screening.");
-    }
-
-
-
-    // check AI screeing Usages // 
-
-    const currentAICount = await CandidateAIScreeningModel.countDocuments({ organizationId: organizationId });
+    const currentAICount = await CandidateAIScreeningModel.countDocuments({
+      organizationId: organizationId,
+    });
     // if (currentAICount >= activePlan.NumberofAnalizers) {
     //   return badRequest(res, "AI screening limit reached for this organization. Please upgrade your plan.");
     // }
 
-    const [findJd, 
-      // Qualificationdata, 
-      designation, department , candidate] = await Promise.all([
+    const [
+      findJd,
+      // Qualificationdata,
+      designation,
+      department,
+      candidate,
+    ] = await Promise.all([
       JobDescriptionModel.findById(job.jobDescriptionId).lean(),
       // Qualification.findById(job.qualificationId).lean(),
       designationModel.findById(job.designationId).lean(),
@@ -1354,117 +1368,122 @@ export const processAIScreeningForCandidate = async ({ jobPostId, resume, candid
       jobApply.findById(candidateId).lean(),
     ]);
 
-  const expectedCTCString = candidate.currentCTC?.toString().replace(/,/g, '');
-const expectedCTC = Number(expectedCTCString);
-console.log("expectedCTC" , expectedCTC)
+    const expectedCTCString = candidate.currentCTC
+      ?.toString()
+      .replace(/,/g, "");
+    const expectedCTC = Number(expectedCTCString);
+    console.log("expectedCTC", expectedCTC);
 
-
-    if (!findJd  || !designation || !department) {
-      throw new Error("Missing related job details (JD/Qualification/Designation/Department)");
+    if (!findJd || !designation || !department) {
+      throw new Error(
+        "Missing related job details (JD/Qualification/Designation/Department)"
+      );
     }
 
-
-
     // Step: Budget validation (after resume validation, before AI screening prompt)
-if (expectedCTC && designation?._id) { 
-  const budgetData = await BugedModel.findOne({
-    organizationId: organizationId,
-    desingationId: designation._id
-  }).lean();
+    if (expectedCTC && designation?._id) {
+      const budgetData = await BugedModel.findOne({
+        organizationId: organizationId,
+        desingationId: designation._id,
+      }).lean();
 
-  // console.log("budgetData" , budgetData)
+      // console.log("budgetData" , budgetData)
 
-  const perEmployeeBudget = budgetData?.allocatedBudget && budgetData?.numberOfEmployees
-    ? Math.floor(budgetData.allocatedBudget / budgetData.numberOfEmployees)
-    : null;
+      const perEmployeeBudget =
+        budgetData?.allocatedBudget && budgetData?.numberOfEmployees
+          ? Math.floor(
+              budgetData.allocatedBudget / budgetData.numberOfEmployees
+            )
+          : null;
 
+      console.log("perEmployeeBudget", perEmployeeBudget);
+      // console.log("candidate" , Number(candidate.expectedCTC))
 
-    console.log("perEmployeeBudget" , perEmployeeBudget)
-    // console.log("candidate" , Number(candidate.expectedCTC))
+      if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
+        console.log("called budged");
+        const rejectionData = {
+          jobPostId,
+          candidateId,
+          position: job.position,
+          department: department.name,
+          AI_Confidence: 90,
+          AI_Processing_Speed: 1,
+          Accuracy: 100,
+          qualificationThreshold: 0,
+          confidenceThreshold: 0,
+          CandidateAIExperince: 0,
+          overallScore: 0,
+          decision: "Rejected",
+          breakdown: {
+            skillsMatch: 0,
+            experienceMatch: 0,
+            educationMatch: 0,
+            CertificateMatch: 0,
+            Project_Exposure: 0,
+            Leadership_Initiative: 0,
+            Cultural_Fit: 0,
+            Communication_Skills: 0,
+            Learning_Ability: 0,
+          },
+          criteria: [
+            {
+              criteria: "CTC Validation",
+              description:
+                "Current CTC exceeds per-employee budget for this role",
+              weight: 100,
+              score: 0,
+              reason: `Candidate currentCTC CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+            },
+          ],
+          acceptReason: [],
+          rejectReason: [
+            {
+              point: "CTC Expectation Too High",
+              description: `Candidate currentCTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
+              percentage: "0%",
+              weight: "Critical",
+              impact: "High",
+            },
+          ],
+          recommendation:
+            "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
+          improvementSuggestions: [
+            "Reassess salary expectations",
+            "Ensure alignment with job market benchmarks and internal ranges",
+          ],
+          riskFactors: [
+            {
+              factor: "Budget Breach Risk",
+              level: "Critical",
+              description: "Expected CTC exceeds available per-head allocation",
+              mitigation: "Negotiate or increase allocated budget",
+            },
+          ],
+          organizationId: organizationId,
+        };
 
-  if (perEmployeeBudget && expectedCTC > perEmployeeBudget) {
-    console.log("called budged")
-    const rejectionData = {
-      jobPostId,
-      candidateId,
-      position: job.position,
-      department: department.name,
-      AI_Confidence: 90,
-      AI_Processing_Speed: 1,
-      Accuracy: 100,
-      qualificationThreshold: 0,
-      confidenceThreshold: 0,
-      CandidateAIExperince:0,
-      overallScore: 0,
-      decision: "Rejected",
-      breakdown: {
-        skillsMatch: 0,
-        experienceMatch: 0,
-        educationMatch: 0,
-        CertificateMatch: 0,
-        Project_Exposure: 0,
-        Leadership_Initiative: 0,
-        Cultural_Fit: 0,
-        Communication_Skills: 0,
-        Learning_Ability: 0
-      },
-      criteria: [{
-        criteria: "CTC Validation",
-        description: "Current CTC exceeds per-employee budget for this role",
-        weight: 100,
-        score: 0,
-        reason: `Candidate currentCTC CTC: ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`
-      }],
-      acceptReason: [],
-      rejectReason: [
-        {
-          point: "CTC Expectation Too High",
-          description: `Candidate currentCTC ₹${candidate.currentCTC}, but per-employee budget is ₹${perEmployeeBudget}`,
-          percentage: "0%",
-          weight: "Critical",
-          impact: "High"
-        }
-      ],
-      recommendation: "Candidate's current salary exceeds the allocated budget per employee. Consider negotiation or internal budget re-evaluation.",
-      improvementSuggestions: [
-        "Reassess salary expectations",
-        "Ensure alignment with job market benchmarks and internal ranges"
-      ],
-      riskFactors: [
-        {
-          factor: "Budget Breach Risk",
-          level: "Critical",
-          description: "Expected CTC exceeds available per-head allocation",
-          mitigation: "Negotiate or increase allocated budget"
-        }
-      ],
-      organizationId: organizationId
-    };
+        await jobApply.findOneAndUpdate(
+          { _id: new mongoose.Types.ObjectId(candidateId) },
+          {
+            AI_Screeing_Result: "Rejected",
+            AI_Screeing_Status: "Completed",
+            AI_Score: 0,
+            AI_Confidence: 90,
+          },
+          { new: true }
+        );
 
-    await jobApply.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(candidateId) },
-      {
-        AI_Screeing_Result: "Rejected",
-        AI_Screeing_Status: "Completed",
-        AI_Score: 0,
-        AI_Confidence: 90
-      },
-      { new: true }
-    );
+        await CandidateAIScreeningModel.findOneAndUpdate(
+          { candidateId },
+          rejectionData,
+          { new: true, upsert: true }
+        );
 
-    await CandidateAIScreeningModel.findOneAndUpdate(
-      { candidateId },
-      rejectionData,
-      { new: true, upsert: true }
-    );
+        return rejectionData;
+      }
+    }
 
-    return  rejectionData;
-  }
-}
-
-
-
-const validationPrompt = `
+    const validationPrompt = `
 You are a resume validation system. Your task is to verify if the uploaded resume belongs to the person who applied for the job.
 
 Compare the following candidate information with the resume content:
@@ -1491,10 +1510,12 @@ Respond ONLY with a JSON object in this exact format:
 }
 `;
 
-
     // Validate resume first
-    const validationResult = await generateAIScreening(validationPrompt, resume);
-    
+    const validationResult = await generateAIScreening(
+      validationPrompt,
+      resume
+    );
+
     if (!validationResult || validationResult.error) {
       throw new Error("Resume validation failed");
     }
@@ -1523,15 +1544,17 @@ Respond ONLY with a JSON object in this exact format:
           Leadership_Initiative: 0,
           Cultural_Fit: 0,
           Communication_Skills: 0,
-          Learning_Ability: 0
+          Learning_Ability: 0,
         },
-        criteria: [{
-          criteria: "Resume Validation",
-          description: "Verify if resume belongs to the candidate",
-          weight: 100,
-          score: 0,
-         reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`
-        }],
+        criteria: [
+          {
+            criteria: "Resume Validation",
+            description: "Verify if resume belongs to the candidate",
+            weight: 100,
+            score: 0,
+            reason: `Resume validation failed: ${validationResult.reason}. Resume contains - Name: ${validationResult.resumeName}`,
+          },
+        ],
         acceptReason: [],
         rejectReason: [
           {
@@ -1539,30 +1562,32 @@ Respond ONLY with a JSON object in this exact format:
             description: validationResult.reason,
             percentage: "0%",
             weight: "Critical",
-            impact: "High"
+            impact: "High",
           },
           {
             point: "Identity Mismatch",
             description: `Expected: ${candidate.name} but resume contains different information`,
             percentage: "0%",
             weight: "Critical",
-            impact: "High"
-          }
+            impact: "High",
+          },
         ],
-        recommendation: "Provide detailed recommendation here based on approval/rejection with specific reasons",
+        recommendation:
+          "Provide detailed recommendation here based on approval/rejection with specific reasons",
         improvementSuggestions: [
           "Upload your own resume with correct personal information",
-          "Ensure name, email, and mobile number match your application"
+          "Ensure name, email, and mobile number match your application",
         ],
         riskFactors: [
           {
             factor: "Wrong Resume Upload",
             level: "Critical",
-            description: "Candidate uploaded resume that doesn't match their application details",
-            mitigation: "Require resume re-upload with validation"
-          }
+            description:
+              "Candidate uploaded resume that doesn't match their application details",
+            mitigation: "Require resume re-upload with validation",
+          },
         ],
-        organizationId: organizationId
+        organizationId: organizationId,
       };
 
       // Update candidate with rejection
@@ -1573,7 +1598,9 @@ Respond ONLY with a JSON object in this exact format:
           AI_Screeing_Status: "Completed",
           AI_Score: 0,
           AI_Confidence: 95,
-          lastOrganization: validationResult.resumeName ? "Resume Validation Failed" : ""
+          lastOrganization: validationResult.resumeName
+            ? "Resume Validation Failed"
+            : "",
         },
         { new: true }
       );
@@ -1588,162 +1615,166 @@ Respond ONLY with a JSON object in this exact format:
       // return success("AI Screening Rejected due to resume validation failure", rejectionData);
     }
 
+    //
 
-    // 
+    // 1. Fetch AI Screening config from DB
+    const screenaiDocs = await screenai
+      .find({ organizationId: organizationId })
+      .lean();
+    const coreSettings = screenaiDocs[0]?.coreSettings || {};
+    const qualificationThresholdScore =
+      coreSettings.qualificationThreshold || 50;
 
-  // 1. Fetch AI Screening config from DB
-const screenaiDocs = await screenai.find({ organizationId: organizationId }).lean();
-const coreSettings = screenaiDocs[0]?.coreSettings || {};
-const qualificationThresholdScore = coreSettings.qualificationThreshold || 50;
+    // 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
+    // Fetch from the first document (screenaiDocs[0])'s screeningCriteria
 
-// 2. Load screeningRules from DB (you probably forgot to assign it from screenaiDocs[0])
-// Fetch from the first document (screenaiDocs[0])'s screeningCriteria
+    // if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
+    //   screeningRules = [{
+    //     name: screenaiDocs[0].name,
+    //     description: screenaiDocs[0].description,
+    //     priority: "Medium", // or whatever field you want
+    //     isActive: screenaiDocs[0].isActive,
+    //     screeningCriteria: screenaiDocs[0].screeningCriteria
+    //   }];
+    // }
 
-// if (screenaiDocs.length && screenaiDocs[0].screeningCriteria?.length) {
-//   screeningRules = [{
-//     name: screenaiDocs[0].name,
-//     description: screenaiDocs[0].description,
-//     priority: "Medium", // or whatever field you want
-//     isActive: screenaiDocs[0].isActive,
-//     screeningCriteria: screenaiDocs[0].screeningCriteria
-//   }];
-// } 
+    let screeningRules = [];
 
-let screeningRules = [];
-
-if (job && Array.isArray(job.screeningCriteria)) {
-  screeningRules = job.screeningCriteria.map(item => ({
-    name: item.name,
-    description: item.description,
-    weight: item.weight,
-    confidence: item.confidence,
-    isActive: item.isActive
-  }));
-}
-
-
-
-else {
-
-  console.warn("No valid AI screening rules found, using default rule");
-  screeningRules = [{
-    name: "Default Screening Rule",
-    description: "Fallback AI rule using internal logic",
-    priority: "Medium",
-    isActive: true,
-    screeningCriteria: [
-      {
-        name: "Technical Skills",
-        description: "Match with required skills from JD",
-        weight: 30,
-        confidence: 60,
-        experience: null,
-        isActive: true
-      },
-
-         {
-        name: "Communication Skills",
-        description: "Evaluation of verbal, written, and interpersonal communication abilities.",
-        weight: 30,
-        confidence: 60,
-        experience: null,
-        isActive: true
-      },
-
-             {
-        name: "Leadership",
-        description: "Assessment of leadership qualities and team management capabilities.",
-        weight: 30,
-        confidence: 60,
-        experience: null,
-        isActive: true
-      },
+    if (job && Array.isArray(job.screeningCriteria)) {
+      screeningRules = job.screeningCriteria.map((item) => ({
+        name: item.name,
+        description: item.description,
+        weight: item.weight,
+        confidence: item.confidence,
+        isActive: item.isActive,
+      }));
+    } else {
+      console.warn("No valid AI screening rules found, using default rule");
+      screeningRules = [
+        {
+          name: "Default Screening Rule",
+          description: "Fallback AI rule using internal logic",
+          priority: "Medium",
+          isActive: true,
+          screeningCriteria: [
+            {
+              name: "Technical Skills",
+              description: "Match with required skills from JD",
+              weight: 30,
+              confidence: 60,
+              experience: null,
+              isActive: true,
+            },
 
             {
-        name: "Project Management",
-        description: "Ability to manage project scope, timelines, and deliverables efficiently.",
-        weight: 30,
-        confidence: 60,
-        experience: null,
-        isActive: true
-      },
-      
-      {
-        name: "Experience",
-        description: "Compare years of experience",
-        weight: 30,
-        confidence: 50,
-        experience: job.experience || null,
-        isActive: true
-      },
-      {
-        name: "Education",
-        description: "Match educational qualifications",
-        weight: 20,
-        confidence: 70,
-        experience: null,
-        isActive: true
-      },
-      {
-        name: "Certifications",
-        description: "Check for relevant certifications",
-        weight: 10,
-        confidence: 50,
-        experience: null,
-        isActive: true
-      },
-      {
-        name: "Cultural Fit",
-        description: "Evaluate based on values and tone",
-        weight: 10,
-        confidence: 40,
-        experience: null,
-        isActive: true
-      },
+              name: "Communication Skills",
+              description:
+                "Evaluation of verbal, written, and interpersonal communication abilities.",
+              weight: 30,
+              confidence: 60,
+              experience: null,
+              isActive: true,
+            },
 
-         {
-        name: "Learning Ability",
-        description: "Capacity to learn quickly, adapt, and embrace new technologies or practices.",
-        weight: 10,
-        confidence: 40,
-        experience: null,
-        isActive: true
-      }
-    ]
-  }];
-}
+            {
+              name: "Leadership",
+              description:
+                "Assessment of leadership qualities and team management capabilities.",
+              weight: 30,
+              confidence: 60,
+              experience: null,
+              isActive: true,
+            },
 
-const filteredCriteria = screeningRules
-  .filter(c => c?.name && c?.weight > 0)
-  .map(c => ({
-    name: c.name.trim(),
-    description: c.description || '',
-    weight: c.weight,
-    confidence: c.confidence || 0,
-  }));
+            {
+              name: "Project Management",
+              description:
+                "Ability to manage project scope, timelines, and deliverables efficiently.",
+              weight: 30,
+              confidence: 60,
+              experience: null,
+              isActive: true,
+            },
 
+            {
+              name: "Experience",
+              description: "Compare years of experience",
+              weight: 30,
+              confidence: 50,
+              experience: job.experience || null,
+              isActive: true,
+            },
+            {
+              name: "Education",
+              description: "Match educational qualifications",
+              weight: 20,
+              confidence: 70,
+              experience: null,
+              isActive: true,
+            },
+            {
+              name: "Certifications",
+              description: "Check for relevant certifications",
+              weight: 10,
+              confidence: 50,
+              experience: null,
+              isActive: true,
+            },
+            {
+              name: "Cultural Fit",
+              description: "Evaluate based on values and tone",
+              weight: 10,
+              confidence: 40,
+              experience: null,
+              isActive: true,
+            },
 
+            {
+              name: "Learning Ability",
+              description:
+                "Capacity to learn quickly, adapt, and embrace new technologies or practices.",
+              weight: 10,
+              confidence: 40,
+              experience: null,
+              isActive: true,
+            },
+          ],
+        },
+      ];
+    }
 
-// 4. Flatten + filter valid screening criteria for AI prompt
-// const filteredCriteria = screeningRules.flatMap(rule =>
-//   (rule.screeningCriteria || [])
-//     .filter(c => c?.name && c?.weight > 0)
-//     .map(c => ({
-//       name: c.name.trim(),
-//       description: c.description || '',
-//       weight: c.weight,
-//       confidence: c.confidence || 0,
-//     }))
-// );
+    const filteredCriteria = screeningRules
+      .filter((c) => c?.name && c?.weight > 0)
+      .map((c) => ({
+        name: c.name.trim(),
+        description: c.description || "",
+        weight: c.weight,
+        confidence: c.confidence || 0,
+      }));
 
-// 2. Format criteria array as string (score=0, reason="")
-const criteriaArrayString = filteredCriteria.map(c =>
-  `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
-).join(',\n');
+    // 4. Flatten + filter valid screening criteria for AI prompt
+    // const filteredCriteria = screeningRules.flatMap(rule =>
+    //   (rule.screeningCriteria || [])
+    //     .filter(c => c?.name && c?.weight > 0)
+    //     .map(c => ({
+    //       name: c.name.trim(),
+    //       description: c.description || '',
+    //       weight: c.weight,
+    //       confidence: c.confidence || 0,
+    //     }))
+    // );
 
-// console.log("criteriaArrayString" , criteriaArrayString)
+    // 2. Format criteria array as string (score=0, reason="")
+    const criteriaArrayString = filteredCriteria
+      .map(
+        (c) =>
+          `  { "criteria": "${c.name}", "description": "${c.description}", "weight": ${c.weight}, "score": 0, "reason": "" }`
+      )
+      .join(",\n");
 
-// console.log("Criteria Array String:", criteriaArrayString);
+    // console.log("criteriaArrayString" , criteriaArrayString)
+
+    // console.log("Criteria Array String:", criteriaArrayString);
 
     const prompt = `
 You are an intelligent AI screening system.
@@ -1886,7 +1917,11 @@ Experience Required: ${job.experience}
 ${findJd.jobDescription.JobSummary || "N/A"}
 
 --- Roles and Responsibilities ---
-${findJd.jobDescription.RolesAndResponsibilities.map((item, idx) => `${idx + 1}. ${item}`).join("\n") || "N/A"}
+${
+  findJd.jobDescription.RolesAndResponsibilities.map(
+    (item, idx) => `${idx + 1}. ${item}`
+  ).join("\n") || "N/A"
+}
 
 --- Key Skills ---
 ${findJd.jobDescription.KeySkills.join(", ") || "N/A"}
@@ -1898,8 +1933,7 @@ ${resume}
     const aiResult = await generateAIScreening(prompt, resume);
     if (!aiResult || aiResult.error) throw new Error("AI screening failed");
 
-
-        const calculateWeightedScore = (criteria = []) => {
+    const calculateWeightedScore = (criteria = []) => {
       let totalWeight = 0;
       let weightedSum = 0;
 
@@ -1941,17 +1975,15 @@ ${resume}
       improvementSuggestions,
       riskFactors,
       CandidateAIExperince,
-      ATS_Score
-
+      ATS_Score,
     } = aiResult;
 
     // Override decision based on verifiedOverallScore
-const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
+    const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
 
-
-        // Upsert AI screening data
+    // Upsert AI screening data
     const filter = { candidateId };
-      const updateData = {
+    const updateData = {
       jobPostId,
       candidateId,
       position: job.position,
@@ -1961,8 +1993,8 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       Accuracy,
       qualificationThreshold,
       confidenceThreshold,
-      overallScore:verifiedOverallScore,
-    decision: finalDecision, // Use final decision based on verified score
+      overallScore: verifiedOverallScore,
+      decision: finalDecision, // Use final decision based on verified score
       breakdown: {
         skillsMatch,
         experienceMatch,
@@ -1972,7 +2004,7 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
         Leadership_Initiative,
         Cultural_Fit,
         Communication_Skills,
-        Learning_Ability
+        Learning_Ability,
       },
       criteria,
       acceptReason,
@@ -1982,32 +2014,33 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
       ATS_Score,
       riskFactors,
       CandidateAIExperince,
-      organizationId: organizationId // Include organizationId for context
+      organizationId: organizationId, // Include organizationId for context
     };
 
+    const data = await jobApply.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
+      {
+        AI_Screeing_Result: `${updateData?.decision}`,
+        AI_Screeing_Status: "Completed",
+        AI_Score: Number(updateData.overallScore),
+        AI_Confidence: 0,
+        lastOrganization: Array.isArray(lastOrganization)
+          ? lastOrganization
+          : [],
+      },
+      { new: true }
+    );
 
-    
-   const data = await jobApply.findOneAndUpdate(
-  { _id: new mongoose.Types.ObjectId(candidateId) }, // correct casting
-  {
-    AI_Screeing_Result: `${updateData?.decision}`,
-    AI_Screeing_Status: "Completed",
-    AI_Score:Number(updateData.overallScore),
-    AI_Confidence:0,
-    lastOrganization: Array.isArray(lastOrganization) ? lastOrganization : []
-  },
-  { new: true }
-);
-
-
-        // Upsert operation: update if exists, else create
-   const updatedata =  await CandidateAIScreeningModel.findOneAndUpdate(
+    // Upsert operation: update if exists, else create
+    const updatedata = await CandidateAIScreeningModel.findOneAndUpdate(
       filter,
       updateData,
       { new: true, upsert: true }
     );
 
-    const CreditRules = await AICreditRule.findOne({ actionType: "AI_SCREENING" });
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "AI_SCREENING",
+    });
 
     // if (!CreditRules) {
     //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
@@ -2015,9 +2048,8 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
 
     const creditsNeeded = CreditRules.creditsRequired || 1;
 
-
     // Update candidate with AI screening result
-    if(activePlan.NumberofAnalizers > 0){
+    if (activePlan.NumberofAnalizers > 0) {
       const Updateservice = await oganizationPlan.findOneAndUpdate(
         { organizationId: organizationId },
         { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
@@ -2026,28 +2058,21 @@ const finalDecision = verifiedOverallScore >= 70 ? "Approved" : "Rejected";
     }
 
     // If main is 0, try to decrement from addNumberOfAnalizers
-  else if (activePlan.addNumberOfAnalizers > 0) {
-  await oganizationPlan.findOneAndUpdate(
-    { organizationId: organizationId },
-    { $inc: { addNumberOfAnalizers: -creditsNeeded } },
-    { new: true }
-  );
- } 
-
-else {
-  throw new Error("AI screening limit reached for this organization. Please upgrade your plan.");
-}
-
-
-
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationId },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+        { new: true }
+      );
+    } else {
+      throw new Error(
+        "AI screening limit reached for this organization. Please upgrade your plan."
+      );
+    }
   } catch (error) {
     console.error("Error in processAIScreeningForCandidate:", error);
     throw error;
   }
 };
 
-
-// 
-
-
-
+//

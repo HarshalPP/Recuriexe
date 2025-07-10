@@ -60,7 +60,6 @@ const AIRPHONE_TOKEN = "DqazlkMZ6Rk3nHLyyDDHLqLUh9vSav7DadnLmzx5z76FWYYDQRtY1fso
 
 
 // const AIRPHONE_TOKEN = process.env.AIRPHONE_TOKEN;
-
 export function startCallScheduler() {
   cron.schedule("*/10 * * * * *", async () => {
     // console.log("Running interview call scheduler...");
@@ -82,7 +81,7 @@ export function startCallScheduler() {
     const nextInterview = await InterviewDetail.findOneAndUpdate(
       {
         interviewType: "Call",
-        status: "schedule",
+        status: {$in:["schedule","reSchedule"]},
         scheduleDate: { $lte: new Date() },
       },
       // { status: "running" }
@@ -105,7 +104,7 @@ export function startCallScheduler() {
 
       // Fetch agent and vnm from interviewer (employee)
       // console.log("Fetching interviewer details...",nextInterview.interviewerId);
-      const interviewer = await Employee.findOne({ employeeId: nextInterview.interviewerId });
+      const interviewer = await Employee.findOne({ employeeId: nextInterview.interviewerId});
       // console.log("Interviewer found:", interviewer);
       const agent =await interviewer?.mobile || "";
       // console.log("Agent mobile:", agent);

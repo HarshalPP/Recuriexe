@@ -3,11 +3,11 @@ import {
   success,
   unknownError,
   unauthorized,
-} from "../../formatters/globalResponse.js"
-import deparmentModel from "../../models/deparmentModel/deparment.model.js"
+} from "../../formatters/globalResponse.js";
+import deparmentModel from "../../models/deparmentModel/deparment.model.js";
 import designationModel from "../../models/designationModel/designation.model.js";
 import mongoose from "mongoose";
-import budgetModel from "../../models/budgedModel/budged.model.js"
+import budgetModel from "../../models/budgedModel/budged.model.js";
 import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 import {
@@ -17,35 +17,36 @@ import {
   updateDesignation,
   getDesignationById,
   deactivateDesignation,
-  getDesignationFromJobApply
-} from "../../services/designationservices/designation.service.js"
+  getDesignationFromJobApply,
+} from "../../services/designationservices/designation.service.js";
 
-import AIConfigModel from "../../models/AiModel/ai.model.js"
-
+import AIConfigModel from "../../models/AiModel/ai.model.js";
 
 import employeModel from "../../models/employeemodel/employee.model.js";
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
 import JobApplyModel from "../../models/jobformModel/jobform.model.js";
 import DepartmentBudget from "../../models/budgedModel/budged.model.js";
-import AICreditRule from "../../models/AiModel/AICreditRuleModel .js"
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js";
 
-
-
-
-import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js"
-import { generateDepartmentPrompt, generateDesignationPrompt } from "../../prompt/resumeprompt.js"
-
+import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js";
+import {
+  generateDepartmentPrompt,
+  generateDesignationPrompt,
+} from "../../prompt/resumeprompt.js";
 
 //-----------------------Add new designation ------------------------------
 export async function addDesignationController(req, res) {
   try {
-    const { status, message, data } = await addDesignation(req.body, req.employee.id, req.employee.organizationId);
+    const { status, message, data } = await addDesignation(
+      req.body,
+      req.employee.id,
+      req.employee.organizationId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 }
-
 
 //----------------------------Get all designations ---------------------------------------
 export async function getAllDesignationController(req, res) {
@@ -62,7 +63,9 @@ export async function getAllDesignationController(req, res) {
 export async function getAllDesignationFromJobApply(req, res) {
   try {
     const organizationId = req.employee.organizationId;
-    const { status, message, data } = await getDesignationFromJobApply(organizationId);
+    const { status, message, data } = await getDesignationFromJobApply(
+      organizationId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -73,7 +76,9 @@ export async function getAllDesignationFromJobApply(req, res) {
 export async function getAllInactiveDesignationController(req, res) {
   try {
     const organizationId = req.employee.organizationId;
-    const { status, message, data } = await getAllInactiveDesignation(organizationId);
+    const { status, message, data } = await getAllInactiveDesignation(
+      organizationId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -83,7 +88,9 @@ export async function getAllInactiveDesignationController(req, res) {
 //----------------------------Get designation by ID ---------------------------------------
 export async function getDesignationByIdController(req, res) {
   try {
-    const { status, message, data } = await getDesignationById(req.params.designationId);
+    const { status, message, data } = await getDesignationById(
+      req.params.designationId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -93,7 +100,11 @@ export async function getDesignationByIdController(req, res) {
 //-----------------------Update designation ------------------------------
 export async function updateDesignationController(req, res) {
   try {
-    const { status, message, data } = await updateDesignation(req, req.body.Id, req.body);
+    const { status, message, data } = await updateDesignation(
+      req,
+      req.body.Id,
+      req.body
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
@@ -103,13 +114,15 @@ export async function updateDesignationController(req, res) {
 //---------------------------Deactivate designation ---------------------------------------------
 export async function deactivateDesignationByIdController(req, res) {
   try {
-    const { status, message, data } = await deactivateDesignation(req, req.params.designationId);
+    const { status, message, data } = await deactivateDesignation(
+      req,
+      req.params.designationId
+    );
     return status ? success(res, message, data) : badRequest(res, message);
   } catch (error) {
     return unknownError(res, error.message);
   }
 }
-
 
 // get deparment with desination //
 
@@ -118,9 +131,9 @@ export async function deactivateDesignationByIdController(req, res) {
 //     const departments = await deparmentModel.aggregate([
 //       {
 //         $lookup: {
-//           from: 'newdesignations', 
-//           localField: '_id', 
-//           foreignField: 'departmentId', 
+//           from: 'newdesignations',
+//           localField: '_id',
+//           foreignField: 'departmentId',
 //           as: 'designations'
 //         }
 //       },
@@ -129,18 +142,18 @@ export async function deactivateDesignationByIdController(req, res) {
 //       },
 //       {
 //         $lookup: {
-//           from: 'jobdescriptions', 
-//           localField: 'designations._id', 
-//           foreignField: 'designationId', 
-//           as: 'designations.jobDescriptions' 
+//           from: 'jobdescriptions',
+//           localField: 'designations._id',
+//           foreignField: 'designationId',
+//           as: 'designations.jobDescriptions'
 //         }
 //       },
 //       {
 //         $group: {
-//           _id: '$_id', 
-//           name: { $first: '$name' }, 
-//           description: { $first: '$description' }, 
-//           designations: { $push: '$designations' } 
+//           _id: '$_id',
+//           name: { $first: '$name' },
+//           description: { $first: '$description' },
+//           designations: { $push: '$designations' }
 //         }
 //       },
 //       {
@@ -148,14 +161,14 @@ export async function deactivateDesignationByIdController(req, res) {
 //       },
 //       {
 //         $project: {
-//           name: 1, 
+//           name: 1,
 //           designations: {
 //             _id: 1,
-//             name: 1, 
-//             status: 1, 
+//             name: 1,
+//             status: 1,
 //             jobDescriptions: {
-//               _id: 1, 
-//               position: 1, 
+//               _id: 1,
+//               position: 1,
 //               jobDescription: 1
 //             }
 //           }
@@ -170,44 +183,43 @@ export async function deactivateDesignationByIdController(req, res) {
 //   }
 // };
 
-
 export const getdeparmentwithdesignation = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
 
     const departments = await deparmentModel.aggregate([
       {
-        $match: { organizationId } // Filter departments by organization
+        $match: { organizationId }, // Filter departments by organization
       },
       {
         $lookup: {
-          from: 'newdesignations',
-          let: { deptId: '$_id' },
+          from: "newdesignations",
+          let: { deptId: "$_id" },
           pipeline: [
             {
               $match: {
                 $expr: {
                   $and: [
-                    { $eq: ['$departmentId', '$$deptId'] },
-                    { $eq: ['$organizationId', organizationId] }
-                  ]
-                }
-              }
+                    { $eq: ["$departmentId", "$$deptId"] },
+                    { $eq: ["$organizationId", organizationId] },
+                  ],
+                },
+              },
             },
             {
               $lookup: {
-                from: 'jobdescriptions',
-                localField: '_id',
-                foreignField: 'designationId',
-                as: 'jobDescriptions'
-              }
-            }
+                from: "jobdescriptions",
+                localField: "_id",
+                foreignField: "designationId",
+                as: "jobDescriptions",
+              },
+            },
           ],
-          as: 'designations'
-        }
+          as: "designations",
+        },
       },
       {
-        $sort: { createdAt: -1 }
+        $sort: { createdAt: -1 },
       },
       {
         $project: {
@@ -220,20 +232,26 @@ export const getdeparmentwithdesignation = async (req, res) => {
             jobDescriptions: {
               _id: 1,
               position: 1,
-              jobDescription: 1
-            }
-          }
-        }
-      }
+              jobDescription: 1,
+            },
+          },
+        },
+      },
     ]);
 
-    return success(res, 'Departments with designations and job descriptions fetched successfully', departments);
+    return success(
+      res,
+      "Departments with designations and job descriptions fetched successfully",
+      departments
+    );
   } catch (error) {
-    console.error('Error fetching departments with designations and job descriptions:', error);
+    console.error(
+      "Error fetching departments with designations and job descriptions:",
+      error
+    );
     return unknownError(res, error.message);
   }
 };
-
 
 // deparmnetwith desingation //
 
@@ -301,7 +319,6 @@ export const getdeparmentwithdesignation = async (req, res) => {
 //       }
 //     ];
 
-
 //     const departments = await deparmentModel.aggregate(aggregationPipeline);
 
 //     return success(res, 'Departments with designations and budgets fetched successfully', departments);
@@ -310,7 +327,6 @@ export const getdeparmentwithdesignation = async (req, res) => {
 //     return unknownError(res, error);
 //   }
 // };
-
 
 export const getDepartmentsWithDesignations = async (req, res) => {
   try {
@@ -332,18 +348,25 @@ export const getDepartmentsWithDesignations = async (req, res) => {
     };
 
     // Step 1: Fetch designations
-    const designations = await designationModel.find(query)
-      .populate({ path: 'departmentId', select: 'name' })
-      .populate({ path: 'createdBy', select: 'employeName' })
+    const designations = await designationModel
+      .find(query)
+      .populate({ path: "departmentId", select: "name" })
+      .populate({ path: "createdBy", select: "employeName" })
       .sort({ createdAt: -1 })
       .lean();
 
     if (!designations.length) {
-      return success(res, "No designations found for given department/sub-department", []);
+      return success(
+        res,
+        "No designations found for given department/sub-department",
+        []
+      );
     }
 
     // Step 2: Fetch department and find matching sub-department
-    const department = await deparmentModel.findOne({ _id: departmentId }).lean();
+    const department = await deparmentModel
+      .findOne({ _id: departmentId })
+      .lean();
 
     if (!department) {
       return badRequest(res, "Department not found");
@@ -352,7 +375,6 @@ export const getDepartmentsWithDesignations = async (req, res) => {
     const subDepartment = department.subDepartments?.find(
       (sub) => sub._id.toString() == subDepartmentId
     );
-
 
     // Step 3: Attach subDepartment to each designation
     const enrichedDesignations = designations.map((designation) => ({
@@ -363,39 +385,36 @@ export const getDepartmentsWithDesignations = async (req, res) => {
       },
     }));
 
-    return success(res, "Designations with sub-department fetched successfully", enrichedDesignations);
+    return success(
+      res,
+      "Designations with sub-department fetched successfully",
+      enrichedDesignations
+    );
   } catch (error) {
     console.error("❌ getDepartmentsWithDesignations error:", error.message);
     return unknownError(res, error.message);
   }
 };
 
-
-
-
-
-
-
-
 export const getJobDescriptionsByDesignation = async (req, res) => {
   try {
     const { designationId } = req.params; // Capture designationId from the request parameters
 
     if (!designationId) {
-      return badRequest(res, "Please Provide designation")
+      return badRequest(res, "Please Provide designation");
     }
 
     const designationWithJobDescriptions = await designationModel.aggregate([
       {
-        $match: { _id: new mongoose.Types.ObjectId(designationId) } // Match the specific designation by ID
+        $match: { _id: new mongoose.Types.ObjectId(designationId) }, // Match the specific designation by ID
       },
       {
         $lookup: {
-          from: 'jobdescriptions', // Reference to the Job Description model
-          localField: '_id', // Designation ID
-          foreignField: 'designationId', // Job Description contains designationId
-          as: 'jobDescriptions' // The job descriptions related to this designation
-        }
+          from: "jobdescriptions", // Reference to the Job Description model
+          localField: "_id", // Designation ID
+          foreignField: "designationId", // Job Description contains designationId
+          as: "jobDescriptions", // The job descriptions related to this designation
+        },
       },
       {
         $project: {
@@ -403,37 +422,50 @@ export const getJobDescriptionsByDesignation = async (req, res) => {
           jobDescriptions: {
             _id: 1,
             position: 1,
-            jobDescription: 1
-          }
-        }
-      }
+            jobDescription: 1,
+          },
+        },
+      },
     ]);
 
     if (designationWithJobDescriptions.length === 0) {
-      return badRequest(res, "jobdescription not found.")
+      return badRequest(res, "jobdescription not found.");
     }
 
-    return success(res, 'Job descriptions fetched successfully', designationWithJobDescriptions[0]);
+    return success(
+      res,
+      "Job descriptions fetched successfully",
+      designationWithJobDescriptions[0]
+    );
   } catch (error) {
-    console.error('Error fetching job descriptions:', error);
+    console.error("Error fetching job descriptions:", error);
     return unknownError(res, error);
   }
 };
 
-// 
-
-
+//
 
 export const generateDesignationFromAI = async (req, res) => {
   try {
     const { departmentId, subDepartmentId } = req.body;
     const orgainizationId = req.employee.organizationId;
 
-        const activePlan = await oganizationPlan.findOne({organizationId: orgainizationId , isActive:true}).lean();
-            if(!activePlan){
-              return badRequest(res, "no active plan found for this Analizer.");
-            }
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: orgainizationId, isActive: true })
+      .lean();
+    if (!activePlan) {
+      return badRequest(res, "no active plan found for this Analizer.");
+    }
 
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
 
     if (!departmentId) {
       return badRequest(res, "departmentId is required.");
@@ -441,7 +473,7 @@ export const generateDesignationFromAI = async (req, res) => {
 
     const findAiEnable = await AIConfigModel.findOne({
       title: "Desingnation Analizer",
-      enableAIResumeParsing: true
+      enableAIResumeParsing: true,
     });
 
     if (!findAiEnable) {
@@ -461,7 +493,10 @@ export const generateDesignationFromAI = async (req, res) => {
       );
 
       if (!matchedSub) {
-        return badRequest(res, "Sub-department not found under the given department.");
+        return badRequest(
+          res,
+          "Sub-department not found under the given department."
+        );
       }
       subDepartmentName = matchedSub.name;
     }
@@ -477,18 +512,19 @@ export const generateDesignationFromAI = async (req, res) => {
       return badRequest(res, "AI did not return a valid list of designations.");
     }
 
-      success(res, "Designations generated successfully", {
+    success(res, "Designations generated successfully", {
       department: department.name,
       departmentId: department._id,
       ...(subDepartmentName && {
         subDepartment: subDepartmentName,
-        subDepartmentId
+        subDepartmentId,
       }),
-      designations: aiResult
+      designations: aiResult,
     });
 
-
-    const CreditRules = await AICreditRule.findOne({ actionType: "DESIGNATION_AI" });
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "DESIGNATION_AI",
+    });
 
     // if (!CreditRules) {
     //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
@@ -496,36 +532,33 @@ export const generateDesignationFromAI = async (req, res) => {
 
     const creditsNeeded = CreditRules.creditsRequired || 1;
 
-    
-    
-                // Update candidate with AI screening result
-            if(activePlan.NumberofAnalizers > 0){
-              const Updateservice = await oganizationPlan.findOneAndUpdate(
-                { organizationId: orgainizationId },
-                { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
-                { new: true }
-              );
-            }
-        
-            // If main is 0, try to decrement from addNumberOfAnalizers
-          else if (activePlan.addNumberOfAnalizers > 0) {
-          await oganizationPlan.findOneAndUpdate(
-            { organizationId: orgainizationId },
-            { $inc: { addNumberOfAnalizers: -creditsNeeded } },
-            { new: true }
-          );
-         } 
-        
-        else {
-          return badRequest(res , "AI limit reached for this organization. Please upgrade your plan.");
-        }
+    // Update candidate with AI screening result
+    if (activePlan.NumberofAnalizers > 0) {
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+        { new: true }
+      );
+    }
 
+    // If main is 0, try to decrement from addNumberOfAnalizers
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: orgainizationId },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+        { new: true }
+      );
+    } else {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
   } catch (error) {
     console.error("❌ generateDesignationFromAI Error:", error.message);
     return unknownError(res, "Failed to generate designations.");
   }
 };
-
 
 // export const generateDesignationFromAI = async (req, res) => {
 //   try {
@@ -596,9 +629,6 @@ export const generateDesignationFromAI = async (req, res) => {
 //   }
 // };
 
-
-
-
 // create bulk desingation //
 // export const createBulkDesignations = async (req, res) => {
 //   try {
@@ -651,14 +681,20 @@ export const generateDesignationFromAI = async (req, res) => {
 //   }
 // };
 
-
 export const createBulkDesignations = async (req, res) => {
   try {
     const { departmentId, subDepartmentId, designations } = req.body;
     const organizationId = req.employee.organizationId;
 
-    if (!departmentId || !Array.isArray(designations) || designations.length === 0) {
-      return badRequest(res, "departmentId and non-empty designations array are required.");
+    if (
+      !departmentId ||
+      !Array.isArray(designations) ||
+      designations.length === 0
+    ) {
+      return badRequest(
+        res,
+        "departmentId and non-empty designations array are required."
+      );
     }
 
     if (!organizationId) {
@@ -669,35 +705,39 @@ export const createBulkDesignations = async (req, res) => {
       return badRequest(res, "Department not found.");
     }
 
-
     if (subDepartmentId) {
       const subDeptMatch = department.subDepartments.find(
         (sub) => sub._id.toString() == subDepartmentId
       );
 
       if (!subDeptMatch) {
-        return badRequest(res, "Sub-department not found under the given department.");
+        return badRequest(
+          res,
+          "Sub-department not found under the given department."
+        );
       }
     }
 
-    const inputNames = [...new Set(designations.map(d => d.name.trim()))];
+    const inputNames = [...new Set(designations.map((d) => d.name.trim()))];
 
-    const existing = await designationModel.find({
-      departmentId,
-      subDepartmentId: subDepartmentId || null,
-      name: { $in: inputNames }
-    }).select("name");
+    const existing = await designationModel
+      .find({
+        departmentId,
+        subDepartmentId: subDepartmentId || null,
+        name: { $in: inputNames },
+      })
+      .select("name");
 
-    const existingNames = new Set(existing.map(e => e.name));
+    const existingNames = new Set(existing.map((e) => e.name));
 
     const newDesignations = inputNames
-      .filter(name => !existingNames.has(name))
-      .map(name => ({
+      .filter((name) => !existingNames.has(name))
+      .map((name) => ({
         name,
         departmentId,
         subDepartmentId: subDepartmentId || null,
         organizationId,
-        createdBy: req.employee?.id || null
+        createdBy: req.employee?.id || null,
       }));
 
     if (newDesignations.length === 0) {
@@ -707,7 +747,7 @@ export const createBulkDesignations = async (req, res) => {
     // ✅ Insert into DB
     const inserted = await designationModel.insertMany(newDesignations);
 
-    const budgetEntries = inserted.map(designation => ({
+    const budgetEntries = inserted.map((designation) => ({
       // departmentId,
       desingationId: designation._id,
       departmentId: subDepartmentId || null,
@@ -715,19 +755,17 @@ export const createBulkDesignations = async (req, res) => {
       createdBy: req.employee?.id || null,
       allocatedBudget: 0,
       numberOfEmployees: 0,
-      status: "active"
+      status: "active",
     }));
 
     await budgetModel.insertMany(budgetEntries);
 
     return success(res, "Designations added successfully", inserted);
-
   } catch (error) {
     console.error("❌ Error in createBulkDesignations:", error.message);
     return unknownError(res, "Failed to add designations.");
   }
 };
-
 
 export const createMissingBudgetsForDesignations = async (req, res) => {
   try {
@@ -735,7 +773,7 @@ export const createMissingBudgetsForDesignations = async (req, res) => {
     const createdBy = req.employee.id;
 
     if (!organizationId) {
-      console.log('router')
+      console.log("router");
     }
     // 1. Get all designations for this organization
     const allDesignations = await designationModel.find({ organizationId });
@@ -752,7 +790,7 @@ export const createMissingBudgetsForDesignations = async (req, res) => {
         // departmentId: designation.departmentId,
         desingationId: designation._id,
         departmentId: designation.subDepartmentId || null,
-        organizationId
+        organizationId,
       });
 
       if (!existingBudget) {
@@ -764,7 +802,7 @@ export const createMissingBudgetsForDesignations = async (req, res) => {
           createdBy,
           allocatedBudget: 3,
           numberOfEmployees: 1200000,
-          status: "active"
+          status: "active",
         });
       }
     }
@@ -774,23 +812,28 @@ export const createMissingBudgetsForDesignations = async (req, res) => {
       await budgetModel.insertMany(newBudgetEntries);
     }
 
-    return success(res, `${newBudgetEntries.length} missing budget entries created successfully.`);
+    return success(
+      res,
+      `${newBudgetEntries.length} missing budget entries created successfully.`
+    );
   } catch (error) {
-    console.error("❌ Error in createMissingBudgetsForDesignations:", error.message);
+    console.error(
+      "❌ Error in createMissingBudgetsForDesignations:",
+      error.message
+    );
     return unknownError(res, "Failed to create missing budget entries.");
   }
 };
-
-
-
-
 
 export const deleteDesignations = async (req, res) => {
   try {
     const { designationIds } = req.body;
 
     if (!Array.isArray(designationIds) || designationIds.length === 0) {
-      return badRequest(res, "Please provide designationIds as a non-empty array.");
+      return badRequest(
+        res,
+        "Please provide designationIds as a non-empty array."
+      );
     }
 
     const undeletableDesignations = [];
@@ -798,29 +841,41 @@ export const deleteDesignations = async (req, res) => {
     for (const id of designationIds) {
       const designation = await designationModel.findById(id);
       if (!designation) {
-        undeletableDesignations.push({ designationId: id, reason: "Designation not found" });
+        undeletableDesignations.push({
+          designationId: id,
+          reason: "Designation not found",
+        });
         continue;
       }
 
       const usedIn = [];
 
-      const isUsedInJobPosts = await jobPostModel.findOne({ designationId: id, status: "active" });
+      const isUsedInJobPosts = await jobPostModel.findOne({
+        designationId: id,
+        status: "active",
+      });
       if (isUsedInJobPosts) usedIn.push("job posts");
 
-      const isUsedInJobApply = await JobApplyModel.findOne({ position: id.name, status: "active" });
+      const isUsedInJobApply = await JobApplyModel.findOne({
+        position: id.name,
+        status: "active",
+      });
       if (isUsedInJobApply) usedIn.push("job applications");
 
       // const isUsedInBudgets = await budgetModel.findOne({ desingationId: id, status: "active" });
       // if (isUsedInBudgets) usedIn.push("budget");
 
-      const isUsedInEmployees = await employeModel.findOne({ designationId: id, status: "active" });
+      const isUsedInEmployees = await employeModel.findOne({
+        designationId: id,
+        status: "active",
+      });
       if (isUsedInEmployees) usedIn.push("Users");
 
       if (usedIn.length > 0) {
         undeletableDesignations.push({
           designationId: id,
           designationName: designation.name,
-          reason: `Linked to ${usedIn.join(", ")}`
+          reason: `Linked to ${usedIn.join(", ")}`,
         });
         continue;
       }
@@ -834,7 +889,7 @@ export const deleteDesignations = async (req, res) => {
 
     return success(res, {
       message: `${deletedCount} designation(s) deleted successfully.`,
-      notDeleted: undeletableDesignations
+      notDeleted: undeletableDesignations,
     });
   } catch (error) {
     console.error("Error deleting designations:", error.message);

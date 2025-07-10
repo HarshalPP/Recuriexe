@@ -6,7 +6,7 @@ import {  boardAdd, shareBoard, getBoardSharedEmployees, getAllBoardsByTokenId,
           getAllNotesByTokenId,
           notesDeleteAPi, boardDeleteApi,
           updateNotes , getSharedDataByType , notesUpdateReminder ,getRemindersNotesByTokenId,
-            updateBoardTitle, updateSubBoardTitle
+            updateBoardTitle, updateSubBoardTitle,generateNotesAIResponse
           
          } from "../../controllers/notesController/notes.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
@@ -32,5 +32,9 @@ router.get("/remindersNotesByTokenId", verifyEmployeeToken , getRemindersNotesBy
 
 router.post('/update/boardTitle',verifyEmployeeToken, updateBoardTitle);
 router.post('/update/subBoardTitle',verifyEmployeeToken, updateSubBoardTitle);
+
+
+// AI Response Generation
+router.post("/generateNotesAIResponse", verifyEmployeeToken, generateNotesAIResponse);
 
 export default router;

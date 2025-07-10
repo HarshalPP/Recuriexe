@@ -1,14 +1,25 @@
-import { validationResult } from 'express-validator';
-import { badRequest, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
-import desingnationModel from "../../models/designationModel/designation.model.js"
-import { createJobDescriptionService , getjobdes  , updateJobDescription} from "../../services/jobdescriptionservices/jobdescription.services.js"
-import{generateAIResponse} from "../../services/Geminiservices/gemini.service.js"
-import deparmentModel from "../../models/deparmentModel/deparment.model.js"
-import AIConfigModel from "../../models/AiModel/ai.model.js"
-import jobPostModel from '../../models/jobPostModel/jobPost.model.js';
-import organizationModel from '../../models/organizationModel/organization.model.js';
-import BranchModel from '../../models/branchModel/branch.model.js';
-import designationModel from '../../models/designationModel/designation.model.js';
+import { validationResult } from "express-validator";
+import {
+  badRequest,
+  serverValidation,
+  success,
+  unknownError,
+} from "../../formatters/globalResponse.js";
+import desingnationModel from "../../models/designationModel/designation.model.js";
+import {
+  createJobDescriptionService,
+  getjobdes,
+  updateJobDescription,
+} from "../../services/jobdescriptionservices/jobdescription.services.js";
+import { generateAIResponse } from "../../services/Geminiservices/gemini.service.js";
+import deparmentModel from "../../models/deparmentModel/deparment.model.js";
+import AIConfigModel from "../../models/AiModel/ai.model.js";
+import jobPostModel from "../../models/jobPostModel/jobPost.model.js";
+import organizationModel from "../../models/organizationModel/organization.model.js";
+import BranchModel from "../../models/branchModel/branch.model.js";
+import designationModel from "../../models/designationModel/designation.model.js";
+import AICreditRule from "../../models/AiModel/AICreditRuleModel .js";
+import oganizationPlan from "../../models/PlanModel/organizationPlan.model.js";
 
 // Add Job description //
 export const addJobDescription = async (req, res) => {
@@ -16,81 +27,90 @@ export const addJobDescription = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return serverValidation(res, {
-        errorName: 'serverValidation',
+        errorName: "serverValidation",
         errors: errors.array(),
       });
     }
 
-    const { position, jobDescription , departmentId , subdeparmentId } = req.body;
-
+    const { position, jobDescription, departmentId, subdeparmentId } = req.body;
 
     // Set createdById from verified token middleware
     req.body.createdById = req.employee.id;
     const organizationId = req.employee.organizationId;
-   // Optional: Validate designation exists
+    // Optional: Validate designation exists
 
     // Call service to create Job Description
-    const jobDescriptionData = await createJobDescriptionService(req.body , organizationId);
+    const jobDescriptionData = await createJobDescriptionService(
+      req.body,
+      organizationId
+    );
 
-    return success(res, 'Job Description Added Successfully', jobDescriptionData);
+    return success(
+      res,
+      "Job Description Added Successfully",
+      jobDescriptionData
+    );
   } catch (error) {
-    console.error('Error adding job description:', error);
+    console.error("Error adding job description:", error);
     return unknownError(res, error);
   }
 };
 
-
 // get Job description //
 
-export const getJobdescription = async(req, res)=>{
-    try {
-       const organizationId = req.employee.organizationId;
-        const data = await getjobdes(organizationId);
-        success(res, "Job Description Data", data);
-        
-    } catch (error) {
-        console.error("Error in getJobDescriptions:", error);
-        unknownError(res, error);
-    }
-
-}
-
+export const getJobdescription = async (req, res) => {
+  try {
+    const organizationId = req.employee.organizationId;
+    const data = await getjobdes(organizationId);
+    success(res, "Job Description Data", data);
+  } catch (error) {
+    console.error("Error in getJobDescriptions:", error);
+    unknownError(res, error);
+  }
+};
 
 // Update job description //
 
 export const updateJobDes = async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return serverValidation({
-          errorName: "serverValidation",
-          errors: errors.array(),
-        });
-      }
-  
-      const { jobDescriptionId, ...updateData } = req.body;
-
-
-      const findJdId = await jobPostModel.findOne({jobDescriptionId: jobDescriptionId});
-      if(findJdId) {
-        return badRequest(res, "Job Description is already used in Job Post , Please create new Job Description");
-      }
-      const updatedById = req.employee.id;
-  
-      const result = await updateJobDescription(jobDescriptionId, updateData, updatedById);
-      console.log("Update Result:", result);
-  
-      if (result === "DUPLICATE") {
-        return badRequest(res, "Position Already Exists");
-      }
-  
-      success(res, "Job Description Updated Successfully", result);
-    } catch (error) {
-      console.error("Error in updateJobDescription controller:", error);
-      unknownError(res, error);
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return serverValidation({
+        errorName: "serverValidation",
+        errors: errors.array(),
+      });
     }
-  };
 
+    const { jobDescriptionId, ...updateData } = req.body;
+
+    const findJdId = await jobPostModel.findOne({
+      jobDescriptionId: jobDescriptionId,
+    });
+    if (findJdId) {
+      return badRequest(
+        res,
+        "Job Description is already used in Job Post , Please create new Job Description"
+      );
+    }
+    const updatedById = req.employee.id;
+
+    const result = await updateJobDescription(
+      jobDescriptionId,
+      updateData,
+      updatedById
+    );
+    console.log("Update Result:", result);
+
+    if (result === "DUPLICATE") {
+      return badRequest(res, "Position Already Exists");
+    }
+
+    success(res, "Job Description Updated Successfully", result);
+  } catch (error) {
+    console.error("Error in updateJobDescription controller:", error);
+    unknownError(res, error);
+  }
+};
 
 // export ai generated jd with key and
 
@@ -99,20 +119,20 @@ export const generateFormattedJobDescription = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return serverValidation(res, {
-        errorName: 'serverValidation',
+        errorName: "serverValidation",
         errors: errors.array(),
       });
     }
 
     const { position, designationId } = req.body;
 
-    if (!position || position.trim() === '' || !designationId) {
-      return badRequest(res, 'Both position and designationId are required.');
+    if (!position || position.trim() === "" || !designationId) {
+      return badRequest(res, "Both position and designationId are required.");
     }
 
     const designation = await desingnationModel.findById(designationId);
     if (!designation) {
-      return badRequest(res, 'Invalid designationId. No designation found.');
+      return badRequest(res, "Invalid designationId. No designation found.");
     }
 
     const prompt = `
@@ -135,23 +155,19 @@ Return the output in clean readable plain text. Do not include any additional co
 
     const aiResponse = await generateAIResponse(prompt);
 
-    return success(res, 'Job Description generated successfully.', aiResponse);
+    return success(res, "Job Description generated successfully.", aiResponse);
   } catch (error) {
-    console.error('Error generating job description:', error);
+    console.error("Error generating job description:", error);
     return unknownError(res, error);
   }
 };
 
-
-
-
 // AI genetated jd //
-
 
 // export const AIgeneratedJd = async (req, res) => {
 //   try {
 //     const findAiEnable = await AIConfigModel.findOne({ title:"jobdescription Analizer" , enableAIResumeParsing:true });
-    
+
 //     if(!findAiEnable) {
 //       return badRequest(res, "Jobdescription Analizer is OFF.");
 //     }
@@ -198,8 +214,6 @@ Return the output in clean readable plain text. Do not include any additional co
 // Preferred Age Limit - [Mention if applicable]
 // Preferred Gender - [Mention if applicable]
 
-
-
 // Roles & Responsibilities -
 // • Provide at least 10-12 relevant bullet points
 // • Keep it clean, professional, and concise
@@ -222,34 +236,78 @@ Return the output in clean readable plain text. Do not include any additional co
 //   }
 // };
 
-
 export const AIgeneratedJd = async (req, res) => {
   try {
-    const findAiEnable = await AIConfigModel.findOne({ title: "jobdescription Analizer", enableAIResumeParsing: true });
+    const findAiEnable = await AIConfigModel.findOne({
+      title: "jobdescription Analizer",
+      enableAIResumeParsing: true,
+    });
 
     if (!findAiEnable) {
       return badRequest(res, "Jobdescription Analizer is OFF.");
     }
 
-    const { departmentId, subdeparmentId, specialSkills = [], designationId, AgeLimit, Gender } = req.body;
+    const {
+      departmentId,
+      subdeparmentId,
+      specialSkills = [],
+      designationId,
+      AgeLimit,
+      Gender,
+    } = req.body;
 
     if (!departmentId || !subdeparmentId || !designationId) {
-      return badRequest(res, "Please provide departmentId, subdeparmentId, and designationId.");
+      return badRequest(
+        res,
+        "Please provide departmentId, subdeparmentId, and designationId."
+      );
     }
 
     const [department, subDepartment, designation] = await Promise.all([
       deparmentModel.findById(departmentId),
-      deparmentModel.findOne({ _id: departmentId, "subDepartments._id": subdeparmentId }),
+      deparmentModel.findOne({
+        _id: departmentId,
+        "subDepartments._id": subdeparmentId,
+      }),
       desingnationModel.findById(designationId),
     ]);
 
     if (!department || !subDepartment || !designation) {
-      return badRequest(res, "Invalid department, sub-department, or designation ID.");
+      return badRequest(
+        res,
+        "Invalid department, sub-department, or designation ID."
+      );
     }
 
-    const subDept = subDepartment.subDepartments.find(sub => sub._id.toString() === subdeparmentId);
+    const organizationDetails = await deparmentModel.findById(departmentId);
+
+    const organizationKey = organizationDetails.organizationId;
+
+    const activePlan = await oganizationPlan
+      .findOne({ organizationId: organizationKey, isActive: true })
+      .lean();
+    if (!activePlan) {
+      return badRequest(res, "no active plan found for this Analizer.");
+    }
+
+    if (
+      !(activePlan.NumberofAnalizers > 0) &&
+      !(activePlan.addNumberOfAnalizers > 0)
+    ) {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
+
+    const subDept = subDepartment.subDepartments.find(
+      (sub) => sub._id.toString() === subdeparmentId
+    );
     if (!subDept) {
-      return badRequest(res, "Sub-department not found in the selected department.");
+      return badRequest(
+        res,
+        "Sub-department not found in the selected department."
+      );
     }
 
     const subDeptName = subDept.name;
@@ -263,7 +321,9 @@ export const AIgeneratedJd = async (req, res) => {
     }
 
     // Normalize Age
-    const ageDisplay = AgeLimit ? `Only candidates within the age group of ${AgeLimit} are eligible.` : "No specific age requirement.";
+    const ageDisplay = AgeLimit
+      ? `Only candidates within the age group of ${AgeLimit} are eligible.`
+      : "No specific age requirement.";
 
     // Prepare AI Prompt
     const prompt = `
@@ -289,26 +349,54 @@ Ensure output is valid JSON only. Do not include any markdown or explanatory not
     `;
 
     const aiResponse = await generateAIResponse(prompt);
-    const structuredJD = typeof aiResponse === 'string' ? JSON.parse(aiResponse) : aiResponse;
+    const structuredJD =
+      typeof aiResponse === "string" ? JSON.parse(aiResponse) : aiResponse;
 
-    return success(res, "Job Description generated successfully.", {
+    success(res, "Job Description generated successfully.", {
       department: department.name,
       subDepartment: subDeptName,
       designation: designation.name,
-      jobDescription: structuredJD
+      jobDescription: structuredJD,
     });
 
+    const CreditRules = await AICreditRule.findOne({
+      actionType: "JOBDESCRIPTION_AI",
+    });
+
+    // if (!CreditRules) {
+    //   return badRequest(res, "No credit rule found for DESIGNATION_AI");
+    // }
+
+    const creditsNeeded = CreditRules.creditsRequired || 1;
+    // Update candidate with AI screening result
+    if (activePlan.NumberofAnalizers > 0) {
+      const Updateservice = await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationKey },
+        { $inc: { NumberofAnalizers: -creditsNeeded } }, // Decrement the count
+        { new: true }
+      );
+    }
+
+    // If main is 0, try to decrement from addNumberOfAnalizers
+    else if (activePlan.addNumberOfAnalizers > 0) {
+      await oganizationPlan.findOneAndUpdate(
+        { organizationId: organizationKey },
+        { $inc: { addNumberOfAnalizers: -creditsNeeded } },
+        { new: true }
+      );
+    } else {
+      return badRequest(
+        res,
+        "AI limit reached for this organization. Please upgrade your plan."
+      );
+    }
   } catch (error) {
     console.error("❌ AIgeneratedJd Error:", error);
     return unknownError(res, "Failed to generate AI job description.");
   }
 };
 
-
-
 //  Linkedin Posting //
-
-
 
 export const generateLinkedInPost = async (req, res) => {
   try {
@@ -401,12 +489,3 @@ Structure the output like a professional, engaging LinkedIn post (with emojis li
     return unknownError(res, "Failed to generate LinkedIn post.");
   }
 };
-
-
-
-
-
-
-
-
-

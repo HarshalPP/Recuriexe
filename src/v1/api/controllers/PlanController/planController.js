@@ -6,6 +6,7 @@ import OrganizationModel from "../../models/organizationModel/organization.model
 import organizationPlanModel from "../../models/PlanModel/organizationPlan.model.js";
 import Freetrail from "../../models/PlanModel/freetrail.model.js"
 import { sendEmail } from "../../Utils/sendEmail.js";
+import moment from "moment-timezone";
 
 export const createPlan = async (req, res) => {
   try {
@@ -102,7 +103,6 @@ export const deletePlan = async (req, res) => {
   }
 };
 
-
 // export const expirePlansScheduler = () => {
 //   // Runs every day at 12:00 AM
 //   cron.schedule("0 0 * * *", async () => {
@@ -134,7 +134,63 @@ export const deletePlan = async (req, res) => {
 
 
 // assing planId to organization
+//working //
+// export const assignPlanToOrganization = async (req, res) => {
+//   try {
+//     const { organizationId, planId } = req.body;
 
+//     if (!organizationId || !planId) {
+//       return badRequest(res, "Organization ID and Plan ID are required");
+//     }
+
+//     const organization = await OrganizationModel.findById(organizationId);
+//     if (!organization) return notFound(res, "Organization not found");
+
+//     const plan = await planModel.findById(planId);
+//     if (!plan) return notFound(res, "Plan not found");
+
+//     const now = Date.now(); // ✅ always set current time
+
+//     let existingOrgPlan = await organizationPlanModel.findOne({ organizationId });
+
+//     const planPayload = {
+//       organizationId,
+//       planName: plan.planName,
+//       planId: plan.id || null,
+//       planDescription: plan.planDescription,
+//       planPrice: plan.planPrice,
+//       planDurationInDays: plan.planDurationInDays,
+//       planCreditLimit: plan.planCreditLimit,
+//       isActive: true,
+//       NumberOfJobPosts: plan.NumberOfJobPosts,
+//       NumberOfUsers: plan.NumberOfUsers,
+//       NumberofAnalizers: plan.NumberofAnalizers,
+//       Numberofdownloads: plan.Numberofdownloads,
+//       reminderSent: false,
+//       PlanDate: now, // ✅ update this every time
+//     };
+
+//     if (existingOrgPlan) {
+
+//       await organizationPlanModel.updateOne({ organizationId }, planPayload);
+//     } else {
+//       // Create new plan
+//       existingOrgPlan = await organizationPlanModel.create(planPayload);
+//     }
+
+//     // Save reference to assigned plan (if needed in org document)
+//     organization.PlanId = plan._id;
+//     await organization.save();
+
+//     return success(res, "Plan assigned to organization successfully", existingOrgPlan);
+//   } catch (err) {
+//     console.error("Error in assigning plan:", err);
+//     return unknownError(res, err.message);
+//   }
+// };
+
+
+// new one //
 export const assignPlanToOrganization = async (req, res) => {
   try {
     const { organizationId, planId } = req.body;
@@ -144,47 +200,109 @@ export const assignPlanToOrganization = async (req, res) => {
     }
 
     const organization = await OrganizationModel.findById(organizationId);
-    if (!organization) return notFound(res, "Organization not found");
+    if (!organization) return badRequest(res, "Organization not found");
 
-    const plan = await planModel.findById(planId);
-    if (!plan) return notFound(res, "Plan not found");
+    const newPlan = await planModel.findById(planId);
+    if (!newPlan) return badRequest(res, "Plan not found");
 
-    let existingOrgPlan = await organizationPlanModel.findOne({ organizationId });
+    const now = new Date();
+    let usedJobPosts = 0;
+    let usedUsers = 0;
 
-    const planPayload = {
-      organizationId,
-      planName: plan.planName,
-      planId: plan.id || null,
-      planDescription: plan.planDescription,
-      planPrice: plan.planPrice,
-      planDurationInDays: plan.planDurationInDays,
-      planCreditLimit: plan.planCreditLimit,
-      isActive: true,
-      NumberOfJobPosts: plan.NumberOfJobPosts,
-      NumberOfUsers: plan.NumberOfUsers,
-      NumberofAnalizers: plan.NumberofAnalizers,
-      Numberofdownloads: plan.Numberofdownloads,
-      reminderSent:false
-    };
+    let existingOrgPlan = await organizationPlanModel.findOne({ organizationId, isActive: true });
 
     if (existingOrgPlan) {
+      const isSamePlan = existingOrgPlan.planId?.toString() === planId;
 
-      await organizationPlanModel.updateOne({ organizationId }, planPayload);
-    } else {
-      // Create new plan
-      existingOrgPlan = await organizationPlanModel.create(planPayload);
+      if (isSamePlan) {
+        console.log("same" )
+        // Reassigning same plan — just reset dates, preserve counters
+        existingOrgPlan.PlanDate = now;
+        existingOrgPlan.planDurationInDays = newPlan.planDurationInDays;
+        existingOrgPlan.reminderSent = false;
+        await existingOrgPlan.save();
+        return success(res, "Plan duration updated (same plan)", existingOrgPlan);
+      }
+
+      const oldPlan = await planModel.findById(existingOrgPlan.planId);
+
+      // 👇 Fallback to oldPlan count if orgPlan = 0
+      usedJobPosts =
+        existingOrgPlan.NumberOfJobPosts == 0
+          ? oldPlan?.NumberOfJobPosts || 0
+          : (oldPlan?.NumberOfJobPosts || 0) - existingOrgPlan.NumberOfJobPosts;
+
+      usedUsers =
+        existingOrgPlan.NumberOfUsers === 0
+          ? oldPlan?.NumberOfUsers || 0
+          : (oldPlan?.NumberOfUsers || 0) - existingOrgPlan.NumberOfUsers;
+
+      if (
+        usedJobPosts > newPlan.NumberOfJobPosts ||
+        usedUsers > newPlan.NumberOfUsers
+      ) {
+        return badRequest(
+          res,
+          `Cannot downgrade. Current usage (Users: ${usedUsers}, JobPosts: ${usedJobPosts}) exceeds new plan limits (Users: ${newPlan.NumberOfUsers}, JobPosts: ${newPlan.NumberOfJobPosts}).`
+        );
+      }
+
+      // ✅ Update Plan with adjusted counters
+      existingOrgPlan.planName = newPlan.planName;
+      existingOrgPlan.planId = newPlan._id;
+      existingOrgPlan.planDescription = newPlan.planDescription;
+      existingOrgPlan.planPrice = newPlan.planPrice;
+      existingOrgPlan.planDurationInDays = newPlan.planDurationInDays;
+      existingOrgPlan.planCreditLimit = newPlan.planCreditLimit;
+      existingOrgPlan.NumberOfJobPosts = newPlan.NumberOfJobPosts - usedJobPosts;
+      existingOrgPlan.NumberOfUsers = newPlan.NumberOfUsers - usedUsers;
+      existingOrgPlan.NumberofAnalizers = newPlan.NumberofAnalizers;
+      existingOrgPlan.Numberofdownloads = newPlan.Numberofdownloads;
+      existingOrgPlan.fileManagerLimit = newPlan.fileManagerLimit;
+
+
+      existingOrgPlan.PlanDate = now;
+      existingOrgPlan.reminderSent = false;
+
+      await existingOrgPlan.save();
+      organization.PlanId = newPlan._id;
+      await organization.save();
+
+      return success(res, "Plan updated successfully", existingOrgPlan);
     }
 
-    // Save reference to assigned plan (if needed in org document)
-    organization.PlanId = plan._id;
+    // 🔃 First-time assignment
+    const newOrgPlan = await organizationPlanModel.create({
+      organizationId,
+      planName: newPlan.planName,
+      planId: newPlan._id,
+      planDescription: newPlan.planDescription,
+      planPrice: newPlan.planPrice,
+      planDurationInDays: newPlan.planDurationInDays,
+      planCreditLimit: newPlan.planCreditLimit,
+      isActive: true,
+      NumberOfJobPosts: newPlan.NumberOfJobPosts,
+      NumberOfUsers: newPlan.NumberOfUsers,
+      NumberofAnalizers: newPlan.NumberofAnalizers,
+      Numberofdownloads: newPlan.Numberofdownloads,
+      fileManagerLimit: newPlan.fileManagerLimit,
+
+
+      reminderSent: false,
+      PlanDate: now,
+    });
+
+    organization.PlanId = newPlan._id;
     await organization.save();
 
-    return success(res, "Plan assigned to organization successfully", existingOrgPlan);
+    return success(res, "Plan assigned successfully", newOrgPlan);
   } catch (err) {
     console.error("Error in assigning plan:", err);
     return unknownError(res, err.message);
   }
 };
+
+
 
 
 // Updgrad Plan api //
@@ -214,12 +332,12 @@ export const upgradeOrganizationPlan = async (req, res) => {
       planDurationInDays: plan.planDurationInDays,
       planCreditLimit: plan.planCreditLimit,
       isActive: true,
-      reminderSent: false, 
+      reminderSent: false,
       NumberOfJobPosts: plan.NumberOfJobPosts,
       NumberOfUsers: plan.NumberOfUsers,
       NumberofAnalizers: plan.NumberofAnalizers,
       Numberofdownloads: plan.Numberofdownloads,
-      createdAt:Date.now()
+      PlanDate: Date.now()
     };
 
     let updatedPlan;
@@ -254,8 +372,74 @@ export const upgradeOrganizationPlan = async (req, res) => {
 
 
 
+// working //
+// export const upgradenewOrgPlan = async ({ PlanId, organizationId, Amount }) => {
+//   try {
+//     if (!organizationId || !PlanId) {
+//       throw new Error("Organization ID and Plan ID are required");
+//     }
 
-export const upgradenewOrgPlan = async ({ PlanId, organizationId , Amount}) => {
+//     const organization = await OrganizationModel.findById(organizationId);
+//     if (!organization) throw new Error("Organization not found");
+
+//     const plan = await planModel.findById(PlanId);
+//     if (!plan) throw new Error("New Plan not found");
+
+//     // const createdAt = new Date(plan.createdAt);
+//     // const expiryDate = new Date(createdAt.getTime() + plan.planDurationInDays * 24 * 60 * 60 * 1000);
+
+//     // const isExpired = new Date() > expiryDate;
+
+//     const planPayload = {
+//       organizationId,
+//       planName: plan.planName,
+//       planId: plan._id,
+//       planDescription: plan.planDescription,
+//       planPrice: Amount,
+//       planDurationInDays: plan.planDurationInDays,
+//       planCreditLimit: plan.planCreditLimit,
+//       isActive: true,
+//       reminderSent: false,
+//       NumberOfJobPosts: plan.NumberOfJobPosts,
+//       NumberOfUsers: plan.NumberOfUsers,
+//       NumberofAnalizers: plan.NumberofAnalizers,
+//       Numberofdownloads: plan.Numberofdownloads,
+//       PlanDate: Date.now()
+//     };
+
+//     let updatedPlan;
+//     const existing = await organizationPlanModel.findOne({ organizationId });
+
+//     if (existing) {
+//       updatedPlan = await organizationPlanModel.findOneAndUpdate(
+//         { organizationId },
+//         planPayload,
+//         { new: true }
+//       );
+//     } else {
+//       updatedPlan = await organizationPlanModel.create(planPayload);
+//     }
+
+//     // Update the organization model with reference to new PlanId
+//     organization.PlanId = plan._id;
+//     await organization.save();
+
+//     return {
+//       success: true,
+//       message: "Organization plan upgraded successfully.",
+//       data: updatedPlan,
+//     };
+//   } catch (err) {
+//     console.error("Error upgrading organization plan:", err);
+//     return {
+//       success: false,
+//       message: err.message || "Unknown error occurred",
+//     };
+//   }
+// };
+
+// new one //
+export const upgradenewOrgPlan = async ({ PlanId, organizationId, Amount }) => {
   try {
     if (!organizationId || !PlanId) {
       throw new Error("Organization ID and Plan ID are required");
@@ -267,12 +451,92 @@ export const upgradenewOrgPlan = async ({ PlanId, organizationId , Amount}) => {
     const plan = await planModel.findById(PlanId);
     if (!plan) throw new Error("New Plan not found");
 
-    // const createdAt = new Date(plan.createdAt);
-    // const expiryDate = new Date(createdAt.getTime() + plan.planDurationInDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    let usedJobPosts = 0;
+    let usedUsers = 0;
 
-    // const isExpired = new Date() > expiryDate;
+    const existingPlan = await organizationPlanModel.findOne({ organizationId });
 
-    const planPayload = {
+    if (existingPlan) {
+      const isSamePlan = existingPlan.planId?.toString() === PlanId;
+
+      if (isSamePlan) {
+        // ✅ Reassigning same plan — only reset duration
+        existingPlan.PlanDate = now;
+        existingPlan.planDurationInDays = plan.planDurationInDays;
+        existingPlan.planPrice = Amount;
+        existingPlan.reminderSent = false;
+
+        await existingPlan.save();
+
+        organization.PlanId = plan._id;
+        await organization.save();
+
+        return {
+          success: true,
+          message: "Same plan reassigned — duration updated.",
+          data: existingPlan,
+        };
+      }
+
+      // 👇 Different plan upgrade — calculate usage
+      const oldPlan = await planModel.findById(existingPlan.planId);
+
+      usedJobPosts =
+        existingPlan.NumberOfJobPosts === 0
+          ? oldPlan?.NumberOfJobPosts || 0
+          : (oldPlan?.NumberOfJobPosts || 0) - existingPlan.NumberOfJobPosts;
+
+      usedUsers =
+        existingPlan.NumberOfUsers === 0
+          ? oldPlan?.NumberOfUsers || 0
+          : (oldPlan?.NumberOfUsers || 0) - existingPlan.NumberOfUsers;
+
+      if (
+        usedJobPosts > plan.NumberOfJobPosts ||
+        usedUsers > plan.NumberOfUsers
+      ) {
+        return {
+          success: false,
+          message: `❌ Cannot downgrade plan. Current usage — Users: ${usedUsers}, Job Posts: ${usedJobPosts}. New plan limits — Users: ${plan.NumberOfUsers}, Job Posts: ${plan.NumberOfJobPosts}`,
+        };
+      }
+
+      // ✅ Update plan in place with new plan data and remaining limits
+      const updatedPlan = await organizationPlanModel.findOneAndUpdate(
+        { organizationId },
+        {
+          organizationId,
+          planName: plan.planName,
+          planId: plan._id,
+          planDescription: plan.planDescription,
+          planPrice: Amount,
+          planDurationInDays: plan.planDurationInDays,
+          planCreditLimit: plan.planCreditLimit,
+          isActive: true,
+          reminderSent: false,
+          NumberOfJobPosts: plan.NumberOfJobPosts - usedJobPosts,
+          NumberOfUsers: plan.NumberOfUsers - usedUsers,
+          NumberofAnalizers: plan.NumberofAnalizers,
+          Numberofdownloads: plan.Numberofdownloads,
+          fileManagerLimit: plan.fileManagerLimit,
+          PlanDate: now,
+        },
+        { new: true }
+      );
+
+      organization.PlanId = plan._id;
+      await organization.save();
+
+      return {
+        success: true,
+        message: "✅ Plan upgraded successfully.",
+        data: updatedPlan,
+      };
+    }
+
+    // First-time plan assignment
+    const newPlanPayload = await organizationPlanModel.create({
       organizationId,
       planName: plan.planName,
       planId: plan._id,
@@ -286,33 +550,20 @@ export const upgradenewOrgPlan = async ({ PlanId, organizationId , Amount}) => {
       NumberOfUsers: plan.NumberOfUsers,
       NumberofAnalizers: plan.NumberofAnalizers,
       Numberofdownloads: plan.Numberofdownloads,
-      createdAt:Date.now()
-    };
+      fileManagerLimit: plan.fileManagerLimit,
+      PlanDate: now,
+    });
 
-    let updatedPlan;
-    const existing = await organizationPlanModel.findOne({ organizationId });
-
-    if (existing) {
-      updatedPlan = await organizationPlanModel.findOneAndUpdate(
-        { organizationId },
-        planPayload,
-        { new: true }
-      );
-    } else {
-      updatedPlan = await organizationPlanModel.create(planPayload);
-    }
-
-    // Update the organization model with reference to new PlanId
     organization.PlanId = plan._id;
     await organization.save();
 
     return {
       success: true,
-      message: "Organization plan upgraded successfully.",
-      data: updatedPlan,
+      message: "✅ Plan assigned successfully.",
+      data: newPlanPayload,
     };
   } catch (err) {
-    console.error("Error upgrading organization plan:", err);
+    console.error("❌ Error upgrading organization plan:", err);
     return {
       success: false,
       message: err.message || "Unknown error occurred",
@@ -321,82 +572,78 @@ export const upgradenewOrgPlan = async ({ PlanId, organizationId , Amount}) => {
 };
 
 
-export function schedulePlanExpiryCheck() {
-  cron.schedule(
-    "* * * * *", // Runs every minute for testing (adjust in prod)
-    async () => {
-      const now = new Date();
-      // console.log("coming inside");
-      
 
+export async function schedulePlanExpiryCheck() {
+  console.log("called")
+  cron.schedule(
+    "* * * * *", // Run every minute (testing)
+    async () => {
       try {
+        const nowIST = moment.tz("Asia/Kolkata").toDate(); // Ensure Indian time
+
         const plans = await organizationPlanModel.find({
           isActive: true,
-          planDurationInDays: { $ne: null }
+          planDurationInDays: { $ne: null },
+          PlanDate: { $ne: null }
         });
 
         for (const plan of plans) {
-          const createdAt = new Date(plan.createdAt);
-          const expiryDate = new Date(createdAt.getTime() + plan.planDurationInDays * 24 * 60 * 60 * 1000);
-          const reminderDate = new Date(expiryDate.getTime() - 2 * 24 * 60 * 60 * 1000); // 2 days before
+          const createdAt = moment.tz(plan.PlanDate, "Asia/Kolkata");
+          const expiryDate = createdAt.clone().add(plan.planDurationInDays, "days").toDate();
+          const reminderDate = moment(expiryDate).subtract(2, "days").toDate();
 
-          // Send reminder
-          if (!plan.reminderSent && now >= reminderDate && now < expiryDate) {
+          // Send reminder email
+          if (!plan.reminderSent && nowIST >= reminderDate && nowIST < expiryDate) {
             const org = await OrganizationModel.findById(plan.organizationId);
+            console.log("called")
 
             if (org?.contactEmail) {
               const content = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #eaeaea; border-radius: 8px;">
                   <h2 style="color: #333;">⏰ Subscription Plan Expiry Reminder</h2>
-
                   <p>Hi <strong>${org.name || "User"}</strong>,</p>
-
                   <p>Your current subscription plan will expire on 
-                    <strong style="color: #d9534f;">${expiryDate.toDateString()}</strong>.
+                    <strong style="color: #d9534f;">${moment(expiryDate).format("DD MMM YYYY")}</strong>.
                   </p>
-
                   <p>Please renew your plan before this date to continue enjoying uninterrupted access to our platform.</p>
-
                   <p style="margin-top: 30px; font-size: 13px; color: #777;">If you've already renewed, you may ignore this email.</p>
-                  
                   <p style="font-size: 13px; color: #777;">Need help? Contact us at 
                     <a href="mailto:support@fincoopers.tech">support@fincoopers.tech</a>.
                   </p>
-
                   <hr style="margin-top: 30px;" />
-
                   <p style="font-size: 12px; color: #999;">© ${new Date().getFullYear()} Fincoopers Tech. All rights reserved.</p>
                 </div>
               `;
 
-               //org.contactEmail
               await sendEmail({
                 to: org.contactEmail,
                 subject: "⏰ Your Plan is Expiring Soon!",
                 html: content
               });
 
-              plan.reminderSent = true;
-              await plan.save();
+              await organizationPlanModel.findByIdAndUpdate(plan._id, {
+                $set: { reminderSent: true }
+              });
 
-              console.log(`📧 Reminder sent to ${org.contactEmail}`);
+              console.log("called mail")
             }
           }
 
-          // Expire plan if needed
-          if (now >= expiryDate && plan.isActive) {
-            plan.isActive = false;
-            await plan.save();
+          // Expire plan if time passed
+          if (nowIST >= expiryDate && plan.isActive == true) {
+            await organizationPlanModel.findByIdAndUpdate(plan._id, {
+              $set: { isActive: false }
+            });
+
             console.log(`❌ Plan deactivated for organization ${plan.organizationId}`);
           }
         }
-
       } catch (err) {
         console.error("❌ Error in plan reminder/expiry check:", err.message);
       }
     },
     {
-      timezone: "Asia/Kolkata"
+      timezone: "Asia/Kolkata" // Ensure cron runs in IST
     }
   );
 }

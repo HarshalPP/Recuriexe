@@ -30,22 +30,26 @@ export function formatMailContent(req) {
     const {
         senderId,
         toMail,
-        newToMailId,
+        // newToMailId,
+        modelType,
         ccMail,
         subject,
         body,
-        attachments,
-        stage
+        file,
+        name,
+        organizationId,
     } = req.body;
 
     return {
         senderId,
         toMail,
-        newToMailId: newToMailId || false,
+        // newToMailId: newToMailId || false,
+        modelType,
         ccMail: ccMail || [],
         subject,
         body,
-        attachments: attachments || [],
-        stage,
+        name,
+        organizationId,
+        file: file || [],
     };
 }

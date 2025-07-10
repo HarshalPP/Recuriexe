@@ -53,6 +53,7 @@ export const sendMail = async (req, res) => {
   }
 };
 
+
 // get all users 
 
 export const getAllUsers = async (req, res) => {
@@ -60,13 +61,13 @@ export const getAllUsers = async (req, res) => {
     const organizationId = req.employee.organizationId;
 
     const users = await User.find({ organizationId })
-      .select('_id displayName email accessToken organizationId'); // ✅ only required fields
+      .select('_id displayName email accessToken organizationId'); 
 
     return success(res, "Users fetched successfully", users);
 
   } catch (error) {
     console.error('Error fetching users:', error);
-    return unknownError(res, "Failed to fetch users", error); // 🔁 changed `err` to `error`
+    return unknownError(res, "Failed to fetch users", error); 
   }
 };
 
