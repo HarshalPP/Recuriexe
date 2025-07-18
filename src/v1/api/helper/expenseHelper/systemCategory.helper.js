@@ -1,6 +1,9 @@
 import systemCategoryModel from "../../models/expenseModels/systemCategory.model.js"
 import { returnFormatter } from "../../formatters/common.formatter.js";
 
+
+
+
 export async function getAllSystemCategories() {
     try {
         const categories = await systemCategoryModel

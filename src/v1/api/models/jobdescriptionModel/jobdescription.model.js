@@ -7,7 +7,6 @@ const jobDescriptionModelSchema = new Schema(
   {
     createdById: { type: ObjectId, ref: 'employee', default: null }, // employee ID
     updatedById: { type: ObjectId, ref: 'employee', default: null }, // employee ID
-    position: { type: String },
 
     departmentId: {
       type: ObjectId,
@@ -25,16 +24,16 @@ const jobDescriptionModelSchema = new Schema(
       ref: 'organization',
       default: null,
     },
-
-
-    specialSkiils:{
-      type:String
-    },
- 
-    designationId: { 
+designationId: { 
       type: ObjectId, 
       ref: 'newdesignation', // Referencing the Designation model
       required: true, 
+    },
+
+    position: { type: String },
+
+    specialSkiils:{
+      type:String
     },
 
     AgeLimit: {
@@ -48,11 +47,6 @@ const jobDescriptionModelSchema = new Schema(
       type: String,
       required: false,
     },
-
-    // jobDescription: {
-    //   type: String,
-    //   required: [true, 'Job description is required'],
-    // },
 
 
        jobDescription: {

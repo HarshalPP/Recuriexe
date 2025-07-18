@@ -102,7 +102,11 @@ const jobApplyModelSchema = new Schema(
       ],
       default: "active",
     },
-    finCooperOfferLetter: {
+
+    offerLetter: {
+      type:String,
+    },
+    OfferLetterStatus: {
       type: String,
       enum: ["generated", "notgenerated"],
       default: "notgenerated",
@@ -260,8 +264,15 @@ const jobApplyModelSchema = new Schema(
     },
     documentRequest:{
       type: String,
-      enum: ["notRequest","sendRequest","complete"],
-      default: "notRequest"
+      enum: ["notRequested", "requested", "submitted"],
+      default: "notRequested"
+    },
+
+
+      ReportId:{
+      type:ObjectId,
+      ref:'reportcategories',
+      default:null
     },
 
     immediatejoiner: { type: Boolean, default: false },

@@ -24,6 +24,7 @@ import axios from 'axios';
 import organizationModel from "../../models/organizationModel/organization.model.js";
 import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
 import moment from "moment-timezone";
+import {createReport} from "../../controllers/verificationsuitController/manageReportCategory.controller.js"
 
 
 
@@ -174,6 +175,10 @@ export const jobPostAddDirect = async (req, res) => {
   try {
     req.body.organizationId = req.employee.organizationId;
     req.body.createdByHrId = req.employee.id;
+
+  const ReportName = req.body.reportName;
+  const categories = req.body.categories
+  const newOrg = req.employee.organizationId;
 
     const { noOfPosition } = req.body
     const employeeDetails = await employeModel
@@ -336,6 +341,10 @@ export const jobPostAddDirect = async (req, res) => {
     req.body.candidateId = null; // if you're also linking to a candidate
 
     const createFolderResult = await createFolder(folderPath, req);
+
+    // if(ReportName && categories && newOrg){
+    // const Report = await createReport({ReportName , categories , newOrg})
+    // }
 
 
     return success(res, "Job Post Added Successfully", jobPost);
@@ -1523,7 +1532,15 @@ export const getAllJobPostBypermission = async (req, res) => {
       data,
       totalCount,
       currentPage: parseInt(page),
-      totalPages: Math.ceil(totalCount / pageLimit)
+      totalPages: Math.ceil(totalCount / pageLimit),
+      totalJobPost: await jobPostModel.countDocuments(matchStage),
+      totalActiveJobs: await jobPostModel.countDocuments({ ...matchStage, status: "active" }),
+      totalInactiveJobs: await jobPostModel.countDocuments({ ...matchStage, status: "inactive" }),
+      totalPending: await jobPostModel.countDocuments({ ...matchStage, status: "pending" }),
+      totalPositions: await jobPostModel.aggregate([
+        { $match: matchStage },
+        { $group: { _id: null, totalPositions: { $sum: "$noOfPosition" } } }
+      ])
     });
   } catch (error) {
     console.error("Error:", error);

@@ -17,8 +17,8 @@ import bcrypt from "bcrypt"
 import mailSwitchModel from "../../models/mailModel/mailSwitch.model.js"
 
 import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
-
-
+import StageModel from "../../models/StageModel/stage.model.js";
+import {createUserCase} from "../../controllers/verificationsuitController/caseinit.controller.js"
   // Schdeule Interview //
 
   export const scheduleHrInterview = async (req, res) => {
@@ -359,6 +359,7 @@ export const jobApplyFormStatusChange = async (req, res) => {
 export const changeResumeShortlistedStatus = async (req, res) => {
   try {
     const errors = validationResult(req);
+    const organizationId = req.employee.organizationId;
     if (!errors.isEmpty()) {
       return serverValidation(res, {
         errorName: "serverValidation",
@@ -408,6 +409,31 @@ export const changeResumeShortlistedStatus = async (req, res) => {
     const updatedCandidates = await jobApplyFormModel.find({ _id: { $in: ids } });
 
      success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
+
+
+     // Define here the Stage // 
+  // ✅ Only trigger case initiation when status is "shortlisted"
+    if (resumeShortlisted == "shortlisted") {
+      const stage = await StageModel.findOne({ 
+        organizationId, 
+        stageName: "Resume Shortlising", 
+        status: "active" 
+      });
+
+      if (stage) {
+        for (const candidate of updatedCandidates) {
+          await createUserCase({
+            candidateId: candidate._id,
+            organizationId,
+            stageId: stage._id,
+            StageName: "Resume Shortlisting",
+            ReportId:candidate.ReportId || null,
+          });
+        }
+      }
+    }
+
+    // End of the stage here //
      
          for (const candidate of updatedCandidates) {
       await jobApplyToGoogleSheet(candidate._id);

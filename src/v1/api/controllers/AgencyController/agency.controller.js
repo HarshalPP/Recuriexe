@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import uploadToSpaces from "../../services/spaceservices/space.service.js"
 import path from "path";
 import fs from "fs";
+import ClientModel from "../../models/ClientModel/Client.model.js"
 
 // Create
 export const createAgencyClient = async (req, res) => {
@@ -34,27 +35,104 @@ export const createAgencyClient = async (req, res) => {
   }
 };
 
+
+// get api for location //
+
+export const getAllAgencyClientsForLocation = async (req, res) => {
+  try {
+    const { organizationId } = req.employee;
+    const { location: locations, clientId } = req.query;
+
+    let filter = { organizationId };
+
+    if (clientId) {
+      filter._id = clientId;
+    } else if (locations && locations.length > 0) {
+      filter.location = { $in: Array.isArray(locations) ? locations : [locations] };
+    }
+
+    const agencyClients = await AgencyModel.find(filter).populate({
+      path: "location",
+      select: "name", // _id is returned by default in Mongoose unless explicitly excluded
+    });
+
+    if (!agencyClients || agencyClients.length === 0) {
+      return success(res, "No locations found for this organization", []);
+    }
+
+    // Collect all populated location objects (supporting both single and multiple references)
+    const allLocations = agencyClients.flatMap(client =>
+      Array.isArray(client.location) ? client.location : [client.location]
+    );
+
+    // Remove duplicates based on _id
+    const uniqueLocationMap = new Map();
+    for (const loc of allLocations) {
+      if (loc && loc._id) {
+        uniqueLocationMap.set(loc._id.toString(), { _id: loc._id, locationName: loc.name });
+      }
+    }
+
+    const response = Array.from(uniqueLocationMap.values());
+
+    return success(res, "Unique client locations fetched successfully", response);
+  } catch (error) {
+    console.error("Error fetching unique client locations:", error);
+    return unknownError(res, error.message || "Something went wrong");
+  }
+};
+
+
 // Get All (for organization)
 export const getAllAgencyClients = async (req, res) => {
   try {
     const { organizationId } = req.employee;
+    const { location, clientId, startDate, endDate } = req.query;
 
-    const clients = await AgencyModel.find({ organizationId })
-       .sort({createdAt:-1})
+    // Base match
+    let matchQuery = { organizationId };
+
+    // Filter by location(s)
+    if (location) {
+      matchQuery.location = { $in: location.split(",") }; // accepts CSV
+    }
+
+    // Filter by specific client ID
+    if (clientId) {
+      matchQuery._id = clientId;
+    }
+
+    // Filter by date range
+    if (startDate && endDate) {
+      matchQuery.createdAt = {
+        $gte: new Date(startDate).setHours(0, 0, 0, 0),
+        $lte: new Date(endDate).setHours(23, 59, 59, 999)
+      };
+    } else if (startDate) {
+      matchQuery.createdAt = { $gte: new Date(startDate) };
+    } else if (endDate) {
+      matchQuery.createdAt = { $lte: new Date(endDate) };
+    }
+
+    // Fetch filtered clients
+    const clients = await AgencyModel.find(matchQuery)
+      .sort({ createdAt: -1 })
       .populate({
-        path:"designationId",
-        select:'name'
+        path: "designationId",
+        select: "name"
       })
       .populate({
-        path:"location",
-        select:'name'
+        path: "location",
+        select: "name"
       });
 
     return success(res, "Client list fetched", clients);
   } catch (error) {
+    console.error("Error in getAllAgencyClients:", error);
     return unknownError(res, error);
   }
 };
+
 
 // Get One
 export const getAgencyClientById = async (req, res) => {
@@ -63,12 +141,12 @@ export const getAgencyClientById = async (req, res) => {
 
     const client = await AgencyModel.findById(id)
       .populate({
-        path:"designationId",
-        select:'name'
+        path: "designationId",
+        select: 'name'
       })
       .populate({
-        path:"location",
-        select:'name'
+        path: "location",
+        select: 'name'
       });
 
     if (!client) return badRequest(res, "Client not found");
@@ -265,16 +343,16 @@ export const assignMultipleCandidatesToClient = async (req, res) => {
           matchPercentage: 1,
           summary: 1,
           AI_Score: 1,
-          AI_Confidence: 1,
           AI_Screeing_Result: 1,
           resumeShortlisted: 1,
           lastOrganization: 1,
           position: 1,
           createdAt: 1,
           departmentName: "$department.name",
-          designationName: "$designation.name",
           subDepartmentName: "$subDepartment.name",
+          designationName: "$designation.name",
           branches: "$branches",
+          resume:1
         },
       },
     ]);
@@ -284,34 +362,98 @@ export const assignMultipleCandidatesToClient = async (req, res) => {
       name: c.name,
       emailId: c.emailId,
       mobileNumber: c.mobileNumber,
-      position: c.position,
       department: c.departmentName || "",
-      designation: c.designationName || "",
       subDepartment: c.subDepartmentName || "",
+      designation: c.designationName || "",
       currentCTC: c.currentCTC || "",
       expectedCTC: c.expectedCTC || "",
       AI_Score: c.AI_Score ?? "",
-      AI_Confidence: c.AI_Confidence ?? "",
       AI_Screeing_Result: c.AI_Screeing_Result || "",
       resumeShortlisted: c.resumeShortlisted || "",
       lastOrganization: Array.isArray(c.lastOrganization)
         ? c.lastOrganization.join(", ")
         : c.lastOrganization || "",
-      branches: c.branches?.map((b) => b.name).join(", ") || "",
+      locations: c.branches?.map((b) => b.name).join(", ") || "",
+      resume: c.resume || "",
       createdAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : "",
+
     }));
 
-    // 📄 Create Excel in-memory
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Candidates");
+    // // 📄 Create Excel in-memory
+    // const workbook = new ExcelJS.Workbook();
+    // const worksheet = workbook.addWorksheet("Candidates");
 
-    worksheet.columns = Object.keys(formattedData[0]).map(key => ({
-      header: key,
-      key,
-      width: 25
-    }));
+    // worksheet.columns = Object.keys(formattedData[0]).map(key => ({
+    //   header: key,
+    //   key,
+    //   width: 25
+    // }));
 
-    worksheet.addRows(formattedData);
+    // worksheet.addRows(formattedData);
+
+
+    // 📄 Create Excel in-memory with styles
+const workbook = new ExcelJS.Workbook();
+const worksheet = workbook.addWorksheet("Candidates");
+
+// Define headers and styles
+const columns = Object.keys(formattedData[0]).map((key) => ({
+  header: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize header
+  key,
+  width: 25,
+}));
+
+worksheet.columns = columns;
+
+// Add header styling (bold, background color, center aligned)
+worksheet.getRow(1).eachCell((cell) => {
+  cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  cell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4F81BD' }, // Blue header
+  };
+  cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  cell.border = {
+    top: { style: 'thin' },
+    bottom: { style: 'thin' },
+    left: { style: 'thin' },
+    right: { style: 'thin' },
+  };
+});
+
+// Add rows and apply alternate row shading
+formattedData.forEach((data, index) => {
+  const row = worksheet.addRow(data);
+  const isEven = index % 2 === 0;
+  row.eachCell((cell , colNumber) => {
+        const key = worksheet.getColumn(colNumber).key;
+
+    // Make resume cell a hyperlink
+    if (key === "resume" && data.resume) {
+      cell.value = {
+        text: "View Resume",
+        hyperlink: data.resume
+      };
+      cell.font = { color: { argb: 'FF0000FF' }, underline: true };
+    }
+    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    cell.border = {
+      top: { style: 'thin' },
+      bottom: { style: 'thin' },
+      left: { style: 'thin' },
+      right: { style: 'thin' },
+    };
+    if (isEven) {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE8F4FD' }, // Light blue for alternate rows
+      };
+    }
+  });
+});
+
 
     const buffer = await workbook.xlsx.writeBuffer();
     const fileName = `HRMS/exports/assigned-candidates-${Date.now()}.xlsx`;
@@ -323,11 +465,11 @@ export const assignMultipleCandidatesToClient = async (req, res) => {
       "public-read",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-  // ✅ Update the assignment with the Excel URL
-await ClientCandidateAssignment.updateOne(
-  { clientId, organizationId },
-  { $set: { excelUrl: url } }
-);
+    // ✅ Update the assignment with the Excel URL
+    await ClientCandidateAssignment.updateOne(
+      { clientId, organizationId },
+      { $set: { excelUrl: url } }
+    );
 
 
 
@@ -492,23 +634,23 @@ export const getAssignedCandidatesToClients = async (req, res) => {
       // Optional filtering
       ...(designationId
         ? [{
-            $match: {
-              "jobPostDetail.designationId": new mongoose.Types.ObjectId(designationId)
-            }
-          }]
+          $match: {
+            "jobPostDetail.designationId": new mongoose.Types.ObjectId(designationId)
+          }
+        }]
         : []),
 
       ...(search
         ? [{
-            $match: {
-              $or: [
-                { "candidateDetails.name": { $regex: search, $options: "i" } },
-                { "candidateDetails.emailId": { $regex: search, $options: "i" } },
-                { "candidateDetails.mobileNumber": { $regex: search, $options: "i" } },
-                { "clientDetails.companyName": { $regex: search, $options: "i" } }
-              ]
-            }
-          }]
+          $match: {
+            $or: [
+              { "candidateDetails.name": { $regex: search, $options: "i" } },
+              { "candidateDetails.emailId": { $regex: search, $options: "i" } },
+              { "candidateDetails.mobileNumber": { $regex: search, $options: "i" } },
+              { "clientDetails.companyName": { $regex: search, $options: "i" } }
+            ]
+          }
+        }]
         : []),
 
       // Final projection
@@ -545,14 +687,14 @@ export const getAssignedCandidatesToClients = async (req, res) => {
       },
 
       // Group by client
-   {
-  $group: {
-    _id: "$clientId",
-    clientName: { $first: "$clientName" },
-    excelUrl: { $first: "$excelUrl" }, // 👈 Add this
-    candidates: { $push: "$candidate" }
-  }
-},
+      {
+        $group: {
+          _id: "$clientId",
+          clientName: { $first: "$clientName" },
+          excelUrl: { $first: "$excelUrl" }, // 👈 Add this
+          candidates: { $push: "$candidate" }
+        }
+      },
 
       { $sort: { clientName: 1 } },
       { $skip: (parseInt(page) - 1) * parseInt(limit) },
@@ -572,3 +714,294 @@ export const getAssignedCandidatesToClients = async (req, res) => {
     return unknownError(res, err);
   }
 };
+
+
+export const getAgencyDashboard = async (req, res) => {
+  try {
+    const { organizationId } = req.employee;
+    const { timeFilter } = req.query; // 'today', 'week', 'month', 'year', 'all'
+
+    // Build date filter based on timeFilter
+    let dateFilter = {};
+    const now = new Date();
+    
+    switch (timeFilter) {
+      case 'today':
+        dateFilter = {
+          createdAt: {
+            $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+            $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+          }
+        };
+        break;
+      case 'week':
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        dateFilter = {
+          createdAt: {
+            $gte: weekStart,
+            $lt: now
+          }
+        };
+        break;
+      case 'month':
+        dateFilter = {
+          createdAt: {
+            $gte: new Date(now.getFullYear(), now.getMonth(), 1),
+            $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1)
+          }
+        };
+        break;
+      case 'year':
+        dateFilter = {
+          createdAt: {
+            $gte: new Date(now.getFullYear(), 0, 1),
+            $lt: new Date(now.getFullYear() + 1, 0, 1)
+          }
+        };
+        break;
+      case 'all':
+      default:
+        dateFilter = {};
+        break;
+    }
+    
+
+    // Combine organization filter with date filter
+    const baseFilter = { organizationId, ...dateFilter };
+
+    // Execute all queries in parallel for better performance
+    const [
+      totalClients,
+      activeClients,
+      inactiveClients,
+      assignedCandidatesCount,
+      recentActiveClients,
+      recentInactiveClients,
+      locationBreakdown,
+      monthlyStats
+    ] = await Promise.all([
+      // Total clients count
+      ClientModel.countDocuments(baseFilter),
+      
+      // Active clients count
+      ClientModel.countDocuments({ ...baseFilter, isActive: true }),
+      
+      // Inactive clients count
+      ClientModel.countDocuments({ ...baseFilter, isActive: false }),
+
+      
+      // Assigned candidates count - using aggregation for accurate count
+      ClientCandidateAssignment.aggregate([
+        {
+          $match: {
+            organizationId: new mongoose.Types.ObjectId(organizationId),
+            ...(Object.keys(dateFilter).length > 0 && { assignedAt: dateFilter.createdAt })
+          }
+        },
+        {
+          $unwind: "$candidateIds"
+        },
+        {
+          $group: {
+            _id: null,
+            totalAssignedCandidates: { $sum: 1 }
+          }
+        }
+      ]).then(result => result[0]?.totalAssignedCandidates || 0),
+      
+      // Recent active clients with details
+      ClientModel.find({ ...baseFilter, isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate({
+          path: "designationId",
+          select: 'name'
+        })
+        .populate({
+          path: "location",
+          select: 'name'
+        })
+        .select('ClientUniqueId companyName Email MobileNumber createdAt isActive'),
+      
+      // Recent inactive clients with details
+      ClientModel.find({ ...baseFilter, isActive: false })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .populate({
+          path: "designationId",
+          select: 'name'
+        })
+        .populate({
+          path: "location",
+          select: 'name'
+        })
+        .select('ClientUniqueId companyName Email MobileNumber createdAt isActive'),
+
+      // Location breakdown
+      ClientModel.aggregate([
+        {
+          $match: { organizationId }
+        },
+        {
+          $unwind: {
+            path: "$location",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $lookup: {
+            from: "newbranches", // Adjust collection name as needed
+            localField: "location",
+            foreignField: "_id",
+            as: "locationInfo"
+          }
+        },
+        {
+          $unwind: {
+            path: "$locationInfo",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $group: {
+            _id: "$locationInfo._id",
+            locationName: { $first: "$locationInfo.name" },
+            totalClients: { $sum: 1 },
+            activeClients: {
+              $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] }
+            },
+            inactiveClients: {
+              $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] }
+            }
+          }
+        },
+        {
+          $sort: { totalClients: -1 }
+        },
+        {
+          $limit: 10
+        }
+      ]),
+
+      // Monthly statistics for the last 12 months
+      ClientModel.aggregate([
+        {
+          $match: {
+            organizationId,
+            createdAt: {
+              $gte: new Date(now.getFullYear(), now.getMonth() - 11, 1),
+              $lt: new Date(now.getFullYear(), now.getMonth() + 1, 1)
+            }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" }
+            },
+            totalClients: { $sum: 1 },
+            activeClients: {
+              $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] }
+            },
+            inactiveClients: {
+              $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] }
+            }
+          }
+        },
+        {
+          $sort: { "_id.year": 1, "_id.month": 1 }
+        }
+      ])
+    ]);
+
+    // Calculate assigned candidates from actual assignments
+    const assignedCandidates = assignedCandidatesCount;
+
+    // Format monthly stats with month names
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+
+    const formattedMonthlyStats = monthlyStats.map(stat => ({
+      ...stat,
+      monthName: monthNames[stat._id.month - 1],
+      period: `${monthNames[stat._id.month - 1]} ${stat._id.year}`
+    }));
+
+    // Handle location breakdown with null locations
+    const formattedLocationBreakdown = locationBreakdown.map(loc => ({
+      ...loc,
+      locationName: loc.locationName || "No Location Assigned"
+    }));
+
+    // Prepare comprehensive dashboard data
+    const dashboardData = {
+      // Main summary cards
+      summary: {
+        totalClients,
+        activeClients,
+        inactiveClients,
+        assignedCandidates
+      },
+      
+      // Recent clients for display
+      recentClients: {
+        active: recentActiveClients,
+        inactive: recentInactiveClients
+      },
+      
+      // Location-wise breakdown
+      locationBreakdown: formattedLocationBreakdown,
+      
+      // Monthly trend data
+      monthlyStats: formattedMonthlyStats,
+      
+      // Additional metrics
+      metrics: {
+        clientGrowthRate: monthlyStats.length > 1 ? 
+          ((monthlyStats[monthlyStats.length - 1]?.totalClients || 0) - 
+           (monthlyStats[monthlyStats.length - 2]?.totalClients || 0)) : 0,
+        activeClientPercentage: totalClients > 0 ? 
+          Math.round((activeClients / totalClients) * 100) : 0,
+        inactiveClientPercentage: totalClients > 0 ? 
+          Math.round((inactiveClients / totalClients) * 100) : 0
+      },
+      
+      // Applied filters
+      appliedFilters: {
+        timeFilter: timeFilter || 'all',
+        organizationId
+      }
+    };
+
+    return success(res, "Dashboard data fetched successfully", dashboardData);
+    
+  } catch (error) {
+    console.error("Dashboard API Error:", error);
+    return unknownError(res, error);
+  }
+};
+
+
+// get api for agency client //
+
+export const getAgencyClient = async (req, res) => {
+  try{
+        const { organizationId } = req.employee;
+    console.log("orgainizationId", organizationId);
+
+    const findClient = await AgencyModel.find({organizationId:organizationId}).select("companyName");
+    if(!findClient || findClient.length === 0){
+      return success(res, "No clients found for this organization");
+    }
+    return success(res, "Agency clients fetched successfully", findClient);
+    
+  }catch(error){
+    console.error("Error in getAgencyClient:", error);
+    return unknownError(res, error);
+  }
+}

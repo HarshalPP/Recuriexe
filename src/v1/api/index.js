@@ -155,6 +155,9 @@ import systemCategoryRoute from './routes/expenseRoutes/systemCategory.route.js'
 import subcategoryRoutes from './routes/expenseRoutes/subcategory.route.js';
 import dynamicFormRouter from './routes/expenseRoutes/dynamicForm.route.js';
 import expenseType from './routes/expenseRoutes/expenseType.route.js'
+import workflowRouter from './routes/expenseRoutes/workflow.route.js';
+import vendorRouter from './routes/expenseRoutes/vendor.routes.js';
+import expenseSubmissionRouter from './routes/expenseRoutes/expenseSubmission.route.js';
 
 import documentValueTemplateRouter from "./routes/documentRoutes/documentFormValueRoutes.js";
 import documentFormTemplateRouter from "./routes/documentRoutes/documentFormTemplateRoutes.js";
@@ -341,5 +344,8 @@ router.use("/systemCategory",systemCategoryRoute)
 router.use("/subCategory",subcategoryRoutes)
 router.use("/dynamicForm",dynamicFormRouter)
 router.use("/expenseType",expenseType)
+router.use("/workFlow",workflowRouter)
+router.use("/vendor", vendorRouter);
+router.use("/expenseSubmission", expenseSubmissionRouter);
 
 export default router;

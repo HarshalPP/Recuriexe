@@ -29,6 +29,7 @@ const initSchema = new Schema(
     contactNo: {
       type: String
     },
+    sign : String,
     paymentStatus : {
       type : String,
       default : "unpaid"

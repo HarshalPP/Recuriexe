@@ -356,6 +356,7 @@ export const jobApplyFormAdd = async (req, res) => {
     req.body.JobType = jobPost.JobType || "";
     req.body.jobFormType = "request";
     req.body.orgainizationId = jobPost.organizationId || null;
+    req.body.ReportId = jobPost.ReportId || null;
 
     // Save the job application
     const jobFormInstance = new jobApply(req.body);
@@ -1059,9 +1060,12 @@ export const getAllJobApplied = async (req, res) => {
           lastOrganization: 1,
           position: 1,
           createdAt: 1,
+          documentRequest:1,
           department: 1,
           interviewScheduleDetail: 1,
           qualificationDetails: 1,
+          offerLetter:1,
+          OfferLetterStatus:1,
           designationDetail: {
             _id: 1,
             name: 1,
@@ -1071,6 +1075,7 @@ export const getAllJobApplied = async (req, res) => {
             name: 1,
           },
           branches: 1,
+          orgainizationId:1,
           internalReferenceData:1,
         },
       },
@@ -1679,6 +1684,7 @@ export const RecruitmentPipeline = async (req, res) => {
           resume: 1,
           docVerification: 1,
           status: 1,
+          documentRequest:1,
           feedbackByHr: 1,
           department: 1,
           branches: 1,
@@ -1690,6 +1696,7 @@ export const RecruitmentPipeline = async (req, res) => {
           isEligible: 1,
           matchPercentage: 1,
           summary: 1,
+          orgainizationId:1,
           createdAt: 1,
         },
       },

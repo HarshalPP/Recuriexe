@@ -575,6 +575,109 @@ export async function roleAssignToEmployee(req, res) {
 
 
 
+// const updatedPermissions = {
+//   organizationSetup: {
+//     organizationSetup: true,
+//     branchSetup: true,
+//     workLocationSetup: true,
+//     workModeSetup: true,
+//     departmentTypeSetup: true,
+//     designationSetup: true,
+//     employeeTypeSetup: true,
+//     employeeAndRoleManagement: true,
+//   },
+//   RecruitmentHiring: {
+//     budgetSetup: true,
+//     aiSetup: true,
+//     careerPageSetting: true,
+//     idSetup: true,
+//     qualificationSetup: true,
+//     linkedin: {
+//       setup: true,
+//       dashboard: true,
+//       createPost: true,
+//     },
+//     targetCompany: true,
+//     agencySetup: true,
+//     jobDescriptionSetup: true,
+//     hiringFlowSetup: true,
+//     jobPostDashboard: {
+//       canViewAll: true,
+//       canViewSelf: true,
+//       newJobPost: true,
+//       canToggleStatus: true,
+//       jobPostApprove: true,
+//     },
+//     jobApplications: {
+//       canViewAll: false,
+//       canViewSelf: false,
+//       canApproveReject: false,
+//       candidateMap: false,
+//     },
+//   },
+//   managementFeatures: {
+//     CustomPdfTemplate: false,
+//     masterDropdownSetup: false,
+//     mailSwitchSetup: false,
+//   },
+//   InterviewManagement: {
+//     callingAgentCreation: false,
+//     interviewCanViewSelf: false,
+//     interviewCanViewAll: false,
+//     callingLogDashboard:false
+//   },
+//   expenseManagement: {
+//     expensePoliciesSetup: false,
+//     expenseConfigSetup: false,
+//     expenseCategoriesSetup: false,
+//     expenseTypesSetup: false,
+//     expenseRolePermissionSetup: false,
+//     tabsView:false
+//   },
+//   assetManagement: {
+//     assetEquipmentSetup: false,
+//     assetCategoriesSetup: false,
+//     assetPermissionsSetup: false,
+//   },
+//   fileManager: false,
+//   notes: false,
+//   chat: false,
+// };
+
+// const fieldsToKeep = ['updateBy', 'createdBy', 'organizationId', 'status', 'roleName'];
+
+// export const cleanAndUpdateRoles = async (req, res) => {
+//   try {
+//     const roles = await roleModel.find();
+
+//     for (const role of roles) {
+//       const newData = {};
+
+//       for (const key of fieldsToKeep) {
+//         if (role[key] !== undefined) {
+//           newData[key] = role[key];
+//         }
+//       }
+
+//       newData.permissions = updatedPermissions;
+
+//       await roleModel.updateOne(
+//         { _id: role._id },
+//         { $set: newData }
+//       );
+//     }
+
+//     console.log("✅ All roles updated successfully.");
+//     res.status(200).json({ message: "Roles updated successfully" });
+//   } catch (err) {
+//     console.error("❌ Error updating roles:", err);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
+
+
+const fieldsToKeep = ['updateBy', 'createdBy', 'organizationId', 'status', 'roleName'];
+
 const updatedPermissions = {
   organizationSetup: {
     organizationSetup: true,
@@ -624,15 +727,15 @@ const updatedPermissions = {
     callingAgentCreation: false,
     interviewCanViewSelf: false,
     interviewCanViewAll: false,
-    callingLogDashboard:false
+    callingLogDashboard: false
   },
   expenseManagement: {
-    expensePoliciesSetup: true,
-    expenseConfigSetup: true,
-    expenseCategoriesSetup: true,
-    expenseTypesSetup: true,
-    expenseRolePermissionSetup: true,
-    // tabsView:true
+    expensePoliciesSetup: false,
+    expenseConfigSetup: false,
+    expenseCategoriesSetup: false,
+    expenseTypesSetup: false,
+    expenseRolePermissionSetup: false,
+    tabsView: false
   },
   assetManagement: {
     assetEquipmentSetup: false,
@@ -642,35 +745,48 @@ const updatedPermissions = {
   fileManager: false,
   notes: false,
   chat: false,
+  CommandExe: {
+    addCase: false,
+    backOffice: false,
+    invoice: false,
+    client: false,
+    pdfTemplate: false,
+    initField: false,
+    variable: false,
+    addAdmin: false,
+    service: false
+  },
+  LeadExe: {}
 };
-
-const fieldsToKeep = ['updateBy', 'createdBy', 'organizationId', 'status', 'roleName'];
 
 export const cleanAndUpdateRoles = async (req, res) => {
   try {
-    const roles = await roleModel.find({
-    });
+    const roles = await roleModel.find();
 
     for (const role of roles) {
-      const newData = {};
+      const keptFields = {};
 
+      // Copy over only fields to keep
       for (const key of fieldsToKeep) {
         if (role[key] !== undefined) {
-          newData[key] = role[key];
+          keptFields[key] = role[key];
         }
       }
 
-      newData.permissions = updatedPermissions;
+      // Merge kept fields with new permission structure
+      const updatedDoc = {
+        ...updatedPermissions,
+        ...keptFields, // keep at end to avoid overwrite
+      };
 
-      // Overwrite true: removes all unlisted keys
-      await roleModel.replaceOne({ _id: role._id }, newData);
+      await roleModel.updateOne({ _id: role._id }, updatedDoc);
+
+      console.log(`✅ Updated role: ${role.roleName}`);
     }
 
-    console.log("✅ All roles updated successfully.");
     res.status(200).json({ message: "Roles updated successfully" });
   } catch (err) {
     console.error("❌ Error updating roles:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-

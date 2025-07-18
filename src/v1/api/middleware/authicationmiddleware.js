@@ -113,11 +113,11 @@ export const verifyEmployeeToken = (req, res, next) => {
     // if (roleName.toLowerCase() !== "admin") {
     //   return forbidden(res, "You are not authorized as admin");
     // }
-   const role = Array.isArray(roleName) ? roleName[0]?.toLowerCase() : roleName?.toLowerCase();
+//    const role = Array.isArray(roleName) ? roleName[0]?.toLowerCase() : roleName?.toLowerCase();
 
-if (role !== "admin") {
-  return forbidden(res, "You are not authorized as admin");
-}
+// if (role !== "admin") {
+//   return forbidden(res, "You are not authorized as admin");
+// }
 
 
 

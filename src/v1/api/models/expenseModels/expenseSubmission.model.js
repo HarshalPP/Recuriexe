@@ -1,4 +1,4 @@
-import { model, Schema } from 'mongoose';
+import { mongoose,model, Schema } from 'mongoose';
 
 const stageHistorySchema = new Schema({
     stageId: {
@@ -76,12 +76,14 @@ const expenseSubmissionSchema = new Schema({
         required: true
     },
     organizationId: {
-        type: String,
-        required: true
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Organization'
     },
     submittedBy: {
-        type: String,
-        required: true
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'employee'
     },
     submittedByName: {
         type: String,

@@ -1,7 +1,7 @@
 
 
 export function initFileFormmater(reqObj){
-    const {partnerId,fileNo,customerName,paymentStatus,reportType,fatherName,contactNo,address,charge,initFields,referServiceId,allocationFields,reportStatus,agentFields,submitFields,workStatus} = reqObj.body;
+    const {partnerId,fileNo,customerName,sign,paymentStatus,reportType,fatherName,contactNo,address,charge,initFields,referServiceId,allocationFields,reportStatus,agentFields,submitFields,workStatus} = reqObj.body;
 
      return {
         doneBy:reqObj.employee.id,
@@ -12,6 +12,7 @@ export function initFileFormmater(reqObj){
         charge,
         reportStatus,
         fatherName,
+        sign,
         contactNo,
         address,
         initFields,

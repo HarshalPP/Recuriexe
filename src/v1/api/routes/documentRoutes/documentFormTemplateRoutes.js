@@ -11,7 +11,7 @@ router.post('/add', verifyEmployeeToken, createDocumentFormTemplate);
 router.get('/getAll',verifyEmployeeToken,getAllDocumentFormTemplates);
 router.get('/detail/:id',verifyEmployeeToken, getDocumentFormTemplateById);
 router.post('/update/:id', verifyEmployeeToken,updateDocumentFormTemplate);
-router.get('/candidatDocumentForm', verifyEmployeeToken, getCandidatDocumentFormById);
+router.get('/candidatDocumentForm', getCandidatDocumentFormById);
 
 // router.patch('/:id/active',verifyEmployeeToken , toggleTemplateActive);
 // router.patch('/:templateId/fields/:fieldId/active',verifyEmployeeToken ,  toggleFieldActive);

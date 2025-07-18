@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { initializeScheduledJobs } from "../Utils/LinkedIn/scheduler.js"; // named export
 import {schedulePlanExpiryCheck} from "../controllers/PlanController/planController.js"
+import {restoreScheduledJobs} from "../services/Linkedinservice/socialMedia.service.js"
+// import {scheduleInstagramTokenRefresh} from "../controllers/SociaMedia Controller/instagram.auth.js"
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ const connectDB = async () => {
     await initializeScheduledJobs();
 
     await schedulePlanExpiryCheck();
+    restoreScheduledJobs();
+
+    // scheduleInstagramTokenRefresh();
 
   } catch (error) {
     console.error("MongoDB connection error:", error);

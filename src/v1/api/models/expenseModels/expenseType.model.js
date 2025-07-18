@@ -29,46 +29,16 @@ const expenseTypeSchema = new Schema({
         type: String,
         default: ""
     },
-    // config: {
-    //     maxAmount: {
-    //         type: Number,
-    //         default: null
-    //     },
-    //     requiresReceipt: {
-    //         type: Boolean,
-    //         default: true
-    //     },
-    //     autoApproveIfBelowAmount: {
-    //         type: Number,
-    //         default: null
-    //     },
-    //     travel: {
-    //         perDiem: {
-    //             type: Number,
-    //             default: null
-    //         },
-    //         transportLimit: {
-    //             type: Number,
-    //             default: null
-    //         },
-    //         accommodationLimit: {
-    //             type: Number,
-    //             default: null
-    //         }
-    //     },
-    //     mileageRate: {
-    //         type: Number,
-    //         default: null
-    //     },
-    //     allowMultipleItems: {
-    //         type: Boolean,
-    //         default: true
-    //     },
-    //     additionalConfig: {
-    //         type: Schema.Types.Mixed,
-    //         default: {}
-    //     }
-    // },
+    autoApproveConfig:{ type: Boolean,default:false},
+
+    config: 
+    {
+        // additionalConfig: {
+            type: Schema.Types.Mixed,
+            default: {}
+        // }
+    },
+    
     formId: {
         type: String,
         ref: 'dynamicForm',

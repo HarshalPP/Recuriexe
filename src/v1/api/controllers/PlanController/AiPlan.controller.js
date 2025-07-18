@@ -9,7 +9,7 @@ import organizationPlanModel from "../../models/PlanModel/organizationPlan.model
 
 export const createAICreditPlan = async (req, res) => {
   try {
-    const { name, description, pricePerCredit } = req.body;
+    const { name, description, pricePerCredit , PriceofCredit , NumberofCredit} = req.body;
 
     if (!pricePerCredit) {
       return badRequest(res, "pricePerCredit are required");
@@ -19,6 +19,9 @@ export const createAICreditPlan = async (req, res) => {
       name,
       description,
       pricePerCredit,
+      PriceofCredit,
+      NumberofCredit
+      
     });
 
     return success(res, "AI credit plan created successfully", plan);
@@ -56,7 +59,7 @@ export const getAICreditPlanById = async (req, res) => {
 export const updateAICreditPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, pricePerCredit} = req.body;
+    const { name, description, pricePerCredit , PriceofCredit , NumberofCredit } = req.body;
 
     const plan = await AICreditPlanModel.findById(id);
 
@@ -68,6 +71,8 @@ export const updateAICreditPlan = async (req, res) => {
     if (name !== undefined) plan.name = name;
     if (description !== undefined) plan.description = description;
     if (pricePerCredit !== undefined) plan.pricePerCredit = pricePerCredit;
+    if(PriceofCredit !==undefined) plan.PriceofCredit = PriceofCredit;
+    if(NumberofCredit!==undefined) plan.NumberofCredit=NumberofCredit
 
     await plan.save(); // This will trigger the pre-save hook
 

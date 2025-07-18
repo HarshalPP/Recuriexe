@@ -1,4 +1,4 @@
-import { badRequest, success,notFound, unknownError } from "../../formatters/globalResponse.js";
+import { badRequest, success, notFound, unknownError } from "../../formatters/globalResponse.js";
 import DocumentFormTemplate from '../../models/Document/documentFormTemplate.Model.js';
 import designationModel from "../../models/designationModel/designation.model.js";
 import OrganizationModel from "../../models/organizationModel/organization.model.js";
@@ -133,7 +133,7 @@ export const createDocumentFormTemplate = async (req, res) => {
   try {
     const { designationId, isActive = true, fields = [] } = req.body;
 
-    const {organizationId} = req.employee;
+    const { organizationId } = req.employee;
     if (!organizationId || !designationId) {
       return badRequest(res, "organizationId and designationId are required");
     }
@@ -146,6 +146,18 @@ export const createDocumentFormTemplate = async (req, res) => {
 
     if (!organization) return notFound(res, "Organization not found");
     if (!designation) return notFound(res, "Designation not found");
+
+    const existingTemplate = await DocumentFormTemplate.findOne({
+      organizationId,
+      designationId,
+    });
+
+    if (existingTemplate) {
+      return badRequest(
+        res,
+        `${designation.name} Already Has A Document Form Template Set`
+      );
+    }
 
     const template = await DocumentFormTemplate.create({
       organizationId,
@@ -161,10 +173,10 @@ export const createDocumentFormTemplate = async (req, res) => {
   }
 };
 
- export const getAllDocumentFormTemplates = async (req, res) => {
+export const getAllDocumentFormTemplates = async (req, res) => {
   try {
     const { designationId, status, subStatus } = req.query;
-const { organizationId } = req.employee;
+    const { organizationId } = req.employee;
     const match = {};
     if (organizationId) match.organizationId = new ObjectId(organizationId);
     if (designationId) match.designationId = new ObjectId(designationId);
@@ -227,19 +239,19 @@ const { organizationId } = req.employee;
       // Optional filter on status and subStatus
       ...(status || subStatus
         ? [
-            {
-              $match: {
-                ...(status && { status }),
-                ...(subStatus && { subStatus }),
-              },
+          {
+            $match: {
+              ...(status && { status }),
+              ...(subStatus && { subStatus }),
             },
-          ]
+          },
+        ]
         : []),
 
       {
         $project: {
-          organization: { name: 1 },
-          designation: { name: 1 },
+          organization: { name: 1, _id: 1 },
+          designation: { name: 1, _id: 1 },
           // status: 1,
           // subStatus: 1,
           fields: 1,
@@ -258,7 +270,7 @@ const { organizationId } = req.employee;
 };
 
 
- export const getDocumentFormTemplateById = async (req, res) => {
+export const getDocumentFormTemplateById = async (req, res) => {
   try {
     const { id } = req.params;
     if (!ObjectId.isValid(id)) return badRequest(res, "Invalid ID");
@@ -316,8 +328,8 @@ const { organizationId } = req.employee;
       },
       {
         $project: {
-          organization: { name: 1 },
-          designation: { name: 1 },
+          organization: { name: 1, _id: 1 },
+          designation: { name: 1, _id: 1 },
           status: 1,
           subStatus: 1,
           fields: 1,
@@ -363,7 +375,7 @@ export const updateDocumentFormTemplate = async (req, res) => {
 
 
 
- export const getCandidatDocumentFormById = async (req, res) => {
+export const getCandidatDocumentFormById = async (req, res) => {
   try {
     const { candidateId } = req.query;
 
@@ -373,7 +385,7 @@ export const updateDocumentFormTemplate = async (req, res) => {
 
     const designationDetail = await jobPostModel.findById(candidateDetails.jobPostId).select('designationId')
 
-    if (!designationDetail.designationId){
+    if (!designationDetail.designationId) {
       return notFound(res, "Designation not found for this candidate");
     }
     const result = await DocumentFormTemplate.aggregate([

@@ -1,9 +1,9 @@
 import Template from "../../models/templeteModel/templete.model.js"
-
+import { resolveDynamicFields } from "./utilsresolveDynamicFields.js"
 import jobPostModel from "../../models/jobPostModel/jobPost.model.js"
 import JobDescriptionModel from "../../models/jobdescriptionModel/jobdescription.model.js"
 import jobApplyModel from "../../models/jobformModel/jobform.model.js"
-
+import OrganizationModel from "../../models/organizationModel/organization.model.js"
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import path from 'path';
@@ -17,9 +17,22 @@ import Designation from '../../models/designationModel/designation.model.js';
 import WorkLocation from '../../models/worklocationModel/worklocation.model.js';
 import Qualification from '../../models/QualificationModel/qualification.model.js'
 import employmentTypeModel from "../../models/employeementTypemodel/employeementtype.model.js"
-import employeeTypeModel from "../../models/employeeType/employeeType.model.js" 
+import employeeTypeModel from "../../models/employeeType/employeeType.model.js"
+import EmployeeModel from "../../models/employeemodel/employee.model.js"
 import { badRequest, notFound, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
+import jobApply from "../../models/jobformModel/jobform.model.js"
 
+
+
+import BranchModel from "../../models/branchModel/branch.model.js";
+import WorkLocationModel from "../../models/worklocationModel/worklocation.model.js";
+import departmentModel from "../../models/deparmentModel/deparment.model.js";
+import roleModel from "../../models/RoleModel/role.model.js";
+import employementTypeModel from "../../models/employeementTypemodel/employeementtype.model.js";
+import designationModel from "../../models/designationModel/designation.model.js";
+import InterviewDetail from '../../models/InterviewDetailsModel/interviewdetails.model.js';
+import EmailuserModel from "../../models/UserEmail/user.js"
+import qualificationModel from '../../models/QualificationModel/qualification.model.js';
 
 
 // Helper function to get data for placeholders
@@ -340,10 +353,14 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
       ? (await Department.findById(job.departmentId))?.name || 'N/A'
       : 'N/A';
 
+    placeholders['{{organizationId}}'] = job.organizationId
+      ? (await OrganizationModel.findById(job.organizationId))?.name || 'N/A'
+      : 'N/A';
+
     placeholders['{{jobApplyworkLocation}}'] = job.workLocationId
       ? (await WorkLocation.findById(job.workLocationId))?.name || 'N/A'
       : 'N/A';
-        placeholders['{{jobApplyBranch}}'] = Array.isArray(job?.branchId)
+    placeholders['{{jobApplyBranch}}'] = Array.isArray(job?.branchId)
       ? (await branchModel.find({ _id: { $in: job.branchId } }))
         .map(q => q?.name || '').filter(Boolean).join(', ')
       : 'N/A';
@@ -383,6 +400,10 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
       placeholders['{{Qualification}}'] = Array.isArray(jobPost.qualificationId)
         ? jobPost.qualificationId.map(q => q?.name || '').filter(Boolean).join(', ')
         : jobPost.qualificationId?.name || 'N/A';
+
+      placeholders['{{organizationId}}'] = jobPost.organizationId
+        ? (await OrganizationModel.findById(jobPost.organizationId))?.name || 'N/A'
+        : 'N/A';
 
       placeholders['{{employmentType}}'] = jobPost.employmentTypeId?.name || 'N/A';
       placeholders['{{employeeType}}'] = jobPost.employeeTypeId?.name || 'N/A';
@@ -433,7 +454,7 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
         .map(q => q?.name || '').filter(Boolean).join(', ')
       : 'N/A';
 
-         placeholders['{{branch}}'] = Array.isArray(job?.branchId)
+    placeholders['{{branch}}'] = Array.isArray(job?.branchId)
       ? (await branchModel.find({ _id: { $in: job.branchId } }))
         .map(q => q?.name || '').filter(Boolean).join(', ')
       : 'N/A';
@@ -450,19 +471,19 @@ async function getPlaceholderDataTest(job, jobDescription = null) {
       ? (await Designation.findById(job.designationId))?.name || 'N/A'
       : 'N/A';
 
-      const department = await Department.findById(job.departmentId);
+    const department = await Department.findById(job.departmentId);
 
-let subDepartmentName = 'N/A';
+    let subDepartmentName = 'N/A';
 
-if (department) {
-  const subDept = department.subDepartments.id(job.subDepartmentId);
-  if (subDept) subDepartmentName = subDept.name;
-}
-placeholders['{{subDepartment}}'] = subDepartmentName;
+    if (department) {
+      const subDept = department.subDepartments.id(job.subDepartmentId);
+      if (subDept) subDepartmentName = subDept.name;
+    }
+    placeholders['{{subDepartment}}'] = subDepartmentName;
 
-      //  placeholders['{{subDepartment}}'] = job.subDepartmentId
-      // ? (await Department.findById(job.subDepartmentId))?.name || 'N/A'
-      // : 'N/A';
+    //  placeholders['{{subDepartment}}'] = job.subDepartmentId
+    // ? (await Department.findById(job.subDepartmentId))?.name || 'N/A'
+    // : 'N/A';
 
     placeholders['{{employeeType}}'] = job.employeeTypeId
       ? (await employeeTypeModel.findById(job.employeeTypeId))?.title || 'N/A'
@@ -586,9 +607,9 @@ export async function createTemplate(req, res) {
 
     const placeholders = getSchemaPlaceholders();
     const invalidPlaceholders = validateTemplateContent(content, placeholders);
-    if (invalidPlaceholders) {
-      return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
-    }
+    // if (invalidPlaceholders) {
+    //   return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
+    // }
 
 
 
@@ -649,7 +670,7 @@ export async function deleteTemplate(req, res) {
       return badRequest(res, "Template not found");
     }
 
-     await Template.findByIdAndDelete(templateId)
+    await Template.findByIdAndDelete(templateId)
 
     return success(res, "Template Delete successfully");
   } catch (error) {
@@ -664,6 +685,7 @@ export async function updateTemplate(req, res) {
   try {
     // const { templateId } = req.params;
     const { title, content, type, templateId } = req.body;
+       const organizationId = req.employee.organizationId;
 
     if (!title && !content) {
       return badRequest(res, "Please provide the title and/or content to update");
@@ -680,6 +702,7 @@ export async function updateTemplate(req, res) {
     if (title) {
       const existingTemplate = await Template.findOne({
         _id: { $ne: templateId },
+        organizationId: new ObjectId(organizationId),
         title: { $eq: title.trim() },
       }).collation({ locale: 'en', strength: 2 });
 
@@ -754,84 +777,85 @@ export async function updateTemplate(req, res) {
       //   });
       // }
 
-        if (template.modelType === "jobPost") {
-      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-            customFields: {
-          companyName: 'companyName',
-          department: 'department',
-          designation: 'designation',
-          location: 'location',
-          employmentType: 'employmentType',
-          employeeType: 'employeeType',
-          subDepartment: 'subDepartment',
-          branch: 'branch',
-          // jobPostVacancyRequest: 'jobPostVacancyRequest',
-        }
-      });
+      if (template.modelType === "jobPost") {
+        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+          customFields: {
+            companyName: 'companyName',
+            department: 'department',
+            designation: 'designation',
+            location: 'location',
+            employmentType: 'employmentType',
+            employeeType: 'employeeType',
+            subDepartment: 'subDepartment',
+            branch: 'branch',
+            // jobPostVacancyRequest: 'jobPostVacancyRequest',
+          }
+        });
 
-      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-        customFields: {
-          jobSummary: 'jobSummary',
-          rolesAndResponsibilities: 'rolesAndResponsibilities',
-          keySkills: 'keySkills'
-        }
-      });
+        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+          customFields: {
+            jobSummary: 'jobSummary',
+            rolesAndResponsibilities: 'rolesAndResponsibilities',
+            keySkills: 'keySkills'
+          }
+        });
 
-    } else if (template.modelType === "jobApply") {
-      console.log('1')
-      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
-        customFields: {
+      } else if (template.modelType === "jobApply") {
+        console.log('1')
+        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+          customFields: {
             jobApplyworkLocation: 'jobApplyworkLocation',
-          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
-          jobApplyBranch: 'jobApplyBranch',
-        }
-      });
+            // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+            jobApplyBranch: 'jobApplyBranch',
+          }
+        });
 
-    } else if (template.modelType === "jobPostAndApply") {
-      placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-        customFields: {
-           companyName: 'companyName',
-          department: 'department',
-          designation: 'designation',
-          location: 'location',
-          employmentType: 'employmentType',
-          employeeType: 'employeeType',
-          subDepartment: 'subDepartment',
-          branch: 'branch',
-          // jobPostVacancyRequest: 'jobPostVacancyRequest',
-        }
-      });
+      } else if (template.modelType === "jobPostAndApply") {
+        placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+          ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
+          customFields: {
+            companyName: 'companyName',
 
-      placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
-        customFields: {
-          jobSummary: 'jobSummary',
-          rolesAndResponsibilities: 'rolesAndResponsibilities',
-          keySkills: 'keySkills'
-        }
-      });
+            department: 'department',
+            designation: 'designation',
+            location: 'location',
+            employmentType: 'employmentType',
+            employeeType: 'employeeType',
+            subDepartment: 'subDepartment',
+            branch: 'branch',
+            // jobPostVacancyRequest: 'jobPostVacancyRequest',
+          }
+        });
 
-      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
-        customFields: {
-         jobApplyworkLocation: 'jobApplyworkLocation',
-          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
-          jobApplyBranch: 'jobApplyBranch',
-        }
-      });
-    } else {
-      return badRequest(res, "Invalid type");
-    }
+        placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+          ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
+          customFields: {
+            jobSummary: 'jobSummary',
+            rolesAndResponsibilities: 'rolesAndResponsibilities',
+            keySkills: 'keySkills'
+          }
+        });
+
+        placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+          ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+          customFields: {
+            jobApplyworkLocation: 'jobApplyworkLocation',
+            // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+            jobApplyBranch: 'jobApplyBranch',
+          }
+        });
+      } else {
+        return badRequest(res, "Invalid type");
+      }
 
       const invalidPlaceholders = validateTemplateContentTest(content, placeholders);
 
       // ✅ Fix: Safely check length
       if (invalidPlaceholders && invalidPlaceholders.length > 0) {
-        return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
+        // return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
       }
 
       template.content = content;
@@ -883,6 +907,99 @@ export function extractPlaceholdersFromSchema(model, options = {}) {
   };
 }
 
+// export async function getAvailablePlaceholders(req, res) {
+//   try {
+//     const { type } = req.query;
+//     let placeholders = {};
+
+//     if (!type) {
+//       return badRequest(res, "Model Type Required")
+//     }
+
+//     if (!type || type === "jobPost") {
+//       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+//         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType','jobPostApproveRemark'],
+//         customFields: {
+//           companyName: 'companyName',
+//           department: 'department',
+//           designation: 'designation',
+//           location: 'location',
+//           employmentType: 'employmentType',
+//           employeeType: 'employeeType',
+//           subDepartment: 'subDepartment',
+//           branch: 'branch',
+//         }
+//       });
+
+//       // Extract jobDescription fields, nested under jobDescription
+//       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+//         ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
+//         customFields: {
+//           jobSummary: 'jobSummary',
+//           rolesAndResponsibilities: 'rolesAndResponsibilities',
+//           keySkills: 'keySkills'
+//         }
+//       });
+//     } else if (!type || type === "jobApply") {
+//       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+//         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner','AI_Confidence','Joining_Status','AI_Result',
+//           'AI_Score','password','positionWebsite','internalReferenceData','currentDesignation','knewaboutJobPostFrom','preferedInterviewMode',
+//           'bankAccountProof','salarySlip','approvalPayrollfinOfferLetter','pathofferLetterFinCooper','prevofferLetterFinCooper','pathofferLetterFinCooper',
+//           'finCooperOfferLetter','positionWebsite',''],
+//           customFields: {
+//           jobApplyworkLocation: 'jobApplyworkLocation',
+//           orgainizationId: 'orgainizationName',
+//           jobApplyBranch: 'jobApplyBranch',
+//         }
+//       });
+//     } else if (!type || type === "jobPostAndApply") {
+//       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
+//         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType','Joining_Status'],
+//         customFields: {
+//           companyName: 'companyName',
+//           department: 'department',
+//           designation: 'designation',
+//           location: 'location',
+//           employmentType: 'employmentType',
+//           employeeType: 'employeeType',
+//           subDepartment: 'subDepartment',
+//           branch: 'branch',
+//           // jobPostVacancyRequest: 'jobPostVacancyRequest',
+//         }
+//       });
+
+//       // Extract jobDescription fields, nested under jobDescription
+//       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
+//         ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
+//         // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+//         customFields: {
+//           jobSummary: 'jobSummary',
+//           rolesAndResponsibilities: 'rolesAndResponsibilities',
+//           keySkills: 'keySkills'
+//         }
+//       });
+
+//       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+//         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner','Joining_Status','AI_Confidence','AI_Result','AI_Score'],
+//         customFields: {
+//           jobApplyworkLocation: 'jobApplyworkLocation',
+//           // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
+//           jobApplyBranch: 'jobApplyBranch',
+//         }
+//       });
+//     } else {
+//       return badRequest(res, "Model Type Invalid")
+//     }
+
+//     return success(res, 'Available placeholders retrieved successfully', placeholders);
+//   } catch (error) {
+//     console.error('Placeholder retrieval error:', error);
+//     return unknownError(res, error);
+//   }
+// }
+
+
+
 export async function getAvailablePlaceholders(req, res) {
   try {
     const { type } = req.query;
@@ -892,87 +1009,115 @@ export async function getAvailablePlaceholders(req, res) {
       return badRequest(res, "Model Type Required")
     }
 
+
     if (!type || type === "jobPost") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType','jobPostApproveRemark'],
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType', 'jobPostApproveRemark'],
         customFields: {
-          companyName: 'companyName',
-          department: 'department',
-          designation: 'designation',
-          location: 'location',
-          employmentType: 'employmentType',
-          employeeType: 'employeeType',
-          subDepartment: 'subDepartment',
-          branch: 'branch',
-          // jobPostVacancyRequest: 'jobPostVacancyRequest',
+          jobPostbranchId: 'jobPostbranchName',
+          jobPostorganizationId: 'orgainizationName',
+          jobPostsubDepartmentId: 'jobPostsubDepartmentName',
+          jobPostdepartmentId: 'jobPostdepartmentName',
+          jobPostemployeeTypeId: 'jobPostemployeeTypeName',
+          jobPostemploymentTypeId: 'jobPostemploymentTypeName',
         }
       });
 
-      // Extract jobDescription fields, nested under jobDescription
       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
-        // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId', 'jobDescription.JobSummary'],
         customFields: {
-          jobSummary: 'jobSummary',
-          rolesAndResponsibilities: 'rolesAndResponsibilities',
-          keySkills: 'keySkills'
+          JDposition: 'JDposition',
+          specialSkiils: 'specialSkiils',
+          JDAgeLimit: 'JDAgeLimit',
+          JDGender: 'JDGender',
+          'jobDescription.JobSummary': 'jobSummary',
+          'jobDescription.RolesAndResponsibilities': 'rolesAndResponsibilities',
+          'jobDescription.KeySkills': 'keySkills'
         }
       });
     } else if (!type || type === "jobApply") {
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
-          customFields: {
-          jobApplyworkLocation: 'jobApplyworkLocation',
-          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
-          jobApplyBranch: 'jobApplyBranch',
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner', 'password', 'reasonLeaving', 'managerRevertReason', 'sendOfferLetterToCandidate',
+          'sendZohoCredentials', 'candidateStatus', 'isEligible', 'Joining_Status'],
+        customFields: {
+          workLocationId: 'workLocationName',
+          branchId: 'branchName',
+          departmentId: 'departmentName',
+          orgainizationId: 'orgainizationName',
         }
       });
     } else if (!type || type === "jobPostAndApply") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
-        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType'],
+        ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status', 'budgetType', 'jobPostApproveRemark'],
         customFields: {
-          companyName: 'companyName',
-          department: 'department',
-          designation: 'designation',
-          location: 'location',
-          employmentType: 'employmentType',
-          employeeType: 'employeeType',
-          subDepartment: 'subDepartment',
-          branch: 'branch',
-          // jobPostVacancyRequest: 'jobPostVacancyRequest',
+          jobPostbranchId: 'jobPostbranchName',
+          jobPostsubDepartmentId: 'jobPostsubDepartmentName',
+          jobPostdepartmentId: 'jobPostdepartmentName',
+          jobPostemployeeTypeId: 'jobPostemployeeTypeName',
+          jobPostemploymentTypeId: 'jobPostemploymentTypeName',
         }
       });
 
-      // Extract jobDescription fields, nested under jobDescription
       placeholders.jobDescription = extractPlaceholdersFromSchema(JobDescriptionModel, {
-        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId','jobDescription.JobSummary'],
-        // prefix: 'jobDescription', // To produce jobDescription.jobSummary format
+        ignoreFields: ['_id', '__v', 'createdById', 'updatedById', 'subdeparmentId'],
         customFields: {
-          jobSummary: 'jobSummary',
-          rolesAndResponsibilities: 'rolesAndResponsibilities',
-          keySkills: 'keySkills'
+          JDposition: 'JDposition',
+          specialSkiils: 'specialSkiils',
+          JDAgeLimit: 'JDAgeLimit',
+          JDGender: 'JDGender',
+          'jobDescription.JobSummary': 'jobSummary',
+          'jobDescription.RolesAndResponsibilities': 'rolesAndResponsibilities',
+          'jobDescription.KeySkills': 'keySkills'
         }
       });
 
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
-        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner', 'password', 'reasonLeaving', 'managerRevertReason', 'sendOfferLetterToCandidate',
+          'sendZohoCredentials', 'candidateStatus', 'isEligible', 'Joining_Status'],
         customFields: {
-          jobApplyworkLocation: 'jobApplyworkLocation',
-          // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
-          jobApplyBranch: 'jobApplyBranch',
+          workLocationId: 'workLocationName',
+          branchId: 'branchName',
+          departmentId: 'departmentName',
+          orgainizationId: 'orgainizationName',
+        }
+      });
+    } else if (!type || type === "candidateInterview") {
+      placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
+        ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner', 'password', 'reasonLeaving', 'managerRevertReason', 'sendOfferLetterToCandidate',
+          'sendZohoCredentials', 'candidateStatus', 'isEligible', 'Joining_Status'],
+        customFields: {
+          workLocationId: 'workLocationName',
+          branchId: 'branchName',
+          departmentId: 'departmentName',
+          orgainizationId: 'orgainizationName',
+          interviewerName: 'interviewerName',
+          interviewerEmail: 'interviewerEmail',
+          interviewerNumber: 'interviewerNumber',
+          scheduleLink: 'scheduleLink',
+          interviewType: 'interviewType',
+          scheduleDate: 'scheduleDate',
+          durationMinutes: 'durationMinutes',
+          intervieRoundNumber: 'intervieRoundNumber',
+          interviewStatus: 'interviewStatus',
+          interviewFeedback: 'interviewFeedback',
+          interviewfeedbackStatus: 'interviewfeedbackStatus',
+          intervieRoundName: 'intervieRoundName',
+          scheduleHrName: 'scheduleHrName',
+          scheduleHrEmail: 'scheduleHrEmail',
+          scheduleHrNumber: 'scheduleHrNumber',
         }
       });
     } else {
       return badRequest(res, "Model Type Invalid")
     }
 
+    
     return success(res, 'Available placeholders retrieved successfully', placeholders);
   } catch (error) {
     console.error('Placeholder retrieval error:', error);
     return unknownError(res, error);
   }
 }
-
 export async function generateLinkedInPostAndPdf(req, res) {
   try {
     const { templateId, jobId, generatePdf = false } = req.body;
@@ -1061,6 +1206,7 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
   if (!type || type === 'jobPost') {
     const job = await jobPostModel.findById(jobId)
       .populate('jobDescriptionId')
+      .populate('organizationId')
       .populate('designationId')
       .populate('departmentId')
       .populate('branchId')
@@ -1076,6 +1222,7 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
   if (type === 'jobApply') {
     const jobApply = await jobApplyModel.findById(jobId)
       .populate('jobPostId')
+      .populate('orgainizationId')
       .populate('departmentId')
       .populate('workLocationId')
     // .select('jobPostId');
@@ -1086,6 +1233,7 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
   if (type === 'jobPostAndApply') {
     const jobApply = await jobApplyModel.findById(jobId)
       .populate('jobPostId')
+      .populate('orgainizationId')
       .populate('departmentId')
       .populate('workLocationId');
     if (!jobApply) throw new Error("Job Application not found");
@@ -1094,6 +1242,7 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
       .populate('designationId')
       .populate('departmentId')
       .populate('branchId')
+      .populate('organizationId')
       .populate('Worklocation')
       .populate('employmentTypeId')
       .populate('employeeTypeId')
@@ -1111,29 +1260,324 @@ async function getPlaceholderDataDynamic({ jobId, type }) {
 }
 
 // Step 3: Modify generateLinkedInPostAndPdf
+// export async function generateLinkedInPostAndPdfDynamic(req, res) {
+//   try {
+//     const { templateId, jobId, generatePdf = false } = req.body;
+
+//     if (!templateId) return badRequest(res, "Please select the template");
+//     if (!jobId) return badRequest(res, "Please provide the JobId");
+
+//     const template = await Template.findById(templateId);
+//     if (!template) return badRequest(res, "Template not found");
+//     const type = template.modelType
+
+//     let modelDetail
+//     let ModelType ;
+//     if(template){
+//       modelDetail = await jobApplyModel.findById(jobId).lean();
+//       if (modelDetail) {
+//         ModelType = 'jobApply'
+//     } else{
+//       modelDetail = await EmployeeModel.findById(jobId).lean();
+//       if (modelDetail) {
+//         ModelType = 'employee'
+//       }else{
+//          return badRequest(res, "Model data not found for the given jobId");
+//       }
+//     }
+//   }
+//     const placeholders = await resolveDynamicFields(modelDetail, template.content , ModelType);
+//      let postContent = template.content;
+//     for (const [key, value] of Object.entries(placeholders)) {
+//   postContent = postContent.replace(
+//     new RegExp(`{{${key}}}`, 'g'),
+//     value?.toString?.() || 'N/A'
+//   );
+// }
+//     const responseData = {
+//       userId: req.employee.id,
+//       timestamp: new Date()
+//     };
+
+//     if (generatePdf) {
+//       const browser = await puppeteer.launch({ headless: true });
+//       const page = await browser.newPage();
+//       await page.setContent(postContent, { waitUntil: 'networkidle0' });
+//       const pdfBuffer = await page.pdf({
+//         format: 'A4', printBackground: true,
+//         margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
+//       });
+//       await browser.close();
+
+//       const fileName = `${Date.now()}_job_post.pdf`;
+//       const filePathInBucket = `${process.env.PATH_BUCKET}/HRMS/PDF/${fileName}`;
+
+//       const pdfUrl = await uploadToSpaces(
+//         'finexe',
+//         filePathInBucket,
+//         pdfBuffer,
+//         'public-read',
+//         'application/pdf'
+//       );
+//       responseData.pdfUrl = pdfUrl;
+//     }
+
+//     return success(res, "Generated successfully", responseData);
+//   } catch (error) {
+//     console.error('LinkedIn post and PDF generation error:', error);
+//     return unknownError(res, error);
+//   }
+// }
+
+
+function replaceTemplatePlaceholders(template, dataObject) {
+  return template.replace(/{{(.*?)}}/g, (_, key) => {
+    const value = dataObject?.[key.trim()];
+    if (Array.isArray(value)) return value.join(', ');
+    return value !== undefined && value !== null ? value : 'N/A';
+  });
+}
+
+
+
+async function enrichModelDetail(modelId) {
+  let modelDetail = await jobApplyModel.findById(modelId).lean();
+  let modelType = 'jobApply';
+
+  if (modelDetail) {
+    if (Array.isArray(modelDetail.branchId) && modelDetail.branchId.length) {
+      const branches = await BranchModel.find({
+        _id: { $in: modelDetail.branchId }
+      }).lean();
+      modelDetail.branchId = branches.map(branch => branch.name).filter(Boolean);
+    }
+
+    if (modelDetail.orgainizationId) {
+      const org = await OrganizationModel.findById(modelDetail.orgainizationId).lean();
+      if (org?.name) modelDetail.orgainizationId = org.name;
+    }
+
+    if (modelDetail.departmentId) {
+      const deprt = await departmentModel.findById(modelDetail.departmentId).lean();
+      if (deprt?.name) modelDetail.departmentId = deprt.name;
+    }
+
+    if (modelDetail.workLocationId) {
+      const loc = await WorkLocationModel.findById(modelDetail.workLocationId).lean();
+      if (loc?.name) modelDetail.workLocationId = loc.name;
+    }
+
+    if (modelDetail) {
+      const interview = await InterviewDetail.findOne({ candidateId: modelId }).populate('interviewerId', 'email mobileNo employeName').populate('hrId', 'email mobileNo employeName').sort({ createdAt: -1 }).lean();
+      // console.log('interview', interview);
+      if (interview?.interviewerId) {
+        modelDetail.interviewerName = interview.interviewerId.employeName || "";
+        modelDetail.interviewerEmail = interview.interviewerId.email || "";
+        modelDetail.interviewerNumber = interview.interviewerId.mobileNo || "";
+      }
+
+      if (interview?.hrId) {
+
+        modelDetail.scheduleHrName = interview.hrId.employeName || "";
+        modelDetail.scheduleHrEmail = interview.hrId.email || "";
+        modelDetail.scheduleHrNumber = interview.hrId.mobileNo || "";
+      }
+      const interviewFieldMap = {
+        scheduleLink: 'scheduleLink',
+        interviewType: 'interviewType',
+        scheduleDate: 'scheduleDate',
+        durationMinutes: 'durationMinutes',
+        roundNumber: 'intervieRoundNumber',
+        status: 'interviewStatus',
+        feedback: 'interviewFeedback',
+        interviewfeedbackStatus: 'interviewfeedbackStatus',
+        roundName: 'intervieRoundName',
+      };
+      if (interview) {
+        for (const [interviewKey, modelKey] of Object.entries(interviewFieldMap)) {
+          if (interview[interviewKey] !== undefined) {
+            modelDetail[modelKey] = interview[interviewKey];
+          }
+        }
+      }
+    }
+
+    // console.log('modelDetail.jobPostId',modelDetail.jobPostId)
+    if (modelDetail.jobPostId) {
+      const jobPostDetail = await jobPostModel.findById(modelDetail.jobPostId).lean();
+
+
+      if (jobPostDetail.employeeTypeId) {
+        const employeeType = await employeeTypeModel.findById(jobPostDetail.employeeTypeId).lean();
+        if (employeeType?.title) modelDetail.jobPostemployeeTypeId = employeeType.title;
+      }
+
+      if (jobPostDetail.employmentTypeId) {
+        const employement = await employementTypeModel.findById(jobPostDetail.employmentTypeId).lean();
+        if (employement?.title) modelDetail.jobPostemploymentTypeId = employement.title;
+      }
+
+      if (jobPostDetail.departmentId) {
+        const deprt = await departmentModel.findById(jobPostDetail.departmentId).lean();
+        if (deprt?.name) modelDetail.jobPostdepartmentId = deprt.name;
+      }
+
+      const department = await departmentModel.findById(jobPostDetail?.departmentId);
+
+      if (department) {
+        const subDept = department.subDepartments.id(jobPostDetail.subDepartmentId);
+        if (subDept) modelDetail.jobPostsubDepartmentId = subDept.name;
+      }
+
+
+      if (Array.isArray(jobPostDetail.branchId) && jobPostDetail.branchId.length) {
+        const branches = await BranchModel.find({
+          _id: { $in: jobPostDetail.branchId }
+        }).lean();
+        modelDetail.jobPostbranchId = branches.map(branch => branch.name).filter(Boolean);
+      }
+
+      if (jobPostDetail.organizationId) {
+        const org = await OrganizationModel.findById(jobPostDetail.organizationId).lean();
+        if (org?.name) modelDetail.jobPostorganizationId = org.name;
+      }
+
+      if (Array.isArray(jobPostDetail.qualificationId) && jobPostDetail.qualificationId.length) {
+        const qualifications = await qualificationModel.find({
+          _id: { $in: jobPostDetail.qualificationId }
+        }).lean();
+        jobPostDetail.jobPostqualificationId = qualifications.map(branch => branch.name).filter(Boolean);
+      }
+
+      if (jobPostDetail.Worklocation) {
+        const workLoc = await WorkLocationModel.findById(jobPostDetail.Worklocation).lean();
+        // console.log('workLoc', workLoc.name)
+        if (workLoc?.name) modelDetail.jobPostWorklocation = workLoc.name;
+      }
+
+
+      if (jobPostDetail.jobDescriptionId) {
+        const jobDescription = await JobDescriptionModel.findById(jobPostDetail.jobDescriptionId).lean();
+
+        if (jobDescription) {
+          // Flat fields
+          modelDetail.JDposition = jobDescription.position || '';
+          modelDetail.specialSkiils = jobDescription.specialSkiils || '';
+          modelDetail.JDAgeLimit = jobDescription.AgeLimit || '';
+          modelDetail.JDGender = jobDescription.Gender || '';
+
+          // Nested jobDescription fields
+          if (jobDescription.jobDescription) {
+            modelDetail.JobSummary = jobDescription.jobDescription.JobSummary || '';
+            modelDetail.rolesAndResponsibilities = jobDescription.jobDescription.RolesAndResponsibilities || [];
+            modelDetail.keySkills = jobDescription.jobDescription.KeySkills || [];
+          }
+        }
+      }
+
+    }
+  } else {
+    modelDetail = await EmployeeModel.findById(modelId).lean();
+    modelType = 'employee';
+
+    if (modelDetail) {
+      if (modelDetail) {
+
+        if (Array.isArray(modelDetail.roleId) && modelDetail.roleId.length) {
+          const roles = await roleModel.find({
+            _id: { $in: modelDetail.roleId }
+          }).lean();
+          modelDetail.roleId = roles.map(role => role.roleName).filter(Boolean);
+        }
+
+        if (Array.isArray(modelDetail.branchId) && modelDetail.branchId.length) {
+          const branches = await BranchModel.find({
+            _id: { $in: modelDetail.branchId }
+          }).lean();
+          modelDetail.branchId = branches.map(branch => branch.name).filter(Boolean);
+        }
+
+        if (modelDetail.organizationId) {
+          const org = await OrganizationModel.findById(modelDetail.organizationId).lean();
+          if (org?.name) modelDetail.organizationId = org.name;
+        }
+
+        if (modelDetail.departmentId) {
+          const deprt = await departmentModel.findById(modelDetail.departmentId).lean();
+          if (deprt?.name) modelDetail.departmentId = deprt.name;
+        }
+
+
+        const department = await departmentModel.findById(modelDetail?.departmentId);
+
+        let subDepartmentId = 'N/A';
+
+        if (department) {
+          const subDept = department.subDepartments.id(modelDetail.subDepartmentId).lean();
+          if (subDept) modelDetail.subDepartmentId = subDept.name;
+        }
+
+
+        if (modelDetail.workLocationId) {
+          const loc = await WorkLocationModel.findById(modelDetail.workLocationId).lean();
+          if (loc?.name) modelDetail.workLocationId = loc.name;
+        }
+        if (modelDetail.employeeTypeId) {
+          const employeeType = await employeeTypeModel.findById(modelDetail.employeeTypeId).lean();
+          if (employeeType?.title) modelDetail.employeeTypeId = employeeType.title;
+        }
+
+        if (modelDetail.employementTypeId) {
+          const employement = await employementTypeModel.findById(modelDetail.employementTypeId).lean();
+          if (employement?.title) modelDetail.employementTypeId = employement.title;
+        }
+
+        if (modelDetail.designationId) {
+          const desig = await designationModel.findById(modelDetail.designationId).lean();
+          if (desig?.name) modelDetail.designationId = desig.name;
+        }
+
+        if (modelDetail.designationId) {
+          const desig = await designationModel.findById(modelDetail.designationId).lean();
+          if (desig?.name) modelDetail.designationId = desig.name;
+        }
+
+
+        if (modelDetail.email) {
+          toMail = [modelDetail.email];
+        } else {
+          return badRequest(res, "Employee Email Not Found")
+        }
+      }
+    } else {
+      throw new Error("Model data not found for the given jobId");
+    }
+  }
+
+  return { modelDetail, modelType };
+}
+
+
+
+
 export async function generateLinkedInPostAndPdfDynamic(req, res) {
   try {
-    const { templateId, jobId, generatePdf = false } = req.body;
-
-    if (!templateId) return badRequest(res, "Please select the template");
+    const { templateName, jobId, generatePdf = false } = req.body;
+   const organizationId = req.employee.organizationId;
+   if(!organizationId){
+    return badRequest(res, "Organization ID is required");
+   }
+    if (!templateName) return badRequest(res, "Template Name Is Required");
     if (!jobId) return badRequest(res, "Please provide the JobId");
 
-    const template = await Template.findById(templateId);
+    const template = await Template.findOne({title : templateName, organizationId: new ObjectId(organizationId)});
+    
     if (!template) return badRequest(res, "Template not found");
-    const type = template.modelType
 
-    const placeholders = await getPlaceholderDataDynamic({ jobId, type });
+    const { modelDetail, modelType } = await enrichModelDetail(jobId); // your extended logic
 
-    let postContent = template.content;
-    for (const [placeholder, value] of Object.entries(placeholders)) {
-      const processedValue = typeof value == 'string'
-        ? value.replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')
-        : value;
-      postContent = postContent.replace(
-        new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
-        processedValue
-      );
-    }
+    // ➤ Replace template placeholders with actual values
+    const postContent = replaceTemplatePlaceholders(template.content, modelDetail);
 
     const responseData = {
       userId: req.employee.id,
@@ -1144,10 +1588,13 @@ export async function generateLinkedInPostAndPdfDynamic(req, res) {
       const browser = await puppeteer.launch({ headless: true });
       const page = await browser.newPage();
       await page.setContent(postContent, { waitUntil: 'networkidle0' });
+
       const pdfBuffer = await page.pdf({
-        format: 'A4', printBackground: true,
+        format: 'A4',
+        printBackground: true,
         margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
       });
+
       await browser.close();
 
       const fileName = `${Date.now()}_job_post.pdf`;
@@ -1163,13 +1610,22 @@ export async function generateLinkedInPostAndPdfDynamic(req, res) {
       responseData.pdfUrl = pdfUrl;
     }
 
+
+    if(responseData.pdfUrl) {
+      const Update = await jobApplyModel.findByIdAndUpdate(jobId, {
+        $set: {
+          offerLetter: responseData.pdfUrl,
+          OfferLetterStatus:'generated'
+        }
+      }, { new: true });
+    }
+
     return success(res, "Generated successfully", responseData);
   } catch (error) {
     console.error('LinkedIn post and PDF generation error:', error);
-    return unknownError(res, error);
+    return unknownError(res, error.message || error);
   }
 }
-
 
 // cretae pdf template 
 
@@ -1198,7 +1654,7 @@ export async function createTemplateTest(req, res) {
     if (type === "jobPost") {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
-            customFields: {
+        customFields: {
           companyName: 'companyName',
           department: 'department',
           designation: 'designation',
@@ -1225,7 +1681,7 @@ export async function createTemplateTest(req, res) {
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
         customFields: {
-            jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyworkLocation: 'jobApplyworkLocation',
           // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
@@ -1235,7 +1691,7 @@ export async function createTemplateTest(req, res) {
       placeholders.jobPost = extractPlaceholdersFromSchema(jobPostModel, {
         ignoreFields: ['_id', '__v', 'createdByHrId', 'jobPostId', 'budget', 'budgetType', 'status'],
         customFields: {
-           companyName: 'companyName',
+          companyName: 'companyName',
           department: 'department',
           designation: 'designation',
           location: 'location',
@@ -1259,7 +1715,7 @@ export async function createTemplateTest(req, res) {
       placeholders.jobApplyForm = extractPlaceholdersFromSchema(jobApplyModel, {
         ignoreFields: ['_id', '__v', 'BulkResume', 'status', 'Remark', 'immediatejoiner'],
         customFields: {
-         jobApplyworkLocation: 'jobApplyworkLocation',
+          jobApplyworkLocation: 'jobApplyworkLocation',
           // jobApplyvacancyRequest: 'jobApplyvacancyRequest',
           jobApplyBranch: 'jobApplyBranch',
         }
@@ -1273,7 +1729,7 @@ export async function createTemplateTest(req, res) {
     const invalidPlaceholders = validateTemplateContentTest(content, placeholders);
     if (invalidPlaceholders) {
       console.log('6')
-      return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
+      // return badRequest(res, `Invalid placeholders found: ${invalidPlaceholders.join(', ')}`);
     }
 
     // Save template

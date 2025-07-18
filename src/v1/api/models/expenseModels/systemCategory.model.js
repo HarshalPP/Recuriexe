@@ -76,6 +76,11 @@ const systemCategorySchema = new Schema({
       default: {}
     }
   },
+    overRideConfig: [{
+    key: { type: String, required: true },
+    type: { type: String, required: true, enum: ['String', 'Number', 'Boolean', 'Radio', 'Dropdown', 'Date'] },
+    options: [{ type: String }] 
+  }],
   isSeeded: {
     type: Boolean,
     default: true

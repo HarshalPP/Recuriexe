@@ -33,6 +33,11 @@ const ClientModelSchema = new Schema({
         ref:'newdesignation',
         default:null
       }],
+
+      isActive:{
+        type:Boolean,
+        default:true
+      },
       
      location: [{ type: ObjectId, ref: "newbranch" }],
 },{

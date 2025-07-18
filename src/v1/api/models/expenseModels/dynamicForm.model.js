@@ -58,11 +58,11 @@ const fieldSchema = new Schema({
     }],
     conditionalLogic: {
         showIf: {
-            fieldId: String,
+            displayOrder: String,
             operator: {
                 type: String,
                 enum: ['equals', 'not_equals', 'greater_than', 'less_than', 'contains', 'not_contains']
-            },
+            },  
             value: Schema.Types.Mixed
         }
     },
@@ -79,6 +79,10 @@ const fieldSchema = new Schema({
         default: ""
     },
     isActive: {
+        type: Boolean,
+        default: true
+    },
+     isEdited: {
         type: Boolean,
         default: true
     }
@@ -104,24 +108,24 @@ const dynamicFormSchema = new Schema({
         default: ""
     },
     fields: [fieldSchema],
-    formSettings: {
-        allowMultipleSubmissions: {
-            type: Boolean,
-            default: true
-        },
-        saveDraft: {
-            type: Boolean,
-            default: true
-        },
-        showProgressBar: {
-            type: Boolean,
-            default: false
-        },
-        customCSS: {
-            type: String,
-            default: ""
-        }
-    },
+    // formSettings: {
+    //     allowMultipleSubmissions: {
+    //         type: Boolean,
+    //         default: true
+    //     },
+    //     saveDraft: {
+    //         type: Boolean,
+    //         default: true
+    //     },
+    //     showProgressBar: {
+    //         type: Boolean,
+    //         default: false
+    //     },
+    //     customCSS: {
+    //         type: String,
+    //         default: ""
+    //     }
+    // },
     isActive: {
         type: Boolean,
         default: true

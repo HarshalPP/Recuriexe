@@ -289,7 +289,7 @@ async function fetchPartners(query) {
       initData.submitFields = initData.submitFields || [];
     }
 
-    return returnFormatter(true, "Fetched partner products", allPartners);
+    return returnFormatter(true, "Fetched partner products", [...allPartners,initData.sign]);
   } catch (error) {
     return returnFormatter(false, `Error fetching partner products: ${error.message}`);
   }

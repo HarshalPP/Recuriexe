@@ -423,6 +423,7 @@ import initModel from "../models/initModel/init.model.js";
 
 
 import htmlDocx from "html-docx-js"; // Make sure you have this package installed
+import OrganizationModel from "../models/organizationModel/organization.model.js";
 
 
 // export async function generatePdfFunc(req, res) {
@@ -656,11 +657,14 @@ export async function generatePdfFunc(req, res) {
 
     // 4️⃣ Fetch company data
     const companyData = await companyModel.findOne({ organizationId: serviceId });
+    const organizationVendor = await OrganizationModel.findOne({ organizationId: serviceId });
+    const organizationClient = await OrganizationModel.findById(partnerId)
 
     // 5️⃣ Merge all relevant data
     const mergedJobData = {
       ...jobInit.toObject(),
       company: companyData,
+      organization: organizationVendor,
       requestData: requestData[0] || null
     };
 
@@ -735,7 +739,10 @@ if (Array.isArray(value)) {
     html = html.replace(/{allocatedDate}/g, formattedAllocatedDate || '');
     html = html.replace(/{completedDate}/g, formattedCompletedDate || '');
     html = html.replace(/{charge}/g, jobInit?.charge || '');
-
+    html = html.replace(/{charge}/g, jobInit?.charge || '');
+    if(organizationClient.enach=="upload"){
+    html = html.replace(/{sign}/g,`<img src="${jobInit.sign }" style="width:100px;height:auto;max-height:100px;object-fit:contain;margin:2px;" alt="Image" />` || '');
+    }
     // 🔟 Generate PDF using Puppeteer
     const browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();

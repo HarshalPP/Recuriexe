@@ -192,6 +192,11 @@ const jobPostingModelSchema = new Schema(
     expiredDate : {type :Date ,default :null },
     numberOfApplicant : { type :Number , default :0},
     totalApplicants : { type :Number , default :0},
+    ReportId:{
+      type:ObjectId,
+      ref:'reportcategories',
+      default:null
+    }
   },
   { timestamps: true }
 );

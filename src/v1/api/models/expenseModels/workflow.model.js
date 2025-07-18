@@ -1,4 +1,27 @@
-import { model, Schema } from 'mongoose';
+import { mongoose,model, Schema } from 'mongoose';
+
+const conditionSchema = new Schema({
+    field: {
+        type: String,
+        required: true
+    },
+    operator: {
+        type: String,
+        // required: true
+    },
+    value: {
+        type: Schema.Types.Mixed,
+        // required: true
+    },
+    nextStageId: {
+        type: String,
+        default: ""
+    },
+    action: {
+        type: String,
+        enum: ['approve_auto', 'require_approval', 'skip', 'notify']
+    }
+}, { _id: false });
 
 const stageSchema = new Schema({
     stageId: {
@@ -14,28 +37,39 @@ const stageSchema = new Schema({
         required: true
     },
     roleRequired: {
-        type: String,
-        enum: ['Employee', 'Manager', 'Finance', 'Admin', 'CFO', 'CEO', 'Department_Head', 'Project_Manager'],
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'role',
+        // enum: ['Employee', 'Manager', 'Finance', 'Admin', 'CFO', 'CEO', 'Department_Head', 'Project_Manager'],
         required: true
     },
     conditions: {
-        field: {
-            type: String,
-            default: ""
-        },
-        operator: {
-            type: String,
-            enum: ["",'equals', 'not_equals', 'greater_than', 'less_than', 'greater_equal', 'less_equal'],
-            default: ""
-        },
-        value: {
-            type: Schema.Types.Mixed,
-            default: null
-        },
-        nextStageId: {
-            type: String,
-            default: ""
-        }
+        type: [conditionSchema],
+        default: []
+    },
+        // conditions: {
+
+    //    field: {
+    //         type: String,
+    //         default: ""
+    //     }, 
+    //     operator: {
+    //         type: String,
+    //         enum: ["",'equals', 'not_equals', 'greater_than', 'less_than', 'greater_equal', 'less_equal'],
+    //         default: ""
+    //     },
+    //     value: {
+    //         type: Schema.Types.Mixed,
+    //         default: null
+    //     },
+    //     nextStageId: {
+    //         type: String,
+    //         default: ""
+    //     }
+    // },
+    conditionLogic: {
+        type: String,
+        enum: ['AND', 'OR'],
+        default: 'AND'
     },
     isParallel: {
         type: Boolean,
@@ -59,7 +93,8 @@ const workflowSchema = new Schema({
         index: true
     },
     organizationId: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Organization',
         required: true
     },
     name: {

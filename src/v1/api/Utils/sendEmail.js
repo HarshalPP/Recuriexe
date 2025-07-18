@@ -114,101 +114,218 @@ const transporter = nodemailer.createTransport({
 //   }
 // };
 
+
+
+import { SendMailClient } from "zeptomail";
+
+// ZeptoMail credentials
+const url = "api.zeptomail.in/";
+const token = "Zoho-enczapikey PHtE6r1cS+nqizR58hUDtve6EM+tMNkrq7hiK1VPsotLW/YLS01Rr4ojwGW1o0giXfITEvbNnN1rtu7K5e3WdmnvM29OWWqyqK3sx/VYSPOZsbq6x00YtVkYcELcVo/ucNNq0CPfuNaX";
+
+const client = new SendMailClient({ url, token });
+
 export const sendEmail = async (options) => {
   try {
     if (!options.to) {
-      throw new Error('Recipient email is required');
+      throw new Error("Recipient email is required");
     }
 
-    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    const toRecipients = (Array.isArray(options.to) ? options.to : [options.to]).map((email) => ({
+      email_address: {
+        address: email,
+        name: "", // optional
+      },
+    }));
 
-    const msg = {
-      from: "support@fincoopers.tech",
-      to: recipients,
-      subject: options.subject || 'No Subject',
-      html: options.html || '',
+    const ccRecipients = options.cc
+      ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
+          email_address: { address: email, name: "" },
+        }))
+      : [];
+
+    const bccRecipients = options.bcc
+      ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
+          email_address: { address: email, name: "" },
+        }))
+      : [];
+
+    const mailData = {
+      from: {
+        address: "noreply@fincooperstech.com",
+        name: "noreply",
+      },
+      to: toRecipients,
+      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+      subject: options.subject || "No Subject",
+      htmlbody: options.html || "<p>No Content</p>",
+      attachments: options.Attachments?.length
+        ? options.Attachments.map((att) => ({
+            content: att.content, // base64 string
+            name: att.filename || "attachment",
+            content_type: att.contentType || "application/octet-stream",
+          }))
+        : undefined,
     };
 
-    // Optional: CC
-    if (options.cc) {
-      msg.cc = Array.isArray(options.cc) ? options.cc : [options.cc];
-    }
-
-    // Optional: BCC
-    if (options.bcc) {
-      msg.bcc = Array.isArray(options.bcc) ? options.bcc : [options.bcc];
-    }
-
-    // Optional: Attachments
-    if (options.Attachments && options.Attachments.length > 0) {
-      msg.attachments = options.Attachments.map((attachment) => {
-        // Expecting base64 content
-        return {
-          content: attachment.content || '',
-          filename: attachment.filename || 'attachment',
-          type: attachment.contentType || 'application/octet-stream',
-          disposition: 'attachment',
-        };
-      });
-    }
-
-    const info = await sgMail.send(msg);
-    console.log('Email sent with SendGrid, messageId:', info[0]?.headers['x-message-id'] || 'N/A');
-    return info;
+    const response = await client.sendMail(mailData);
+    console.log("ZeptoMail sent:", response.data?.message || "Success");
+    return response.data;
   } catch (error) {
-    console.error('Error sending email:', error);
-    if (error.response) {
-      console.error('SendGrid API error details:', {
-        status: error.response.status,
-        body: error.response.body,
-      });
-    }
-    throw new Error('Failed to send email');
+    console.error("ZeptoMail error:", error.response?.data || error.message || error);
+    throw new Error("Failed to send email via ZeptoMail");
   }
 };
+
 
 export const sendEmail1 = async (options) => {
   try {
     if (!options.to) {
-      throw new Error('Recipient email is required');
+      throw new Error("Recipient email is required");
     }
 
-    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    const toRecipients = (Array.isArray(options.to) ? options.to : [options.to]).map((email) => ({
+      email_address: {
+        address: email,
+        name: "", // optional
+      },
+    }));
 
-    const msg = {
-      from: "support@fincoopers.tech", // must be verified in SendGrid
-      to: recipients,
-      subject: options.subject || 'No Subject',
-      html: options.html || '',
+    const ccRecipients = options.cc
+      ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
+          email_address: { address: email, name: "" },
+        }))
+      : [];
+
+    const bccRecipients = options.bcc
+      ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
+          email_address: { address: email, name: "" },
+        }))
+      : [];
+
+    const mailData = {
+      from: {
+        address: "noreply@fincooperstech.com",
+        name: "noreply",
+      },
+      to: toRecipients,
+      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+      subject: options.subject || "No Subject",
+      htmlbody: options.html || "<p>No Content</p>",
+      attachments: options.Attachments?.length
+        ? options.Attachments.map((att) => ({
+            content: att.content, // base64 string
+            name: att.filename || "attachment",
+            content_type: att.contentType || "application/octet-stream",
+          }))
+        : undefined,
     };
 
-    if (options.cc) msg.cc = [].concat(options.cc);
-    if (options.bcc) msg.bcc = [].concat(options.bcc);
-
-    if (options.Attachments?.length) {
-      msg.attachments = options.Attachments.map(att => ({
-        content: att.content || '',
-        filename: att.filename || 'attachment',
-        type: att.contentType || 'application/octet-stream',
-        disposition: 'attachment',
-      }));
-    }
-
-    const info = await sgMail.send(msg);
-    console.log('Email sent with SendGrid, messageId:', info[0]?.headers['x-message-id'] || 'N/A');
-    return info;
+    const response = await client.sendMail(mailData);
+    console.log("ZeptoMail sent:", response.data?.message || "Success");
+    return response.data;
   } catch (error) {
-    console.error('Error sending email:', error);
-
-    if (error.response) {
-      console.error('SendGrid API error details:', {
-        status: error.response.status,
-        body: error.response.body,
-      });
-      const errorMessage = error.response.body?.errors?.[0]?.message || 'Unknown error';
-      throw new Error(`SendGrid Error: ${errorMessage}`);
-    }
-
-    throw new Error('Failed to send email');
+    console.error("ZeptoMail error:", error.response?.data || error.message || error);
+    throw new Error("Failed to send email via ZeptoMail");
   }
 };
+
+// export const sendEmail = async (options) => {
+//   try {
+//     if (!options.to) {
+//       throw new Error('Recipient email is required');
+//     }
+
+//     const recipients = Array.isArray(options.to) ? options.to : [options.to];
+
+//     const msg = {
+//       from: "support@fincoopers.tech",
+//       to: recipients,
+//       subject: options.subject || 'No Subject',
+//       html: options.html || '',
+//     };
+
+//     // Optional: CC
+//     if (options.cc) {
+//       msg.cc = Array.isArray(options.cc) ? options.cc : [options.cc];
+//     }
+
+//     // Optional: BCC
+//     if (options.bcc) {
+//       msg.bcc = Array.isArray(options.bcc) ? options.bcc : [options.bcc];
+//     }
+
+//     // Optional: Attachments
+//     if (options.Attachments && options.Attachments.length > 0) {
+//       msg.attachments = options.Attachments.map((attachment) => {
+//         // Expecting base64 content
+//         return {
+//           content: attachment.content || '',
+//           filename: attachment.filename || 'attachment',
+//           type: attachment.contentType || 'application/octet-stream',
+//           disposition: 'attachment',
+//         };
+//       });
+//     }
+
+//     const info = await sgMail.send(msg);
+//     console.log('Email sent with SendGrid, messageId:', info[0]?.headers['x-message-id'] || 'N/A');
+//     return info;
+//   } catch (error) {
+
+//     if (error.response) {
+//       console.error('SendGrid API error details:', {
+//         status: error.response.status,
+//         body: error.response.body,
+//       });
+//     }
+//     throw new Error('Failed to send email');
+//   }
+// };
+
+// export const sendEmail1 = async (options) => {
+//   try {
+//     if (!options.to) {
+//       throw new Error('Recipient email is required');
+//     }
+
+//     const recipients = Array.isArray(options.to) ? options.to : [options.to];
+
+//     const msg = {
+//       from: "support@fincoopers.tech", // must be verified in SendGrid
+//       to: recipients,
+//       subject: options.subject || 'No Subject',
+//       html: options.html || '',
+//     };
+
+//     if (options.cc) msg.cc = [].concat(options.cc);
+//     if (options.bcc) msg.bcc = [].concat(options.bcc);
+
+//     if (options.Attachments?.length) {
+//       msg.attachments = options.Attachments.map(att => ({
+//         content: att.content || '',
+//         filename: att.filename || 'attachment',
+//         type: att.contentType || 'application/octet-stream',
+//         disposition: 'attachment',
+//       }));
+//     }
+
+//     const info = await sgMail.send(msg);
+//     console.log('Email sent with SendGrid, messageId:', info[0]?.headers['x-message-id'] || 'N/A');
+//     return info;
+//   } catch (error) {
+
+
+//     if (error.response) {
+//       console.error('SendGrid API error details:', {
+//         status: error.response.status,
+//         body: error.response.body,
+//       });
+//       const errorMessage = error.response.body?.errors?.[0]?.message || 'Unknown error';
+//       throw new Error(`SendGrid Error: ${errorMessage}`);
+//     }
+
+//     throw new Error('Failed to send email');
+//   }
+// };

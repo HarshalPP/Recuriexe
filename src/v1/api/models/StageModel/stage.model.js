@@ -11,20 +11,6 @@ const stageSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    api_connection: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "VerificationAPI",
-        default: null
-      }
-    ],
-
-    Document: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'DocumentsetUp',
-      default: null
-    }],
-
 
     usedBy: {
       type: String,

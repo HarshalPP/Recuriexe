@@ -3,8 +3,9 @@ import { returnFormatter, generateUniqueId } from "../../formatters/common.forma
 import { formatDynamicForm, formatDynamicFormForUpdate } from "../../formatters/expenseFormatter/dynamicForm.formatter.js";
 import { createAuditLog } from "../../helper/expenseHelper/auditLog.helper.js";
 
-export async function createDynamicForm(formData, organizationId, createdBy) {
+export async function createDynamicForm(formData, organizationId, Id) {
     try {
+        const createdBy = Id;
         const formattedData = formatDynamicForm(formData, organizationId, createdBy);
         const newForm = new dynamicFormModel(formattedData);
         const savedForm = await newForm.save();
@@ -78,26 +79,67 @@ export async function getDynamicFormById(formId, organizationId) {
     }
 }
 
+// export async function updateDynamicFormData1(formId, updateData, organizationId, updatedBy) {
+//     try {
+//         const existingForm = await dynamicFormModel.findOne({ 
+//             formId, 
+//             organizationId,
+//             isActive: true 
+//         });
+        
+//         if (!existingForm) {
+//             return returnFormatter(false, "Dynamic form not found");
+//         }
+        
+//         const formattedData = formatDynamicFormForUpdate(updateData);
+//         const updatedForm = await dynamicFormModel.findOneAndUpdate(
+//             { formId },
+//             formattedData,
+//             { new: true }
+//         ).select('-__v');
+        
+//         // Create audit log
+//         await createAuditLog({
+//             organizationId,
+//             entityType: 'DynamicForm',
+//             entityId: formId,
+//             action: 'Updated',
+//             performedBy: updatedBy,
+//             performedByName: 'System User',
+//             performedByRole: 'Admin',
+//             oldValues: existingForm,
+//             newValues: updatedForm
+//         });
+        
+//         return returnFormatter(true, "Dynamic form updated successfully", updatedForm);
+//     } catch (error) {
+//         return returnFormatter(false, error.message);
+//     }
+// }
+
 export async function updateDynamicFormData(formId, updateData, organizationId, updatedBy) {
     try {
-        const existingForm = await dynamicFormModel.findOne({ 
-            formId, 
+        const existingForm = await dynamicFormModel.findOne({
+            formId,
             organizationId,
-            isActive: true 
-        });
-        
+            isActive: true
+        }).lean();
+
         if (!existingForm) {
             return returnFormatter(false, "Dynamic form not found");
         }
-        
-        const formattedData = formatDynamicFormForUpdate(updateData);
+
+        const formattedData = formatDynamicFormForUpdate({
+            ...updateData,
+            existingFields: existingForm.fields || []
+        });
+
         const updatedForm = await dynamicFormModel.findOneAndUpdate(
             { formId },
             formattedData,
             { new: true }
         ).select('-__v');
-        
-        // Create audit log
+
         await createAuditLog({
             organizationId,
             entityType: 'DynamicForm',
@@ -109,12 +151,13 @@ export async function updateDynamicFormData(formId, updateData, organizationId, 
             oldValues: existingForm,
             newValues: updatedForm
         });
-        
+
         return returnFormatter(true, "Dynamic form updated successfully", updatedForm);
     } catch (error) {
         return returnFormatter(false, error.message);
     }
 }
+
 
 export async function deleteDynamicFormData(formId, organizationId, deletedBy) {
     try {

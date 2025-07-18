@@ -147,6 +147,9 @@ const roleSchema = new Schema(
           type: Boolean, default: false
         },
       },
+      CandidateDocumentCollection : {
+        type : Boolean, default : false
+      }
     },
 
     managementFeatures: {
@@ -273,25 +276,6 @@ const roleSchema = new Schema(
 
     }
 
-    // VERIFICATION
-    // verificationApiSetup: {
-    //   type: Boolean,
-    //   default: false
-    // },
-    // verificationStagesSetup: {
-    //   type: Boolean,
-    //   default: false
-    // },
-
-    // TIME & ATTENDANCE
-    // leaveTypeSetup: {
-    //   type: Boolean,
-    //   default: false
-    // },
-    // holidaySetup: {
-    //   type: Boolean,
-    //   default: false
-    // },
   },
   {
     timestamps: true,

@@ -292,7 +292,6 @@ const emailService = {
       
       return true;
     } catch (error) {
-      console.error('Error sending email with SendGrid:', error);
       throw error;
     }
   }

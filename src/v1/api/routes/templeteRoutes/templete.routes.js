@@ -16,4 +16,4 @@ router.post("/generateLinkedInPostAndPdf" , verifyEmployeeToken , generateLinked
 router.post("/deleteTemplate" , verifyEmployeeToken , deleteTemplate)
 
 export default router;
-
+ 

@@ -265,7 +265,7 @@ export const addInterview = async (req, res) => {
 
               console.log("Formatted Date:", formattedDate);
 
-              const frontendUrl = `https://hr-portal.fincooperstech.com//AI-Interview?InterviewId=${aiInterview._id}`;
+              const frontendUrl = `${process.env.INTERVIEW_URL}/AI-Interview?InterviewId=${aiInterview._id}`;
 
 const emailMessage = `
   <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
@@ -1372,7 +1372,7 @@ export const getInterviewHistory = async (req, res) => {
 
 export const completeInterviewManually = async (req, res) => {
   try {
-    const { interviewId ,  videoUrl} = req.query;
+    const { interviewId, videoUrl } = req.query;
 
     if (!interviewId) {
       return badRequest(res, "interviewId is required.");
@@ -1387,24 +1387,56 @@ export const completeInterviewManually = async (req, res) => {
       return success(res, "Interview is already marked as completed.");
     }
 
+    // ✅ Mark as complete and update basic fields
     interview.isComplete = true;
-    interview.videoUrl = videoUrl || ""; // Save video URL if provided
+    interview.videoUrl = videoUrl || "";
     interview.history.push({
       role: "model",
-      content: "Interview was  marked as complete , beacuse time limit exceeded or manually completed by HR."
+      content: "Interview was marked as complete because time limit exceeded or manually completed by HR."
     });
 
     await interview.save();
 
-    return success(res, "Interview marked as completed successfully.", {
+const result = await InterviewDetailModel.findOneAndUpdate(
+  {
+    candidateId: new mongoose.Types.ObjectId(interview.candidateId),
+    AIInterviewId: new mongoose.Types.ObjectId(interviewId),
+  },
+  { status: "complete" },
+  { new: true }
+);
+
+
+    // ✅ Respond to client immediately
+    success(res, "Interview marked as completed successfully.", {
       isComplete: true,
       interviewId: interview._id
     });
+
+    // 🧠 Continue processing summary in the background
+    (async () => {
+      try {
+        const transcript = formatHistory(interview.history);
+        const summary = await callSummaryPrompt({
+          transcript,
+          jobDescription: interview.jobDescription,
+          resume: interview.resumeText
+        });
+
+        await AI_Interviwew.findByIdAndUpdate(interviewId, {
+          summary,
+          aiDecision: summary.status || "Neutral"
+        });
+      } catch (summaryErr) {
+        console.error("⚠️ Failed to generate interview summary:", summaryErr);
+      }
+    })();
 
   } catch (error) {
     return unknownError(res, error);
   }
 };
+
 
 
 

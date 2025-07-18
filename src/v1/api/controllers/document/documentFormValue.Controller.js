@@ -9,26 +9,26 @@ import { ObjectId } from "mongodb";
 
 export const createDocumentFormValue = async (req, res) => {
     try {
-        const { organizationId, templateId, jobPostId, candidateId, values } = req.body;
+        const { templateId, candidateId, values ,organizationId } = req.body;
 
-        if (!organizationId || !templateId || !jobPostId || !candidateId || !Array.isArray(values)) {
-            return badRequest(res, "All fields are required: organizationId, templateId, jobPostId, candidateId, values");
+        if (!organizationId || !templateId || !organizationId  || !Array.isArray(values)) {
+            return badRequest(res, "All fields are required: organizationId   templateId, candidateId, values");
         }
 
+        const candidate = await JobApplyModel.findById(candidateId)
         // Check if referenced records exist
-        const [organization, template, jobPost, candidate] = await Promise.all([
+        const [organization, template, jobPost] = await Promise.all([
             OrganizationModel.findById(organizationId),
             DocumentFormTemplate.findById(templateId),
-            JobPostModel.findById(jobPostId),
-            JobApplyModel.findById(candidateId),
+            JobPostModel.findById(candidate?.jobPostId),
         ]);
 
         if (!organization) return notFound(res, "Organization not found");
         if (!template) return notFound(res, "Document Template not found");
-        if (!jobPost) return notFound(res, "Job Post not found");
         if (!candidate) return notFound(res, "Candidate not found");
+        if (!jobPost) return notFound(res, "Job Post not found");
 
-        if (candidate?.documentRequest === "complete") {
+        if (candidate?.documentRequest === "submitted") {
             return badRequest(res, "Document has already been submitted.");
         }
         // Optional: Check if each `fieldId` in `values` exists in the selected template
@@ -42,13 +42,13 @@ export const createDocumentFormValue = async (req, res) => {
         const newDoc = await DocumentFormValue.create({
             organizationId,
             templateId,
-            jobPostId,
+            jobPostId :jobPost._id,
             candidateId,
             values,
         });
         const documentRequest = await JobApplyModel.findByIdAndUpdate(
             candidateId,
-            { documentRequest: "complete" },
+            { documentRequest: "submitted" },
             { new: true }
         );
 
@@ -63,8 +63,17 @@ export const createDocumentFormValue = async (req, res) => {
 
 export const getAllDocumentFormValues = async (req, res) => {
     try {
-        const { jobPostId, candidateId } = req.query;
-        const { organizationId } = req.employee
+        const { jobPostId, candidateId,organizationId } = req.query;
+
+        if(organizationId && !mongoose.Types.ObjectId.isValid(organizationId)){
+            return badRequest(res, "OrganizationId is required");
+        }
+        if (jobPostId && !mongoose.Types.ObjectId.isValid(jobPostId)) {
+            return badRequest(res, "Invalid Job Post ID");
+        }
+        if (candidateId && !mongoose.Types.ObjectId.isValid(candidateId)) {
+            return badRequest(res, "Invalid Candidate ID")
+        }
 
         const documentFormValues = await DocumentFormValue.aggregate([
             // Match filters
@@ -159,9 +168,10 @@ export const getAllDocumentFormValues = async (req, res) => {
             // Optional: project only required fields
             {
                 $project: {
-                    organization: { name: 1 },
-                    jobPost: { position: 1, experience: 1, noOfPosition: 1, jobPostId: 1 },
+                    organization: { name: 1,_id:1 },
+                    jobPost: { position: 1, experience: 1, noOfPosition: 1, jobPostId: 1 ,_id:1},
                     candidate: {
+                        _id:1,
                         name: 1,
                         emailId: 1,
                         mobileNumber: 1,
@@ -187,14 +197,14 @@ export const getAllDocumentFormValues = async (req, res) => {
 
 export const getDocumentFormValueById = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { candidateId } = req.query;
 
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return badRequest(res, "Invalid documentFormValue ID");
+        if (!mongoose.Types.ObjectId.isValid(candidateId)) {
+            return badRequest(res, "Invalid Candidate ID");
         }
 
         const result = await DocumentFormValue.aggregate([
-            { $match: { _id: new mongoose.Types.ObjectId(id) } },
+            { $match: { candidateId: new mongoose.Types.ObjectId(candidateId) } },
             {
                 $lookup: {
                     from: "organizations",
@@ -278,9 +288,10 @@ export const getDocumentFormValueById = async (req, res) => {
             // Optional: project only required fields
             {
                 $project: {
-                    organization: { name: 1 },
-                    jobPost: { position: 1, experience: 1, noOfPosition: 1, jobPostId: 1 },
+                    organization: { name: 1 ,_id:1},
+                    jobPost: { position: 1, experience: 1, noOfPosition: 1, jobPostId: 1,_id:1 },
                     candidate: {
+                        _id:1,
                         name: 1,
                         emailId: 1,
                         mobileNumber: 1,

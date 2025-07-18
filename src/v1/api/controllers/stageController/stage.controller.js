@@ -6,21 +6,28 @@ import {
   unknownError,
 } from "../../formatters/globalResponse.js"
 
+
 // ✅ CREATE
 export const createStage = async (req, res) => {
   try {
-    const { organizationId, stageName, api_connection, usedBy, status ,  sequence} = req.body;
+    const organizationId = req.employee.organizationId;
+    const { stageName, usedBy, status, sequence } = req.body;
 
     if (!stageName) return badRequest(res, "Stage name is required");
 
+    // ❌ Check if a stage already exists for the organization
+    const existingStage = await StageModel.findOne({ organizationId , status:"active" });
+    if (existingStage) {
+      return badRequest(res, "Stage already exists for this organization");
+    }
+
+    // ✅ Create new stage
     const stage = new StageModel({
       organizationId,
       stageName,
-      api_connection,
       usedBy,
       status,
       sequence,
-      Document
     });
 
     const saved = await stage.save();
@@ -30,12 +37,11 @@ export const createStage = async (req, res) => {
   }
 };
 
+
 // ✅ GET ALL
 export const getAllStages = async (req, res) => {
   try {
     const stages = await StageModel.find({ status: "active" })
-     .populate("api_connection", "apiName apiLogo")
-      .populate("Document", "name label")
       .sort({ sequence: 1 , createdAt: -1 });
 
     return success(res, "Stages fetched successfully", stages);

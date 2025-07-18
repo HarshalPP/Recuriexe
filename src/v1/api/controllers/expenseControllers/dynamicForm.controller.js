@@ -12,7 +12,7 @@ import { success, badRequest, unknownError, created, notFound } from '../../help
 export async function createNewDynamicForm(req, res) {
     try {
         const token = req.employee;
-        const { status, message, data } = await createDynamicForm(req.body, token.organizationId, token.userId);
+        const { status, message, data } = await createDynamicForm(req.body, token.organizationId, token.Id);
         return status ? created(res, message, data) : badRequest(res, message);
     } catch (error) {
         return unknownError(res, error.message);
@@ -50,7 +50,7 @@ export async function updateDynamicForm(req, res) {
             req.params.id, 
             req.body, 
             token.organizationId,
-            token.userId
+            token.Id
         );
         return status ? success(res, message, data) : badRequest(res, message);
     } catch (error) {
@@ -64,7 +64,7 @@ export async function deleteDynamicForm(req, res) {
         const { status, message } = await deleteDynamicFormData(
             req.params.id, 
             token.organizationId,
-            token.userId
+            token.Id
         );
         return status ? success(res, message) : badRequest(res, message);
     } catch (error) {

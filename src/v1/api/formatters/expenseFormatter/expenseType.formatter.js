@@ -6,9 +6,10 @@ export function formatExpenseType(expenseTypeData, organizationId, createdBy) {
         systemCategoryId,
         subcategoryId,
         description,
-        // config,
+        config,
         formId,
-        workflowId
+        workflowId,
+        autoApproveConfig
     } = expenseTypeData;
     
     return {
@@ -18,13 +19,15 @@ export function formatExpenseType(expenseTypeData, organizationId, createdBy) {
         subcategoryId: subcategoryId || null,
         name,
         description: description || "",
-        // config: {
-        //     maxAmount: config?.maxAmount || null,
-        //     requiresReceipt: config?.requiresReceipt || false,
-        //     autoApproveIfBelowAmount: config?.autoApproveIfBelowAmount || null,
-        //     mandatoryFields: config?.mandatoryFields || [],
-        //     ...config
-        // },
+        autoApproveConfig,
+        config,
+        // {
+            // maxAmount: config?.maxAmount ,
+            // requiresReceipt: config?.requiresReceipt || false,
+            // autoApproveIfBelowAmount: config?.autoApproveIfBelowAmount || null,
+            // mandatoryFields: config?.mandatoryFields || [],
+            // ...config
+        // },   
         formId: formId || null,
         workflowId: workflowId || null,
         isPublished: false,
@@ -37,7 +40,7 @@ export function formatExpenseType(expenseTypeData, organizationId, createdBy) {
 
 export function formatExpenseTypeForUpdate(updateData) {
     const allowedFields = [
-        'name', 'description', 'config', 'formId', 'workflowId'
+        'name', 'description', 'config', 'formId', 'workflowId','autoApproveConfig'
     ];
     
     const formattedData = {};

@@ -47,6 +47,14 @@ export async function getAllSubcategories(organizationId, filters) {
         const subcategories = await subcategoryModel
             .find(query)
             .select('-__v')
+            .populate({
+    path: 'systemCategoryId',
+    model: 'systemCategory',
+    localField: 'systemCategoryId',
+    foreignField: 'systemCategoryId',
+    justOne: true,
+    select: '-_id systemCategoryId name'
+  })
             .sort({ name: 1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -75,7 +83,15 @@ export async function getSubcategoryById(subcategoryId, organizationId) {
             subcategoryId, 
             organizationId,
             isActive: true 
-        }).select('-__v');
+        }).select('-__v')
+         .populate({
+    path: 'systemCategoryId',
+    model: 'systemCategory',
+    localField: 'systemCategoryId',
+    foreignField: 'systemCategoryId',
+    justOne: true,
+    select: '-_id systemCategoryId name'
+  });
         
         if (!subcategory) {
             return returnFormatter(false, "Subcategory not found");
@@ -104,7 +120,8 @@ export async function updateSubcategoryData(subcategoryId, updateData, organizat
             { subcategoryId },
             formattedData,
             { new: true }
-        ).select('-__v');
+        ).select('-__v')
+        ;
         
         // Create audit log
         await createAuditLog({

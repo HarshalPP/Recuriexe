@@ -140,10 +140,11 @@ const organizationSchema = new mongoose.Schema(
      communicationTo : String,
     communicationCC : [String],
    },
+    
     enach : {
         type : String,
         default : "physical",
-        // enum : ["physical","esign","upload"]
+        enum : ["physical","esign","upload"]
     },
     sign :{
         type : String

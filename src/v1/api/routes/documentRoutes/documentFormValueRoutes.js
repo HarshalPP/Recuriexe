@@ -4,9 +4,9 @@ import { verifyEmployeeToken } from '../../middleware/authicationmiddleware.js';
 
 const router = express.Router();
 
-router.post('/add', verifyEmployeeToken, createDocumentFormValue);
-router.get('/detail/:id', verifyEmployeeToken, getDocumentFormValueById)
-router.get('/getAll', verifyEmployeeToken, getAllDocumentFormValues);
-router.post('/update/:id', verifyEmployeeToken, updateDocumentFormValue)
+router.post('/add',  createDocumentFormValue);
+router.get('/detail',  getDocumentFormValueById)
+router.get('/getAll',  getAllDocumentFormValues);
+router.post('/update/:id',  updateDocumentFormValue)
 
 export default router;

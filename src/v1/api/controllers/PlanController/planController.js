@@ -209,7 +209,7 @@ export const assignPlanToOrganization = async (req, res) => {
     let usedJobPosts = 0;
     let usedUsers = 0;
 
-    let existingOrgPlan = await organizationPlanModel.findOne({ organizationId, isActive: true });
+    let existingOrgPlan = await organizationPlanModel.findOne({ organizationId: organization._id });
 
     if (existingOrgPlan) {
       const isSamePlan = existingOrgPlan.planId?.toString() === planId;
@@ -220,6 +220,7 @@ export const assignPlanToOrganization = async (req, res) => {
         existingOrgPlan.PlanDate = now;
         existingOrgPlan.planDurationInDays = newPlan.planDurationInDays;
         existingOrgPlan.reminderSent = false;
+        existingOrgPlan.isActive = true;
         await existingOrgPlan.save();
         return success(res, "Plan duration updated (same plan)", existingOrgPlan);
       }
@@ -574,7 +575,6 @@ export const upgradenewOrgPlan = async ({ PlanId, organizationId, Amount }) => {
 
 
 export async function schedulePlanExpiryCheck() {
-  console.log("called")
   cron.schedule(
     "* * * * *", // Run every minute (testing)
     async () => {

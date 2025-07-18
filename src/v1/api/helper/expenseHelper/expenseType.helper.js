@@ -42,6 +42,39 @@ export async function getAllExpenseTypes(organizationId, filters) {
         const expenseTypes = await expenseTypeModel
             .find(query)
             .select('-__v')
+
+ .populate({
+    path: 'systemCategoryId',
+    model: 'systemCategory',
+    localField: 'systemCategoryId',
+    foreignField: 'systemCategoryId',
+    justOne: true,
+    select: '_id systemCategoryId name'
+  })
+.populate({
+    path: 'subcategoryId',
+    model: 'subcategory',
+    localField: 'subcategoryId',
+    foreignField: 'subcategoryId',
+    justOne: true,
+    select: '_id name'
+  })
+  .populate({
+    path: 'formId',
+    model: 'dynamicForm',
+    localField: 'formId',
+    foreignField: 'formId',
+    justOne: true,
+    select: 'formId name'
+  })
+  .populate({
+    path: 'workflowId',
+    model: 'workflow',
+    localField: 'workflowId',
+    foreignField: 'workflowId',
+    justOne: true,
+    select: '_id name'
+  })
             .sort({ name: 1 })
             .skip(skip)
             .limit(parseInt(limit));
@@ -70,7 +103,39 @@ export async function getExpenseTypeById(expenseTypeId, organizationId) {
             expenseTypeId, 
             organizationId,
             isActive: true 
-        }).select('-__v');
+        }).select('-__v')
+            .populate({
+    path: 'systemCategoryId',
+    model: 'systemCategory',
+    localField: 'systemCategoryId',
+    foreignField: 'systemCategoryId',
+    justOne: true,
+    select: '-_id systemCategoryId name'
+  })
+.populate({
+    path: 'subcategoryId',
+    model: 'subcategory',
+    localField: 'subcategoryId',
+    foreignField: 'subcategoryId',
+    justOne: true,
+    select: '-_id subcategoryId name'
+  })
+  .populate({
+    path: 'formId',
+    model: 'dynamicForm',
+    localField: 'formId',
+    foreignField: 'formId',
+    justOne: true,
+    select: '-_id formId name description fields isActive createdBy',
+  })
+  .populate({
+    path: 'workflowId',
+    model: 'workflow',
+    localField: 'workflowId',
+    foreignField: 'workflowId',
+    justOne: true,
+    select: '-_id workflowId name'
+  });;
         
         if (!expenseType) {
             return returnFormatter(false, "Expense type not found");

@@ -1,7 +1,7 @@
 import express from 'express'
 const router = express.Router();
 
-import {createAgencyClient , getAllAgencyClients , getAgencyClientById , updateAgencyClient , deleteAgencyClient , assignMultipleCandidatesToClient , getAssignedCandidatesToClients} from "../../controllers/AgencyController/agency.controller.js"
+import {createAgencyClient , getAllAgencyClients , getAgencyClientById , updateAgencyClient , deleteAgencyClient , assignMultipleCandidatesToClient , getAssignedCandidatesToClients , getAgencyDashboard , getAllAgencyClientsForLocation , getAgencyClient} from "../../controllers/AgencyController/agency.controller.js"
 import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
 
 
@@ -13,6 +13,8 @@ router.post("/updateAgencyClient/:id" , verifyEmployeeToken ,updateAgencyClient)
 router.post("/deleteAgencyClient/:id" , verifyEmployeeToken , deleteAgencyClient)
 router.post("/assignMultipleCandidatesToClient" , verifyEmployeeToken , assignMultipleCandidatesToClient)
 router.get("/getAssignedCandidatesToClients" , verifyEmployeeToken , getAssignedCandidatesToClients)
-
+router.get("/getAgencyDashboard" , verifyEmployeeToken , getAgencyDashboard)
+router.get("/getAllAgencyClientsForLocation" , verifyEmployeeToken , getAllAgencyClientsForLocation)
+router.get("/getAgencyClient" , verifyEmployeeToken , getAgencyClient)
 
 export default router;

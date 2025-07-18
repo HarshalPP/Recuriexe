@@ -157,7 +157,6 @@ Please keep this ID for future reference regarding your application status.
   } catch (error) {
     console.error(`❌ Failed to send email to ${email}:`, error);
     if (error.response) {
-      console.error('SendGrid API error details:', error.response.body);
     }
     return false;
   }
@@ -243,7 +242,6 @@ export const hrmsSendEmail = async (toEmails, ccEmails, subject, html, attachmen
     console.log("✅ MAIL SENT SUCCESSFULLY");
     return true;
   } catch (error) {
-    console.error("❌ Error sending email:", error);
     if (error.response) {
       console.error("SendGrid response error:", error.response.body);
     }
