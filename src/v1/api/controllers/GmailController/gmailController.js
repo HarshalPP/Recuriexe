@@ -80,7 +80,6 @@ export const getAllUsers = async (req, res) => {
     return unknownError(res, "Failed to fetch users", error); 
   }
 };
-
 // disconnect account
 
 export const disconnectGoogleAccount = async (req, res) => {
