@@ -1,206 +1,338 @@
-const { default: mongoose } = require("mongoose");
-const branchModel = require("../model/adminMaster/newBranch.model");
-const companyModel = require("../model/adminMaster/company.model");
-const costCenterModel = require("../model/adminMaster/costCenter.model");
-const departmentModel = require("../model/adminMaster/department.model");
-const designationModel = require("../model/adminMaster/designation.model");
-const employeModel = require("../model/adminMaster/employe.model");
-const workLocationModel = require("../model/adminMaster/workLocation.model");
-const customerModel = require("../model/customer.model");
+import mongoose from "mongoose";
+import { returnFormatter } from "../formatters/common.formatter.js";
+import initModel from "../models/initModel/init.model.js";
+import employeeModel from "../models/employeemodel/employee.model.js";
+import partnerRequestModel from "../models/partnerRequestModel/partnerRequest.model.js";
+import serviceModel from "../models/serviceModel/service.model.js";
+import { getAllPartners } from "./partnerRequest.helper.js";
+import companyModel from "../models/companyModel/company.model.js";
+import { addVariableAuto } from "./variable.helper.js";
+import roleModel from "../models/RoleModel/role.model.js";
 
-// Function to get start and end of today in IST
-function getStartAndEndOfTodayInIST() {
-  const now = new Date();
 
-  // Get the current time in UTC milliseconds
-  const utcTimeInMs = now.getTime() + now.getTimezoneOffset() * 60000;
 
-  // IST offset is UTC+5:30
-  const istOffsetInMs = 5.5 * 60 * 60 * 1000;
 
-  // Current time in IST
-  const istTimeInMs = utcTimeInMs + istOffsetInMs;
-  const istDate = new Date(istTimeInMs);
 
-  // Start of the month in IST
-  const startOfMonthIST = new Date(istDate);
-  startOfMonthIST.setDate(1);
-  startOfMonthIST.setHours(0, 0, 0, 0);
-  
-  
-  // End of the month in IST
-  const endOfMonthIST = new Date(istDate);
-  // Move to the next month and set date to 0 to get the last day of the current month
-  endOfMonthIST.setMonth(endOfMonthIST.getMonth() + 1);
-  endOfMonthIST.setDate(0);
-  endOfMonthIST.setHours(23, 59, 59, 999);
-  
-  return { startOfMonthIST, endOfMonthIST };
-}
 
-// async function salesDashbaordHelper() {
-//   try {
-//     const employees = await employeModel
-//       .find()
-//       .select("_id employeName reportingManagerId");
-//     const employeeMap = {};
-//     // Create a map for quick lookup by _id
-//     employees.forEach((employee) => {
-//       employeeMap[employee._id.toString()] = {
-//         ...employee._doc,
-//         subordinates: [],
-//       };
-//     });
+//----------------------------   get all Count ------------------------------
 
-//     // Build the hierarchy
-//     const hierarchy = [];
-//     employees.forEach((employee) => {
-//       if (employee.reportingManagerId) {
-//         const manager = employeeMap[employee.reportingManagerId.toString()];
-//         if (manager) {
-//           manager.subordinates.push(employeeMap[employee._id.toString()]);
-//         }
-//       } else {
-//         // If no reportingManagerId, it's a top-level head
-//         hierarchy.push(employeeMap[employee._id.toString()]);
-//       }
-//     });
-//     return hierarchy;
-//   } catch (err) {
-//     console.log(err);
-
-//     return false;
-//   }
-// }
-
-async function salesDashbaordHelper() {
+export async function getallCount(requestsObject) {
   try {
-    const roleIds = [
-      new mongoose.Types.ObjectId("66a8e17ec3e96f6013b96d6b"),
-      new mongoose.Types.ObjectId("66a8eee5c3e96f6013b96eb8"),
-      new mongoose.Types.ObjectId("66f518972eb2d5b70e38a573"),
-    ];
+    const organizationId = requestsObject.employee.organizationId;
 
-    // Get start and end of today in IST
-    const {  startOfMonthIST, endOfMonthIST } = getStartAndEndOfTodayInIST();
+    // Use countDocuments for counts instead of find()
+    const allCount = await initModel.countDocuments({ organizationId });
+    const allocatedCount = await initModel.countDocuments({ organizationId, workStatus: "allocated" });
+    const backOfficeReceivedCount = await initModel.countDocuments({ organizationId, workStatus: "backofficereceived" });
+    const wipCount = await initModel.countDocuments({ organizationId, workStatus: "wip" });
+    const completedCount = await initModel.countDocuments({ organizationId, workStatus: "reportgenerated" });
 
-    const employeesByBranch = await employeModel.aggregate([
-      // Step 1: Match employees with specific roleIds
-      {
-        $match: {
-          roleId: { $in: roleIds },
-        },
-      },
-      // Step 2: Lookup customerdetails with paymentStatus "success" and today's date
-      {
-        $lookup: {
-          from: "customerdetails",
-          let: { empId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$employeId", "$$empId"] },
-                    { $eq: ["$paymentStatus", "success"] },
-                    { $gte: ["$createdAt", startOfMonthIST] },
-                    { $lte: ["$createdAt", endOfMonthIST] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "loandetail",
-        },
-      },
-      // Step 3: Add loandetailCount field
-      {
-        $addFields: {
-          loandetailCount: { $size: "$loandetail" },
-        },
-      },
-      // Step 4: Lookup reporting manager name
-      {
-        $lookup: {
-          from: "employees", // Adjust the collection name as necessary
-          localField: "reportingManagerId",
-          foreignField: "_id",
-          as: "reportingManager",
-        },
-      },
-      {
-        $unwind: {
-          path: "$reportingManager",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      // Step 5: Group by branchId
-      {
-        $group: {
-          _id: "$branchId",
-          employees: {
-            $push: {
-              _id: "$_id",
-              employeName: "$employeName",
-              reportingManagerId: "$reportingManagerId",
-              reportingManagerName: "$reportingManager.employeName",
-              loandetailCount: "$loandetailCount",
-            },
-          },
-          totalCases: { $sum: "$loandetailCount" },
-        },
-      },
-      // Step 6: Lookup branch name from newBranch collection
-      {
-        $lookup: {
-          from: "newbranches",
-          localField: "_id",
-          foreignField: "_id",
-          as: "branchInfo",
-        },
-      },
-      {
-        $unwind: "$branchInfo",
-      },
-      // Step 7: Project desired fields
-      {
-        $project: {
-          _id: 1,
-          branchName: "$branchInfo.name",
-          totalCases: 1,
-          employees: 1,
-        },
-      },
-      // Step 8: Sort employees within each branch based on loandetailCount
-      {
-        $unwind: "$employees",
-      },
-      {
-        $sort: {
-          "employees.loandetailCount": -1,
-        },
-      },
-      {
-        $group: {
-          _id: "$_id",
-          branchName: { $first: "$branchName" },
-          totalCases: { $first: "$totalCases" },
-          employees: { $push: "$employees" },
-        },
-      },
-      {
-        $sort: {
-          branchName: 1,
-        },
-      },
-    ]);
+    const clientCount = await partnerRequestModel.countDocuments({ senderId: organizationId, status: "accepted" });
+    const empCount = await employeeModel.countDocuments({ organizationId });
 
-    return employeesByBranch;
-  } catch (err) {
-    console.log(err);
+    const data = {
+      allCount,
+      allocatedCount,
+      backOfficeReceivedCount,
+      wipCount,
+      completedCount,
+      clientCount,
+      empCount,
+    };
 
-    return false;
+    return returnFormatter(true, "all count data", data);
+  } catch (error) {
+    return returnFormatter(false, error.message);
   }
 }
 
-module.exports = { salesDashbaordHelper };
+
+
+//----------------------------   get ad cases Count ------------------------------
+
+export async function getAdCases(requestsObject) {
+    try {
+
+        const  data = await initModel.find({organizationId:requestsObject.employee.organizationId,workStatus:"allocated"})
+
+
+        return returnFormatter(true, "Stage count data", data.length?data.length:0);
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}
+
+
+//----------------------------   get backofficeCount ------------------------------
+
+export async function getBackOfficeCount(requestsObject) {
+    try {
+
+        const  data = await initModel.find({organizationId:requestsObject.employee.organizationId,workStatus:"allocated"})
+
+        return returnFormatter(true, "Stage count data",  data.length?data.length:0);
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}
+
+//----------------------------   get backofficeCount ------------------------------
+
+export async function getBackOfficeWipCount(requestsObject) {
+    try {
+
+        const  data = await initModel.find({organizationId:requestsObject.employee.organizationId,workStatus:"wip"})
+
+        return returnFormatter(true, "Stage count data",  data.length?data.length:0);
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}
+
+
+
+
+//----------------------------   get backoffice completed Count  ------------------------------
+
+export async function getBackOfficeCompletedCount(requestsObject) {
+    try {
+
+        const  data  = await initModel.find({organizationId:requestsObject.employee.organizationId,workStatus:"reportgenerated"})
+
+        return returnFormatter(true, "Stage count data",  data.length?data.length:0);
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}
+
+//---------------------------- get vendor count  ------------------------------
+
+export async function getClientCount(requestsObject) {
+  try {
+    // Fetch all employees under the specified serviceId
+    let request = await partnerRequestModel.find({senderId:requestsObject.employee.organizationId,status:"accepted"});
+
+    return returnFormatter(true, "Task count data", request.length?request.length:0);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+//---------------------------- Task emp wise   ------------------------------
+
+export async function getTaskCountByEmp(requestsObject) {
+  try {
+    // Fetch all employees under the specified serviceId
+    let employees = await employeeModel.find({ organizationId: requestsObject.employee.organizationId });
+
+    let results = [];
+
+    // For each employee, calculate allocated and completed counts
+    for (let emp of employees) {
+      let allocatedCount = await initModel.countDocuments({ allocatedOfficeEmp: emp._id,workStatus:"allocated" });
+      let completedCount = await initModel.countDocuments({
+        allocatedOfficeEmp: emp._id,
+        workStatus: "reportgenerated"
+      });
+
+      results.push({
+        name: emp.fullName, // adjust if name is different
+        allocated: allocatedCount,
+        completed: completedCount
+      });
+    }
+
+    return returnFormatter(true, "Task count data", results);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+//---------------------------- Task emp wise   ------------------------------
+
+export async function getTaskCountByPartners(requestsObject) {
+  try {
+    // Fetch all employees under the specified serviceId
+    let reqData = await getAllPartners(requestsObject);
+
+    let results = [];
+
+    // For each employee, calculate allocated and completed counts
+    for (let req of reqData.data) {
+      let allocatedCount = await initModel.countDocuments({ partnerId:req.partner._id,workStatus:"allocated" });
+      let completedCount = await initModel.countDocuments({
+        partnerId:req.partner._id,
+        workStatus: "reportgenerated"
+      });
+
+      results.push({
+        name: req.partner.fullName, // adjust if name is different
+        allocated: allocatedCount,
+        completed: completedCount
+      });
+    }
+
+    return returnFormatter(true, "Task count data", results);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+
+//---------------------------- Task report wise   ------------------------------
+
+export async function getTaskCountByService(requestsObject) {
+  try {
+    // Fetch all employees under the specified serviceId
+    let allServices = await serviceModel.find({ organizationId: requestsObject.employee.organizationId });
+
+    let results = [];
+
+    // For each employee, calculate allocated and completed counts
+    for (let service of allServices) {
+      let allocatedCount = await initModel.countDocuments({ referServiceId: service._id,workStatus:"allocated" });
+      let wipCount = await initModel.countDocuments({ referServiceId: service._id,reportStatus:"wip" });
+      let completedCount = await initModel.countDocuments({
+        referServiceId: service._id,
+        workStatus: "reportgenerated"
+      });
+
+      results.push({
+        name: service.serviceName, // adjust if name is different
+        allocated: allocatedCount,
+        wipCount,
+        completed: completedCount
+      });
+    }
+
+    return returnFormatter(true, "Task count data", results);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+//---------------------------- employee count  ------------------------------
+
+export async function getEmpCount(requestsObject) {
+  try {
+   
+    let emp = await employeeModel.countDocuments({organizationId:requestsObject.employee.organizationId})
+
+    return returnFormatter(true, "Task count data", emp);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+
+//--------------------------- get cases report count ----------------------------------
+
+
+export async function getAllForBackOfficeData(reqObj) {
+    try {
+
+        const query = {
+            organizationId: new mongoose.Types.ObjectId(reqObj.employee.organizationId),
+        };
+        let role = await roleModel.findById(reqObj.employee.roleId);
+       
+        if (role.roleName=="SuperAdmin") {
+            // Add `allocatedOfficeEmp` conditionally
+            query.allocatedOfficeEmp = new mongoose.Types.ObjectId(reqObj.employee.id);
+        }
+
+
+        if (reqObj.query?.partnerId) {
+            query.partnerId = reqObj.query.partnerId;
+        }
+
+        if (reqObj.query?.serviceId) {
+            query.referServiceId = reqObj.query.serviceId;
+        }
+
+        // Date filter handling
+        if (reqObj.query?.dateFilter) {
+            const now = new Date();
+            let startDate, endDate;
+
+            switch (reqObj.query.dateFilter) {
+                case "today":
+                    startDate = new Date(now.setHours(0, 0, 0, 0));
+                    endDate = new Date(now.setHours(23, 59, 59, 999));
+                    break;
+                case "thisWeek":
+                    const firstDayOfWeek = new Date(now);
+                    firstDayOfWeek.setDate(now.getDate() - now.getDay());
+                    firstDayOfWeek.setHours(0, 0, 0, 0);
+                    startDate = firstDayOfWeek;
+                    endDate = new Date(); // now
+                    break;
+                case "thisMonth":
+                    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                    startDate = firstDayOfMonth;
+                    endDate = new Date(); // now
+                    break;
+                case "custom":
+                    if (reqObj.query.startDate && reqObj.query.endDate) {
+                        startDate = new Date(reqObj.query.startDate);
+                        endDate = new Date(reqObj.query.endDate);
+                        endDate.setHours(23, 59, 59, 999);
+                    }
+                    break;
+            }
+
+            if (startDate && endDate) {
+                query.createdAt = {
+                    $gte: startDate,
+                    $lte: endDate
+                };
+            }
+        }
+
+        const initData = await initModel.find({...query,workStatus:"reportgenerated"})
+            .populate({ path: "partnerId", model: "Organization", options: { strictPopulate: false } })
+            .populate({ path: "doneBy", model: "employee", options: { strictPopulate: false } })
+            .populate({ path: "allocatedOfficeEmp", model: "employee", options: { strictPopulate: false } })
+            .populate({ path: "referServiceId", model: "service", options: { strictPopulate: false } })
+            .populate({ path: "reportType", model: "userProduct", options: { strictPopulate: false } })
+
+            .sort({ createdAt: -1 });
+
+        if (!initData.length) {
+            return returnFormatter(true, "No init data found", []);
+        }
+
+        const company = await companyModel.findOne({ organizationId: new mongoose.Types.ObjectId(reqObj.employee.organizationId) });
+
+        const partnerId = initData[0]?.partnerId?._id || initData[0]?.partnerId;
+        const organizationId = new mongoose.Types.ObjectId(reqObj.employee.organizationId);
+
+        const requestData = await partnerRequestModel.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { senderId: partnerId, receiverId: organizationId },
+                        { senderId: organizationId, receiverId: partnerId }
+                    ]
+                }
+            }
+        ]).sort({ createdAt: -1 });
+
+        const mergedData = initData.map(init => ({
+            ...init.toObject(),
+            company,
+            requestData: requestData[0] || null
+        }));
+
+        await addVariableAuto(reqObj);
+
+
+        return returnFormatter(true, "Init data with emp retrieved", mergedData);
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}

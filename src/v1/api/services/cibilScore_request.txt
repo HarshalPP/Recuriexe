@@ -1,1 +1,0 @@
-{"idNumber":"EQYPD2896B","idType":"01","firstName":"Nikit","lastName":"Dwivedi","birthDate":"23071997","gender":"2","stateCode":"23","pinCode":"452010","line1":"sapphire 101","line2":"sai nest R-65","line3":"mahalaxmi nagar","line4":"indore vijay nagar","line5":"madhya pradesh","telephoneNumber":""}
