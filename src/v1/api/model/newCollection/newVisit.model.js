@@ -1,0 +1,37 @@
+const mongoose = require("mongoose");
+const Schema = mongoose.Schema;
+ObjectId = Schema.ObjectId;
+
+const newVisitModelSchema = new Schema({
+    visitStatusUpdateBy:   { type: ObjectId, default:null },
+    LD:                    { type: String,default:""},
+    visitBy:               { type: String,default:"" },
+    visitDate:             { type: String, default:""},
+    revisitDate:           { type: String, default:""},
+    newContactNumber:      { type: Number, default:null },
+    customerResponse:      { type: String, default:""},
+    paymentAmount:         { type: Number, default: 0 },
+    reasonForNotPay:       { type: String, default:""},
+    solution:              { type: String, default:""},
+    reasonForCustomerNotContactable:  { type: String, default:""},
+    visitSelfie:           { type: String, default:""},
+    address:               { type: String, default:""},
+    location: {
+        type: { type: String, default: "Point" },
+        coordinates: { type: [Number], required: true }
+     },
+    status:     { type: String, enum :["accept","pending","reject"], default:"pending" },
+    reason:     { type: String, default:"" },
+    visitUpdateDate : { type: String, default:"" },
+},
+{
+  timestamps: true,
+}
+);
+
+newVisitModelSchema.index({ location: "2dsphere" });
+
+
+const newVisitModel = mongoose.model("newvisit", newVisitModelSchema);
+
+module.exports = newVisitModel;

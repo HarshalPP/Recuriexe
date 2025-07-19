@@ -1,50 +1,47 @@
 
-import express from "express";
+const express = require("express");
 const router = express.Router();
 
-import { taskAdd , selfTaskDelete,selfTaskUpdate ,addGroupTask,getGroupTaskByToken, getTaskByEmployeeId , getTaskById ,getAllTask,
+const { addGroupTask ,getGroupTaskByToken }= require("../../controller/taskManagement/groupTask.controller")
+const { taskAdd , selfTaskDelete,selfTaskUpdate , getTaskByEmployeeId , getTaskById ,getAllTask,
     getTaskByParticularId,getTaskEmployeeName,getTaskByManagerId, replyOnTaskByTaskId,
     getbodEodVerify, taskUpdateByManager,reAssignTask , getGroupTaskByTaskId, 
     seenAndUnseenMessageByMessageId,getGroupUnseenMessageCount,countTaskStatusApi, 
-    getManagerEmployeeHierarchy ,getTaskCalenderApi, getAutoTaskList, getAutoTaskListByEmpId, 
-    autoTaskListApi }  from "../../controllers/taskManagementController/task.controller.js"
-    
-import {verifyEmployeeToken} from "../../middleware/authicationmiddleware.js"
+    getManagerEmployeeHierarchy ,getTaskCalenderApi, getAutoTaskList, getAutoTaskListByEmpId, autoTaskListApi } = require("../../controller/taskManagement/task.controller")
 
-
-router.post("/add",             verifyEmployeeToken ,    taskAdd)
-router.get("/selfTaskDelete",   verifyEmployeeToken ,    selfTaskDelete)
-router.post("/selfTaskUpdate",  verifyEmployeeToken ,    selfTaskUpdate)
-router.post("/addGroupTask",    verifyEmployeeToken ,    addGroupTask)
-router.get("/getBy",            verifyEmployeeToken ,    getTaskByEmployeeId)
-router.get("/taskBy",           verifyEmployeeToken ,    getTaskById)
-router.get("/selfAndReceivedTask", verifyEmployeeToken,  getAllTask)
-router.get("/getTaskByParticularId",verifyEmployeeToken, getTaskByParticularId)
-router.get("/getTaskEmployeeName",  verifyEmployeeToken, getTaskEmployeeName)
-router.post("/reassign",            verifyEmployeeToken, reAssignTask)
-router.get("/bodEodByManagerId",    verifyEmployeeToken, getTaskByManagerId)
-router.post("/replyOnTask",         verifyEmployeeToken, replyOnTaskByTaskId)
-router.get("/Verify",               verifyEmployeeToken, getbodEodVerify)
-router.post("/updateByManager",     verifyEmployeeToken, taskUpdateByManager)
-router.get("/getGroupTaskByToken",  verifyEmployeeToken, getGroupTaskByToken)
-router.get("/groupTask",            verifyEmployeeToken, getGroupTaskByTaskId)
-router.get("/seenAndUnseenBy",      verifyEmployeeToken, seenAndUnseenMessageByMessageId)
-router.get("/getGroupUnseenMessageCount",   verifyEmployeeToken , getGroupUnseenMessageCount)
-router.get("/countTaskStatusApi",           verifyEmployeeToken , countTaskStatusApi)
-router.get("/managerEmployeeHierarchy",     verifyEmployeeToken , getManagerEmployeeHierarchy)
-router.get("/getTaskCalenderApi",           verifyEmployeeToken , getTaskCalenderApi)
+router.post("/add",             taskAdd)
+router.get("/selfTaskDelete",   selfTaskDelete)
+router.post("/selfTaskUpdate",  selfTaskUpdate)
+router.post("/addGroupTask",    addGroupTask)
+router.get("/getBy",            getTaskByEmployeeId)
+router.get("/taskBy",           getTaskById)
+router.get("/selfAndReceivedTask",           getAllTask)
+router.get("/getTaskByParticularId",getTaskByParticularId)
+router.get("/getTaskEmployeeName",  getTaskEmployeeName)
+router.post("/reassign",            reAssignTask)
+router.get("/bodEodByManagerId",    getTaskByManagerId)
+router.post("/replyOnTask",         replyOnTaskByTaskId)
+router.get("/Verify",               getbodEodVerify)
+router.post("/updateByManager",     taskUpdateByManager)
+router.get("/getGroupTaskByToken",  getGroupTaskByToken)
+router.get("/groupTask",            getGroupTaskByTaskId)
+router.get("/seenAndUnseenBy",      seenAndUnseenMessageByMessageId)
+router.get("/getGroupUnseenMessageCount", getGroupUnseenMessageCount)
+router.get("/countTaskStatusApi",         countTaskStatusApi)
+router.get("/managerEmployeeHierarchy",   getManagerEmployeeHierarchy)
+router.get("/getTaskCalenderApi",getTaskCalenderApi)
 
 //auto task listing api base on token
-router.get("/getAutoTaskList",   verifyEmployeeToken , getAutoTaskList)
+router.get("/getAutoTaskList",getAutoTaskList)
 
 //auto task listing api base on empId
-router.get("/getAutoTaskListByEmpId",   verifyEmployeeToken , getAutoTaskListByEmpId)
+router.get("/getAutoTaskListByEmpId",getAutoTaskListByEmpId)
 
 //all task listing api
-router.get("/autoTaskListApi",   verifyEmployeeToken , autoTaskListApi)
+router.get("/autoTaskListApi",autoTaskListApi)
 
 
-export default router;
+ module.exports = router;
  
 
     

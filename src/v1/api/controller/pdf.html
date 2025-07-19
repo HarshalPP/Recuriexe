@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form with Skip and Submit Buttons</title>
+    <style>
+        .doc_section-outer {
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 4px solid #4B5563;
+            border-radius: 20px;
+            overflow: hidden;
+            padding: 22px 71px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .doc_section-outer table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .doc_section-outer td {
+            border: 1px solid;
+            padding: 11px 11px;
+        }
+        .doc-head {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            
+        }
+        .doc-head-titles h1 {
+            margin: 0;
+            font-family: sans-serif;
+            font-weight: 500;
+            text-decoration: underline;
+            margin-bottom: 6px;
+            font-size: 26px;
+        }
+        .doc-head-titles h5 {
+            margin: 8px 0px;
+        }
+        .doc-head-titles {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <section id="doc_section">
+        <div class="doc_section-outer">
+            <div class="doc-head" style="display: flex; flex-direction: row; align-items: center;">
+                <img height="200" width="200" src="finCooper.png">
+                <div class="doc-head-titles">
+                    <h1>FIN COOPERS INDIA PVT. LTD</h1>
+                    <h1>CIN:U74140MP2019PTC048765</h1>
+                    <h5>Registered Office: 207-210, Diamond Trade Center, 11 bungalow</h5>
+                    <h5>colony, near Hukumchand Ghantaghar marg, Indore</h5>
+                    <h5>(Μ.Ρ.)-452001</h5>
+                </div>
+            </div>
+            <h1>Email receipt</h1>
+            <table>
+                <tr>
+                    <td>Date</td>
+                    <td>{{emiCollectDate}}</td>
+                </tr>
+                <tr>
+                    <td>Loan No</td>
+                    <td>{{loanNo}}</td>
+                </tr>
+                <tr>
+                    <td>Customer Name</td>
+                    <td>{{customerName}}</td>
+                </tr>
+                <tr>
+                    <td>Email</td>
+                    <td>{{email}}</td>
+                </tr>
+                <tr>
+                    <td>Mobile No</td>
+                    <td>{{mobileNo}}</td>
+                </tr>
+                <tr>
+                    <td>EMI Amount</td>
+                    <td>{{emiAmount}}</td>
+                </tr>
+                <tr>
+                    <td>Penalty Amount</td>
+                    <td>{{penaltyAmount}}</td>
+                </tr>
+                <tr>
+                    <td>Mode of Collection</td>
+                    <td>{{modeOfCollectionId}}</td>
+                </tr>
+                <tr>
+                    <td>Transaction ID</td>
+                    <td>{{transId}}</td>
+                </tr>
+                <tr>
+                    <td>Collected By</td>
+                    <td>{{collectedByName}}</td>
+                </tr>
+            </table>
+            <div class="doc-note">
+                <p>NOTE</p>
+                <ul>
+                    <li>1. EMI IS COLLECTED ON BEHALF OF BANK/NBFC</li>
+                    <li>2. RECEIPT WILL UPDATE TO YOUR LOAN ACCOUNT ONCE EMI RECEIVED IS CONFIRMED</li>
+                    <li>3. THIS IS SYSTEM GENERATED RECEIPT NO SIGNATURE REQUIRED</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
