@@ -463,10 +463,9 @@ export const jobPostapproveAndReject = async (req, res) => {
     }
 
     const roleDetails = employeeDetails.roleId[0];
-    console.log('roleDetails', roleDetails)
     const allowedRoles = ['admin', 'productowner', 'superadmin'];
     const roleName = roleDetails.roleName?.toLowerCase();
-    const isAllowed = roleDetails.jobPostDashboard.jobPostApprove === true;
+    const isAllowed = roleDetails?.RecruitmentHiring?.jobPostDashboard.jobPostApprove == true;
 
     if (!isAllowed) {
       return badRequest(res, "You are not authorized to approve or reject job posts.");

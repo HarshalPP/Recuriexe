@@ -196,126 +196,138 @@ export const getAllDocumentFormValues = async (req, res) => {
 
 
 export const getDocumentFormValueById = async (req, res) => {
-    try {
-        const { candidateId } = req.query;
+  try {
+    const { candidateId } = req.query;
 
-        if (!mongoose.Types.ObjectId.isValid(candidateId)) {
-            return badRequest(res, "Invalid Candidate ID");
-        }
-
-        const result = await DocumentFormValue.aggregate([
-            { $match: { candidateId: new mongoose.Types.ObjectId(candidateId) } },
-            {
-                $lookup: {
-                    from: "organizations",
-                    localField: "organizationId",
-                    foreignField: "_id",
-                    as: "organization",
-                },
-            },
-            { $unwind: "$organization" },
-
-            // Lookup job post
-            {
-                $lookup: {
-                    from: "jobposts",
-                    localField: "jobPostId",
-                    foreignField: "_id",
-                    as: "jobPost",
-                },
-            },
-            { $unwind: "$jobPost" },
-
-            // Lookup candidate
-            {
-                $lookup: {
-                    from: "jobapplyforms",
-                    localField: "candidateId",
-                    foreignField: "_id",
-                    as: "candidate",
-                },
-            },
-            { $unwind: "$candidate" },
-
-            // Lookup DocumentFormTemplate
-            {
-                $lookup: {
-                    from: "documentformtemplates",
-                    localField: "templateId",
-                    foreignField: "_id",
-                    as: "template",
-                },
-            },
-            { $unwind: "$template" },
-
-            // Re-map each value to include fieldName
-            {
-                $addFields: {
-                    values: {
-                        $map: {
-                            input: "$values",
-                            as: "val",
-                            in: {
-                                $mergeObjects: [
-                                    "$$val",
-                                    {
-                                        fieldName: {
-                                            $let: {
-                                                vars: {
-                                                    matchedField: {
-                                                        $first: {
-                                                            $filter: {
-                                                                input: "$template.fields",
-                                                                as: "f",
-                                                                cond: {
-                                                                    $eq: ["$$f._id", "$$val.fieldId"],
-                                                                },
-                                                            },
-                                                        },
-                                                    },
-                                                },
-                                                in: "$$matchedField.fieldName",
-                                            },
-                                        },
-                                    },
-                                ],
-                            },
-                        },
-                    },
-                },
-            },
-
-            // Optional: project only required fields
-            {
-                $project: {
-                    organization: { name: 1 ,_id:1},
-                    jobPost: { position: 1, experience: 1, noOfPosition: 1, jobPostId: 1,_id:1 },
-                    candidate: {
-                        _id:1,
-                        name: 1,
-                        emailId: 1,
-                        mobileNumber: 1,
-                        candidateId: 1,
-                        candidateUniqueId: 1,
-                        graduationYear: 1,
-                        highestQualification: 1,
-                    },
-                    values: 1,
-                    createdAt: 1,
-                },
-            },
-        ]);
-
-        if (!result || result.length === 0) {
-            return notFound(res, "Document form value not found");
-        }
-
-        return success(res, "Fetched document form value", result[0]);
-    } catch (err) {
-        console.error("Get DocumentFormValueById Error:", err);
-        return unknownError(res, "Failed to get document form value", err);
+    if (!mongoose.Types.ObjectId.isValid(candidateId)) {
+      return badRequest(res, "Invalid Candidate ID");
     }
+
+    const result = await DocumentFormValue.aggregate([
+      { $match: { candidateId: new mongoose.Types.ObjectId(candidateId) } },
+
+      {
+        $lookup: {
+          from: "organizations",
+          localField: "organizationId",
+          foreignField: "_id",
+          as: "organization",
+        },
+      },
+      { $unwind: "$organization" },
+
+      {
+        $lookup: {
+          from: "jobposts",
+          localField: "jobPostId",
+          foreignField: "_id",
+          as: "jobPost",
+        },
+      },
+      { $unwind: "$jobPost" },
+
+      {
+        $lookup: {
+          from: "jobapplyforms",
+          localField: "candidateId",
+          foreignField: "_id",
+          as: "candidate",
+        },
+      },
+      { $unwind: "$candidate" },
+
+      {
+        $lookup: {
+          from: "documentformtemplates",
+          localField: "templateId",
+          foreignField: "_id",
+          as: "template",
+        },
+      },
+      { $unwind: "$template" },
+
+      {
+        $addFields: {
+          values: {
+            $map: {
+              input: "$values",
+              as: "val",
+              in: {
+                $mergeObjects: [
+                  "$$val",
+                  {
+                    fieldName: {
+                      $let: {
+                        vars: {
+                          matchedField: {
+                            $arrayElemAt: [
+                              {
+                                $filter: {
+                                  input: "$template.fields",
+                                  as: "field",
+                                  cond: {
+                                    $eq: ["$$field._id", "$$val.fieldId"],
+                                  },
+                                },
+                              },
+                              0,
+                            ],
+                          },
+                        },
+                        in: {
+                          $cond: {
+                            if: { $gt: ["$$matchedField", null] },
+                            then: "$$matchedField.fieldName",
+                            else: "Unknown Field",
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $project: {
+          organization: { name: 1, _id: 1 },
+          jobPost: {
+            position: 1,
+            experience: 1,
+            noOfPosition: 1,
+            jobPostId: 1,
+            _id: 1,
+          },
+          candidate: {
+            _id: 1,
+            name: 1,
+            emailId: 1,
+            mobileNumber: 1,
+            candidateId: 1,
+            candidateUniqueId: 1,
+            graduationYear: 1,
+            highestQualification: 1,
+          },
+          values: 1,
+          createdAt: 1,
+        },
+      },
+    ]);
+
+    if (!result || result.length === 0) {
+      return notFound(res, "Document form value not found");
+    }
+
+    return success(res, "Fetched document form value", result[0]);
+  } catch (err) {
+    console.error("Get DocumentFormValueById Error:", err);
+    return unknownError(res, "Failed to get document form value", err);
+  }
 };
+
 
 
 export const updateDocumentFormValue = async (req, res) => {

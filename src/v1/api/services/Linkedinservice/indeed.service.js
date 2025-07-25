@@ -178,7 +178,7 @@ async function createJob(accessToken, jobInput) {
       }
     },
   };
-
+  
   try {
     const response = await axios.post(GRAPHQL_URL, mutation, {
       headers: {

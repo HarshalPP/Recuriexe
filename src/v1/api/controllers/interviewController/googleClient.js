@@ -1,9 +1,9 @@
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 
-const CLIENT_ID = "872671367575-jg9vohru7bc7cj22iitp617iascb9pjn.apps.googleusercontent.com"
-const CLIENT_SECRET = "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"
-const REDIRECT_URI = 'https://finexe.fincooper.in/callback'
+const CLIENT_ID = process.env.CLIENT_ID 
+const CLIENT_SECRET = process.env.CLIENT_SECRET 
+const REDIRECT_URI =  process.env.REDIRECT_URI 
 
 dotenv.config();
 if (!CLIENT_ID || !CLIENT_SECRET) {

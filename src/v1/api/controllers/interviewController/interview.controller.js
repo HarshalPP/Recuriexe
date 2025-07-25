@@ -565,7 +565,7 @@ export const updateInterview = async (req, res) => {
     );
     const employee = await Employee.findById(interview.interviewerId);
 
-    if (!employee.email) {
+    if (!employee?.email && !interview?.interviewModel == "AI") {
       return badRequest(res, "Employee Email Not Found");
     }
 
@@ -844,7 +844,8 @@ const OAuth2 = google.auth.OAuth2;
 const oAuth2Client = new OAuth2(
   process.env.GMAIL_CLIENT_ID,
   process.env.GMAIL_CLIENT_SECRET,
-  'https://hrms-api.fincooperstech.com/v1/api/google/callback'
+  `${process.env.BASE_URI}/v1/api/google/callback`,
+  // 'https://hrms-api.fincooperstech.com/v1/api/google/callback'
 );
 
 
@@ -1361,6 +1362,7 @@ export const getInterviewHistory = async (req, res) => {
       updatedAt: interview.updatedAt,
       scheduleDate:interview.scheduleDate ? interview.scheduleDate.toISOString() : null,
       durationMinutes: interview.durationMinutes || 0,
+      videoUrl:interview.videoUrl || ""
     };
 
     return success(res, "Interview history fetched successfully", response);

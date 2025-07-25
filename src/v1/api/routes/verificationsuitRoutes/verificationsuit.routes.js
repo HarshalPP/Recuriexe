@@ -11,12 +11,14 @@ import {createDocument , getDocuments , deleteDocument , updateDocument } from "
 
 // Report Routes //
 
-import {GetCategoryReport , UpdateCategoryReport , generateReportByType , deleteCategoryReport} from "../../controllers/verificationsuitController/manageReportCategory.controller.js"
+import {GetCategoryReport , UpdateCategoryReport , generateReportByType , deleteCategoryReport , GetCategoryReportById} from "../../controllers/verificationsuitController/manageReportCategory.controller.js"
 
 
 // case Ininit //
 
 import {usercaseInit , getcaseInit} from "../../controllers/verificationsuitController/caseinit.controller.js"
+
+import {sendEmailWithZepto} from "../../Utils/sendEmail.js"
 
 // Document setUp //
 
@@ -45,7 +47,8 @@ router.post("/deleteVerificationAPI" , deleteVerificationAPI)
 
 router.post("/UpdateCategoryReport" , verifyEmployeeToken , UpdateCategoryReport)
 router.get("/GetCategoryReport" , verifyEmployeeToken , GetCategoryReport)
-router.post("/generateReportByType" , verifyEmployeeToken , generateReportByType)
+router.get("/GetCategoryReportById/:reportId"  , GetCategoryReportById)
+router.post("/generateReportByType" , generateReportByType)
 router.post("/deleteCategoryReport/:id" , deleteCategoryReport)
 
 
@@ -72,5 +75,10 @@ router.post("/Updatestage/:id", updateStage);
 
 // DELETE
 router.post("/deletestage/:id", deleteStage);
+
+
+// send Email //
+
+router.post("/sendEmailWithZepto" , sendEmailWithZepto)
 
 export default router;

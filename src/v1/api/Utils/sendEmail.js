@@ -6,6 +6,9 @@ import sgMail from '@sendgrid/mail';
 // Set SendGrid API key once at the module level
 const SENDGRID_API_KEY = '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';
 sgMail.setApiKey(SENDGRID_API_KEY);
+import mime from 'mime-types';
+import axios from 'axios';
+
 
 import {
   success,
@@ -329,3 +332,107 @@ export const sendEmail1 = async (options) => {
 //     throw new Error('Failed to send email');
 //   }
 // };
+
+
+
+export const sendEmailWithZepto = async (req, res) => {
+  try {
+    const {
+      toEmails,
+      ccEmails,
+      subject,
+      htmlContent,
+      attachments = []
+    } = req.body;
+const token = "Zoho-enczapikey PHtE6r1cS+nqizR58hUDtve6EM+tMNkrq7hiK1VPsotLW/YLS01Rr4ojwGW1o0giXfITEvbNnN1rtu7K5e3WdmnvM29OWWqyqK3sx/VYSPOZsbq6x00YtVkYcELcVo/ucNNq0CPfuNaX";
+
+
+    const fromEmail = process.env.ZEPTO_FROM_EMAIL || "noreply@fincooperstech.com";
+    const fromName = process.env.ZEPTO_FROM_NAME || "Fincoopers Tech";
+
+    const toArray = Array.isArray(toEmails) ? toEmails : toEmails ? [toEmails] : [];
+    const ccArray = Array.isArray(ccEmails) ? ccEmails : ccEmails ? [ccEmails] : [];
+
+    const validTo = toArray.filter(isValidEmail);
+    const validCc = ccArray.filter(isValidEmail);
+
+    if (validTo.length === 0 && validCc.length === 0) {
+      return res.status(400).json({ success: false, error: "No valid recipients found" });
+    }
+
+    const preparedAttachments = await prepareAttachmentsForZepto({ attachments });
+
+    const payload = {
+      from: {
+        address: fromEmail,
+        name: fromName
+      },
+      to: validTo.map(email => ({ email_address: { address: email } })),
+      cc: validCc.length > 0 ? validCc.map(email => ({ email_address: { address: email } })) : undefined,
+      subject: subject.trim(),
+      htmlbody: htmlContent,
+      attachments: preparedAttachments.length > 0 ? preparedAttachments : undefined
+    };
+
+    const response = await client.sendMail(payload);
+
+    console.log("✅ ZeptoMail sent successfully:", response.data);
+    return res.status(200).json({ success: true, messageId: response.data.request_id });
+
+  } catch (error) {
+    console.error("❌ ZeptoMail Error:", error?.response?.data || error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data || null
+    });
+  }
+};
+
+// Helper: Validate email format
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// Helper: Prepare attachments from dynamic URLs or base64 body
+export const prepareAttachmentsForZepto = async (payload = {}) => {
+  const { attachments = [] } = payload;
+
+  if (!Array.isArray(attachments) || attachments.length === 0) {
+    return [];
+  }
+
+  const prepared = await Promise.all(
+    attachments.map(async (attachment) => {
+      try {
+        // If it's a base64 attachment
+        if (attachment.content && attachment.name) {
+          return {
+            content: attachment.content,
+            name: attachment.name,
+            mime_type: attachment.mime_type || mime.lookup(attachment.name) || 'application/octet-stream',
+          };
+        }
+
+        // If it's a URL-based attachment
+        if (attachment.url) {
+          const response = await axios.get(attachment.url, { responseType: 'arraybuffer' });
+          const base64Content = Buffer.from(response.data).toString('base64');
+          const name = attachment.name || path.basename(attachment.url);
+          const mimeType = attachment.mime_type || mime.lookup(name) || 'application/octet-stream';
+
+          return {
+            content: base64Content,
+            name,
+            mime_type: mimeType
+          };
+        }
+
+        return null;
+      } catch (err) {
+        console.error('❌ Failed to fetch/process attachment:', attachment.url || attachment.name, err.message);
+        return null;
+      }
+    })
+  );
+
+  return prepared.filter(Boolean);
+};

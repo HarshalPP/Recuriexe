@@ -31,6 +31,7 @@ import authRoutes from "./src/v1/api/routes/GmailRoute/auth.routes.js"
 
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { signDocumentWithSignzy } from './src/v1/api/Utils/esignApi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,8 +49,6 @@ app.use(cors({
 app.use(compression());
 app.use(morgan('dev'));
 app.use(logger);
-
-
 // Built-in parsers
 // app.use(urlencoded({ extended: false }));
 // app.use(json());
@@ -81,7 +80,7 @@ app.get('/', (req, res) => {
 
 app.use("/api/auth" , linkedInRoutes)
 // app.use("/api/googleAuth" , google)
-
+// signDocumentWithSignzy()
 
 
 // app.use("/api/google" , google)

@@ -269,10 +269,23 @@ const jobApplyModelSchema = new Schema(
     },
 
 
+    ReportRequest:{
+      type: String,
+      enum: ["notRequested", "requested", "submitted"],
+      default: "notRequested"
+    },
+
+
       ReportId:{
       type:ObjectId,
       ref:'reportcategories',
       default:null
+    },
+
+
+    Reporturl:{
+      type:String,
+      default:""
     },
 
     immediatejoiner: { type: Boolean, default: false },

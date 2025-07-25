@@ -542,7 +542,7 @@ export async function addVariableAuto(requestsObject) {
 
     // Step 7: Get existing variables
     const existingVariables = await variableModel.find({
-      serviceId: requestsObject.employee.organizationId
+      organizationId: requestsObject.employee.organizationId
     });
     const existingVariableNames = existingVariables.map(v => v.variableName);
 
@@ -552,7 +552,7 @@ export async function addVariableAuto(requestsObject) {
     // Step 9: Insert new variables
     if (newVariablesToCreate.length > 0) {
       const variablesToInsert = newVariablesToCreate.map(variableName => ({
-        serviceId: requestsObject.employee.organizationId,
+        organizationId: requestsObject.employee.organizationId,
         variableName
       }));
 

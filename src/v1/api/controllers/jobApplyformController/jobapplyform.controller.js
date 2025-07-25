@@ -42,6 +42,9 @@ import { extractCandidateDataFromResume } from "../../services/Geminiservices/ge
 import pincodeLocationModel from "../../models/pincodeLocation/pincodeLocation.model.js";
 import { getLatLngByPincode } from "../jobpostController/jobpost.controller.js";
 import employeModel from "../../models/employeemodel/employee.model.js";
+import Emailuser from "../../models/UserEmail/user.js";
+import { sendMailHelper } from "../gmailController/gmailController.js";
+
 // Run at 11:59 PM every day
 // cron.schedule("59 23 * * *", async () => {
 //   try {
@@ -275,7 +278,7 @@ export const jobApplyFormAdd = async (req, res) => {
 
     const organizationFind = await organizationModel
       .findById(jobPost.organizationId)
-      .select("name");
+      .select("name carrierlink contactEmail website");
     const portalsetUpDetail = await portalsetUpModel
       .findOne({ organizationId: new ObjectId(organizationFind._id) })
       .select("maxApplicationsPerEmployee minDaysBetweenApplications");
@@ -361,8 +364,8 @@ export const jobApplyFormAdd = async (req, res) => {
     // Save the job application
     const jobFormInstance = new jobApply(req.body);
     const jobApplyForm = await jobFormInstance.save();
-     
-        // Internal Refernace logic
+
+    // Internal Refernace logic
 
     if (internalReferenceName) {
       const internalemployeeData = await employeModel
@@ -371,9 +374,9 @@ export const jobApplyFormAdd = async (req, res) => {
           organizationId: new ObjectId(jobPost.organizationId),
         })
         .select("employeUniqueId employeName employeeCode _id");
-      
-      console.log("internalemployeeData:---",internalemployeeData);
-      
+
+      console.log("internalemployeeData:---", internalemployeeData);
+
       if (internalemployeeData) {
         await jobApply.findByIdAndUpdate(
           jobFormInstance._id,
@@ -382,7 +385,7 @@ export const jobApplyFormAdd = async (req, res) => {
               internalReferenceData: {
                 employeeCode: internalemployeeData.employeUniqueId || "",
                 employeeName: internalemployeeData.employeName || "",
-                employeeId : new ObjectId(internalemployeeData._id) || null ,
+                employeeId: new ObjectId(internalemployeeData._id) || null,
               },
             },
           },
@@ -521,20 +524,85 @@ export const jobApplyFormAdd = async (req, res) => {
         console.warn(`Lat/Lng not found for pincode: ${pincode}`);
       }
     }
-    const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
-    if (
-      jobApplyMailSwitch?.masterMailStatus &&
-      jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
-      jobApplyMailSwitch?.hrmsMail?.jobApplyMail
-    ) {
-      await sendThankuEmail(
-        emailId,
-        name.toUpperCase(),
-        jobPost?.position,
-        organizationFind?.name?.toUpperCase(),
-        jobApplyForm.candidateUniqueId
+    // const jobApplyMailSwitch = await mailSwitchesModel.findOne({});
+    // if (
+    //   jobApplyMailSwitch?.masterMailStatus &&
+    //   jobApplyMailSwitch?.hrmsMail?.hrmsMail &&
+    //   jobApplyMailSwitch?.hrmsMail?.jobApplyMail
+    // ) {
+    //   await sendThankuEmail(
+    //     emailId,
+    //     name.toUpperCase(),
+    //     jobPost?.position,
+    //     organizationFind?.name?.toUpperCase(),
+    //     jobApplyForm.candidateUniqueId
+    //   );
+    // }
+
+    const defaultEmailUser = await Emailuser.findOne({
+      organizationId: new ObjectId(jobPost.organizationId),
+      isDefault: true,
+    }).lean();
+
+    if (!defaultEmailUser) {
+      return badRequest(
+        res,
+        "Configuration Error: No default email sender has been set for this organization."
       );
     }
+
+    // 3. Prepare email details
+    // const mailData = {
+    //   to: emailId,
+    //   subject: `Your Application to ${
+    //     organizationFind?.name?.toUpperCase() || "Our Company"
+    //   } has been Received`,
+    //   message: `Hi ${name},\n\nThank you for your application. We have received it and will be in touch shortly.\n\nBest regards,\nThe Hiring Team`,
+    //   userId: defaultEmailUser._id,
+    //   organizationId: jobPost.organizationId, // Pass the organizationId
+    //   // file: 'optional_file_url'
+    // };
+    const mailData = {
+      to: emailId,
+      subject: `Thank You for Applying to ${organizationFind?.name?.toUpperCase() || "Our Company"}!`,
+
+      message: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <p>Hi ${name},</p>
+
+        <p>Thank you for applying to <strong>${organizationFind?.name?.toUpperCase() || "Our Company"}</strong> — we’re excited about your interest!</p>
+
+        <p>We’ve successfully received your application for the position of <strong>${finddesingnation.name}</strong> at our organization.</p>
+        
+        <p>Our hiring team is currently reviewing all submissions and will be in touch with you within the next few business days regarding the next steps.</p>
+
+        <p>In the meantime, feel free to explore our company culture, mission, and team by visiting our website:
+        <a href="${organizationFind?.website || "#"}" target="_blank">${organizationFind?.website || "Visit Website"}</a>.</p>
+
+        <p>If you have any questions, feel free to reach out to us. We're looking forward to the possibility of having someone as talented as you join our team.</p>
+
+        <p>Warm regards,<br>
+        The Hiring Team<br>
+        ${organizationFind?.name || "Our Company"}<br>
+        ${organizationFind?.contactEmail || ""}</p>
+
+        <hr style="border: none; border-top: 1px solid #ccc;" />
+
+        <p style="font-size: 0.9em;">
+          <strong>P.S.</strong> Stay connected with us through our career portal:
+          <a href="${organizationFind?.carrierlink || "#"}" target="_blank">${organizationFind?.carrierlink || "Visit Career Portal"}</a>
+        </p>
+      </div>
+      `,
+
+      userId: defaultEmailUser._id,
+      organizationId: jobPost.organizationId,
+      // file: 'optional_file_url',
+    };
+
+    await sendMailHelper(mailData);
+
+    success(res, "Application confirmation email sent successfully!");
 
     // job apply google sheete data save
     // await jobApplyToGoogleSheet(jobApplyForm._id);
@@ -563,8 +631,6 @@ export const jobApplyFormAdd = async (req, res) => {
         organizationId: jobPost.organizationId,
       });
     }
-
-
   } catch (error) {
     console.error("Error in :", error);
     unknownError(res, error);
@@ -614,7 +680,6 @@ export const getInternalReferenceSummary = async (req, res) => {
 
 // Get JobApplyed  details //
 
-
 export const getAllJobApplied = async (req, res) => {
   try {
     const organizationId = req.employee.organizationId;
@@ -646,7 +711,8 @@ export const getAllJobApplied = async (req, res) => {
 
     // 🔁 Apply internal reference filter (NEW)
     if (internalReferenceEmployeeName) {
-      matchConditions["internalReferenceData.employeeName"] = internalReferenceEmployeeName;
+      matchConditions["internalReferenceData.employeeName"] =
+        internalReferenceEmployeeName;
     }
 
     // Add date range filter
@@ -744,7 +810,7 @@ export const getAllJobApplied = async (req, res) => {
         $match: matchConditions,
       },
       {
-         $sort: { AI_Score: -1 }, // ✅ change here
+        $sort: { AI_Score: -1 }, // ✅ change here
       },
       {
         $lookup: {
@@ -1060,12 +1126,14 @@ export const getAllJobApplied = async (req, res) => {
           lastOrganization: 1,
           position: 1,
           createdAt: 1,
-          documentRequest:1,
+          documentRequest: 1,
+          ReportRequest: 1,
+          Reporturl: 1,
           department: 1,
           interviewScheduleDetail: 1,
           qualificationDetails: 1,
-          offerLetter:1,
-          OfferLetterStatus:1,
+          offerLetter: 1,
+          OfferLetterStatus: 1,
           designationDetail: {
             _id: 1,
             name: 1,
@@ -1075,8 +1143,8 @@ export const getAllJobApplied = async (req, res) => {
             name: 1,
           },
           branches: 1,
-          orgainizationId:1,
-          internalReferenceData:1,
+          orgainizationId: 1,
+          internalReferenceData: 1,
         },
       },
       { $skip: skip },
@@ -1108,11 +1176,10 @@ export const getAllJobApplied = async (req, res) => {
     //   .filter((job) => job.createdAt) // Ensure the job has a `createdAt` field
     //   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // Sort jobs by `createdAt` in descending order
 
-
     const allJobs = Object.values(departmentData)
-  .flat()
-  .filter((job) => job.AI_Score !== undefined && job.AI_Score !== null)
-  .sort((a, b) => b.AI_Score - a.AI_Score); // Descending order by AI_Score
+      .flat()
+      .filter((job) => job.AI_Score !== undefined && job.AI_Score !== null)
+      .sort((a, b) => b.AI_Score - a.AI_Score); // Descending order by AI_Score
 
     const filteredMatchConditions = { ...matchConditions }; // Filtered total
     const totalCount = await jobApply.countDocuments(filteredMatchConditions);
@@ -1392,7 +1459,7 @@ export const getJobAppliedById = async (req, res) => {
           lastOrganization: 1,
           position: 1,
           createdAt: 1,
-          documentRequest:1,
+          documentRequest: 1,
           department: 1,
           newbrancheDetail: {
             name: 1,
@@ -1684,7 +1751,7 @@ export const RecruitmentPipeline = async (req, res) => {
           resume: 1,
           docVerification: 1,
           status: 1,
-          documentRequest:1,
+          documentRequest: 1,
           feedbackByHr: 1,
           department: 1,
           branches: 1,
@@ -1696,7 +1763,7 @@ export const RecruitmentPipeline = async (req, res) => {
           isEligible: 1,
           matchPercentage: 1,
           summary: 1,
-          orgainizationId:1,
+          orgainizationId: 1,
           createdAt: 1,
         },
       },
@@ -4063,14 +4130,12 @@ export const getDashboardOverview = async (req, res) => {
       organizationId: new ObjectId(organizationId),
       createdAt: { $gte: startDate, $lte: endDate },
     };
-    
+
     // for only job apply
-      const newfilter = {
+    const newfilter = {
       orgainizationId: new ObjectId(organizationId),
-      createdAt: { $gte: startDate, $lte: endDate }
+      createdAt: { $gte: startDate, $lte: endDate },
     };
-
-
 
     if (department) filter.department = department;
 
@@ -4084,7 +4149,7 @@ export const getDashboardOverview = async (req, res) => {
       avgProcessingSpeed,
       avgConfidence,
       departmentStats,
-      PendingApplication
+      PendingApplication,
     ] = await Promise.all([
       ScreeningResultModel.countDocuments(filter),
       ScreeningResultModel.countDocuments({ ...filter, decision: "Approved" }),
@@ -4120,13 +4185,13 @@ export const getDashboardOverview = async (req, res) => {
             },
           },
         },
-        { $sort: { total: -1 } }
+        { $sort: { total: -1 } },
       ]),
 
       jobApply.countDocuments({
         ...newfilter,
-        AI_Screeing_Result:"Pending"
-      })
+        AI_Screeing_Result: "Pending",
+      }),
     ]);
 
     // Calculated values
@@ -4134,8 +4199,10 @@ export const getDashboardOverview = async (req, res) => {
     const approved = approvedApplications || 0;
     const rejected = rejectedApplications || 0;
     const pending = PendingApplication || 0;
-    const approvalRate = totalApps > 0 ? Math.round((approved / totalApps) * 100) : 0;
-    const rejectionRate = totalApps > 0 ? Math.round((rejected / totalApps) * 100) : 0;
+    const approvalRate =
+      totalApps > 0 ? Math.round((approved / totalApps) * 100) : 0;
+    const rejectionRate =
+      totalApps > 0 ? Math.round((rejected / totalApps) * 100) : 0;
 
     const processingSpeed = avgProcessingSpeed[0]?.avgSpeed || 0;
     const confidence = avgConfidence[0]?.avgConf || 0;
@@ -4145,8 +4212,8 @@ export const getDashboardOverview = async (req, res) => {
         totalApplications: totalApps,
         aiApproved: approved,
         aiRejected: rejected,
-        aiPending:pending,
-        processingSpeed: `${processingSpeed.toFixed(1)}s`
+        aiPending: pending,
+        processingSpeed: `${processingSpeed.toFixed(1)}s`,
       },
       insights: {
         interviewScheduled: 0,
@@ -5513,13 +5580,9 @@ export const pincodeByLatitudeAndLongitude = async (req, res) => {
   }
 };
 
-
-
-
-
 export const updateJobApplyById = async (req, res) => {
   try {
-    const { id } = req.params;  // ID in URL
+    const { id } = req.params; // ID in URL
     const updateData = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -5536,7 +5599,11 @@ export const updateJobApplyById = async (req, res) => {
       return notFound(res, "Job application not found");
     }
 
-    return success(res, "Job application updated successfully", updatedJobApply);
+    return success(
+      res,
+      "Job application updated successfully",
+      updatedJobApply
+    );
   } catch (error) {
     console.error("Update JobApply Error:", error);
     return unknownError(res, "Failed to update job application", error);

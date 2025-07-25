@@ -89,23 +89,23 @@ export const exchangeCodeForToken = async (org, code) => {
       picture = userData.profilePicture.displayImageURLWithFocalPoint; // Fallback
     }
         // Step 3: Get organizations where the user has administrative access
-    const orgsRes = await axios.get(
-      'https://api.linkedin.com/rest/organizationalEntityAcls ',
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
-          'LinkedIn-Version': '202402',
-        },
-      }
-    );
+    // const orgsRes = await axios.get(
+    //   'https://api.linkedin.com/rest/organizationalEntityAcls',
+    //   {
+    //     headers: {
+    //       Authorization: `Bearer ${accessToken}`,
+    //       'X-Restli-Protocol-Version': '2.0.0',
+    //       'LinkedIn-Version': '202402',
+    //     },
+    //   }
+    // );
 
-    const linkedInPages = orgsRes.data.elements.map(el => ({
-      id: el.organizationUrn.split(':').pop(), // Extract numeric ID
-      urn: el.organizationUrn,
-      role: el.role,
-      isPrimary: el.isPrimary,
-    }));
+    // const linkedInPages = orgsRes.data.elements.map(el => ({
+    //   id: el.organizationUrn.split(':').pop(), // Extract numeric ID
+    //   urn: el.organizationUrn,
+    //   role: el.role,
+    //   isPrimary: el.isPrimary,
+    // }));
 
     return {
       accessToken,
@@ -113,7 +113,7 @@ export const exchangeCodeForToken = async (org, code) => {
       name,
       email,
       picture,
-      linkedInPages
+      // linkedInPages
     };
   } catch (error) {
     console.error('Error exchanging code for token:', error.response?.data || error.message);

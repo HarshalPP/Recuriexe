@@ -1,94 +1,115 @@
 import reportCategoryModel from "../../models/ReportModel/reportCategory.model.js";
-import { success , unknownError , badRequest } from "../../formatters/globalResponse.js";
-import {generateReportTemplate} from "../../controllers/pdfTemplateController/report-template-generator.js"
+import { success, unknownError, badRequest } from "../../formatters/globalResponse.js";
+import { generateReportTemplate } from "../../controllers/pdfTemplateController/report-template-generator.js"
 import { generatePdfFromHtml } from "../../controllers/pdfTemplateController/enhanced-pdf-generator.js"
-
-
-
-
-    // Define payloads for each category
-    const categoryPayloadMap = {
-      verifypanServices: {
-        pan_number: "",
-        consent: "Y"
-      },
-
-      fetchPanLitePlusService:{
-        pan_number:"",
-        consent:"Y"
-      },
-      bankVerification: {
-        account_number: "",
-        ifsc: "",
-        consent: "Y"
-      },
-      drivingLicense: {
-        driving_license_number: "MH1234567890123",
-        date_of_birth: "1990-01-01",
-        consent: "Y"
-      },
-
-      fetchCompanyDetails:{
-        name:"",
-        consent:"Y"
-      },
-
-      fetchElectricityBillService:{
-        electricity_provider:"",
-        consumer_number:"",
-        mobile_number:"",
-        consent:"Y"
-      },
-
-      fetchUanService:{
-        mobile_number:"",
-        consent:"Y"
-      },
-
-      fetchVoterDetailsService:{
-        voter_id:"",
-        consent:"Y"
-      }
-    };
-
-
 // Define here Employee Verification apis //
 
-import { verifyDLService , verifypanServices , verifyBankAccountService} from "../../services/grindlineservices/drivinglicence.service.js";
+import { verifyDLService, verifypanServices, verifyBankAccountService , fetchGstinDetailedService , fetchUanService , fetchVoterDetailsService} from "../../services/grindlineservices/employment.service.js";
+import jobApply from "../../models/jobformModel/jobform.model.js";
+
+
+
+// Define payloads for each category
+const categoryPayloadMap = {
+  verifypanServices: {
+    pan_number: "",
+    consent: "Y"
+  },
+
+  fetchGstinByPanService:{
+   gstin: "",
+    consent: "Y"
+  },
+
+  fetchPanLitePlusService: {
+    pan_number: "",
+    consent: "Y"
+  },
+  verifyBankAccountService: {
+    account_number: "",
+    ifsc: "",
+    consent: "Y"
+  },
+  drivingLicense: {
+    driving_license_number: "MH1234567890123",
+    date_of_birth: "1990-01-01",
+    consent: "Y"
+  },
+
+  fetchCompanyDetails: {
+    name: "",
+    consent: "Y"
+  },
+
+  fetchElectricityBillService: {
+    electricity_provider: "",
+    consumer_number: "",
+    mobile_number: "",
+    consent: "Y"
+  },
+
+  fetchUanService: {
+    mobile_number: "",
+    consent: "Y"
+  },
+
+  fetchVoterDetailsService: {
+    voter_id: "",
+    consent: "Y"
+  },
+
+  fetchGstinDetailedService:{
+    gstin: "",
+    consent: "Y"
+  },
+
+  fetchUanService:{
+    mobile_number: "",
+    consent: "Y"
+  },
+
+  fetchVoterDetailsService:{
+    voter_id: "",
+    consent: "Y"
+  }
+};
+
+
+
 
 
 
 // Add or Create a Report //
-export const UpdateCategoryReport = async(req , res)=>{
-    try {
+export const UpdateCategoryReport = async (req, res) => {
+  try {
 
-        const {reportName ,  categories} = req.body;
-        const organizationId = req.employee.organizationId;
-        if(!reportName || !categories){
-            return badRequest(res , "Please Provide the ReportName and categories")
+    const { reportName, categories } = req.body;
+    const organizationId = req.employee.organizationId;
+    if (!reportName || !categories) {
+      return badRequest(res, "Please Provide the ReportName and categories")
+    }
+
+    const Updatedata = await reportCategoryModel.findOneAndUpdate({
+      reportName, organizationId
+    },
+
+      {
+        $set: {
+          categories,
+          isActive: true
         }
-
-        const Updatedata = await reportCategoryModel.findOneAndUpdate({
-         reportName , organizationId
-        },
-
-        {
-            $set:{
-                categories,
-                 isActive:true
-            }
-        },{
-            upsert:true ,  new:true
-        }
+      }, {
+      upsert: true, new: true
+    }
     )
 
-     return success(res, "Report category saved", Updatedata);
-        
-    } catch (error) {
+    return success(res, "Report category saved", Updatedata);
 
-        return unknownError(res , "Internal Server Error")
-        
-    }
+  } catch (error) {
+
+    return unknownError(res, "Internal Server Error")
+
+  }
 }
 
 
@@ -148,7 +169,7 @@ export const GetCategoryReport = async (req, res) => {
     if (findReport.length == 0) {
       return success(res, "No reports found", []);
     }
-  const enrichedReports = findReport.map((report) => {
+    const enrichedReports = findReport.map((report) => {
       const categoryWithPayload = report.categories.map((category) => ({
         type: category,
         payload: categoryPayloadMap[category] || {}
@@ -161,9 +182,42 @@ export const GetCategoryReport = async (req, res) => {
     });
 
     return success(res, "Reports fetched successfully", enrichedReports);
-    
+
   } catch (error) {
     console.error("Error fetching reports:", error);
+    return unknownError(res, "Internal Server Error");
+  }
+};
+
+
+// Get Report by Id //
+
+export const GetCategoryReportById = async (req, res) => {
+  try {
+    const { reportId } = req.params;
+
+    if (!reportId) {
+      return badRequest(res, "reportId is required");
+    }
+
+    const report = await reportCategoryModel.findOne({ _id: reportId });
+
+    if (!report) {
+      return success(res, "Report not found", null);
+    }
+
+    const categoryWithPayload = report.categories.map((category) => ({
+      type: category,
+      payload: categoryPayloadMap[category] || {}
+    }));
+
+    return success(res, "Report fetched successfully", {
+      ...report.toObject(),
+      categoryWithPayload
+    });
+
+  } catch (error) {
+    console.error("Error fetching report by ID:", error);
     return unknownError(res, "Internal Server Error");
   }
 };
@@ -173,9 +227,23 @@ export const GetCategoryReport = async (req, res) => {
 
 export const generateReportByType = async (req, res) => {
   try {
-    const { reportName, payload } = req.body
-    const organizationId = req.employee.organizationId
+    const { payload, candidateId } = req.body
 
+
+    const findCandidate = await jobApply.findById(candidateId).populate({
+      path: 'ReportId',
+      select: 'reportName '
+    })
+
+
+    if (!findCandidate) {
+      return badRequest(res, "Candidate not found")
+    }
+
+
+  const organizationId = findCandidate.orgainizationId
+
+    const reportName = findCandidate.ReportId?.reportName
     const report = await reportCategoryModel.findOne({
       reportName,
       organizationId,
@@ -191,7 +259,7 @@ export const generateReportByType = async (req, res) => {
         switch (category) {
 
           // bank verification //
-          case "bankVerification":
+          case "verifyBankAccountService":
             const bankResult = await verifyBankAccountService({
               account_number: payload.account_number,
               ifsc: payload.ifsc,
@@ -213,6 +281,26 @@ export const generateReportByType = async (req, res) => {
               consent: "Y",
             })
             return { category, success: true, data: PanResult }
+
+
+            case "fetchGstinDetailedService":
+            const gstinResult = await fetchGstinDetailedService({
+              gstin: payload.gstin,
+              consent: "Y",
+            })
+
+
+            case "fetchUanService":
+            const uanResult = await fetchUanService({
+              mobile_number: payload.mobile_number,
+              consent: "Y",
+            })
+
+            case "fetchVoterDetailsService":
+            const voterResult = await fetchVoterDetailsService({
+              voter_id: payload.voter_id,
+              consent: "Y",
+            })
 
           default:
             return { category, success: false, error: "Unsupported category" }
@@ -242,13 +330,22 @@ export const generateReportByType = async (req, res) => {
 
     // Generate PDF Report
     try {
-      const organizationInfo = {
-        name: req.employee.organizationName || "Organization Name",
-        id: organizationId,
-      }
 
-      const htmlContent = generateReportTemplate(formatted, reportName, organizationInfo)
+      const htmlContent = generateReportTemplate(formatted, reportName, findCandidate )
       const pdfResult = await generatePdfFromHtml(htmlContent, req)
+
+      const findandUpdatecandidate = await jobApply.findByIdAndUpdate(
+        candidateId,
+        {
+          $set: {
+            Reporturl: pdfResult.report,
+            ReportRequest: "submitted",
+          }
+        },
+        { new: true }
+      )
+
+
 
       // Return both the verification data and PDF URL
       return success(res, "Report generated successfully", {

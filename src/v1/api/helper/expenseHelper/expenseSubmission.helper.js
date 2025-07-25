@@ -1,11 +1,42 @@
 // Expense submission helper functions
+import mongoose from "mongoose";
 import expenseSubmissionModel from "../../models/expenseModels/expenseSubmission.model.js";
 import { returnFormatter, generateUniqueId } from "../../formatters/common.formatter.js";
 import { formatExpenseSubmission, formatSubmissionForUpdate } from "../../formatters/expenseFormatter/expenseSubmission.formatter.js";
 import { createAuditLog } from "./auditLog.helper.js";
 
+import workflowModel from "../../models/expenseModels/workflow.model.js";
+import expenseTypeModel from "../../models/expenseModels/expenseType.model.js";
+import dynamicFormModel from "../../models/expenseModels/dynamicForm.model.js";
+
 export async function createExpenseSubmission(submissionData) {
     try {
+                const { organizationId, submittedBy, workflowId, expenseTypeId, formData } = submissionData;
+                console.log("Creating expense submission with data:", submissionData);
+
+            const workflowExists = await workflowModel.exists({ workflowId, organizationId });
+        if (!workflowExists) {
+            return returnFormatter(false, `Workflow with ID '${workflowId}' not found`);
+        }
+
+        // 2. Check expenseTypeId exists
+        const expenseTypeExists = await expenseTypeModel.exists({ expenseTypeId, organizationId });
+        if (!expenseTypeExists) {
+            return returnFormatter(false, `Expense Type with ID '${expenseTypeId}' not found`);
+        }
+
+        // 3. Check formId in formData exists
+        // console.log("Checking formData for fieldId:", formData.fieldId);
+        //         console.log("Checking ex for fieldId:", expenseTypeExists.formId );
+
+        // if (!expenseTypeExists?.fieldId) {
+        //     return returnFormatter(false, "fieldId is required inside formData");
+        // }
+
+        // const formExists = await dynamicFormModel.exists({ fieldId: formData.fieldId, organizationId });
+        // if (!formExists) {
+        //     return returnFormatter(false, `Dynamic Form with ID '${formData.fieldId}' not found`);
+        // }
         const formattedData = formatExpenseSubmission(
       submissionData,
       submissionData.organizationId,
@@ -35,54 +66,390 @@ export async function createExpenseSubmission(submissionData) {
     }
 }
 
-export async function getAllExpenseSubmissions(organizationId, filters) {
-    try {
+// export async function getAllExpenseSubmissions(organizationId, filters) {
+//     try {
+//         const { page, limit, status, expenseTypeId, submittedBy, startDate, endDate } = filters;
+//         const skip = (page - 1) * limit;
+        
+//         let query = { organizationId, 
+//             status: 'Submitted'
+//         };
+        
+//         if (status) query.status = status;
+//         if (expenseTypeId) query.expenseTypeId = expenseTypeId;
+//         if (submittedBy) query.submittedBy = submittedBy;
+        
+//         if (startDate || endDate) {
+//             query.createdAt = {};
+//             if (startDate) query.createdAt.$gte = new Date(startDate);
+//             if (endDate) query.createdAt.$lte = new Date(endDate);
+//         }
+        
+//         const submissions = await expenseSubmissionModel
+//             .find(query)
+//             .select('-__v')
+//             .sort({ createdAt: -1 })
+//             .skip(skip)
+//             .limit(parseInt(limit))
+//   .populate({
+//     path: 'expenseTypeId',
+//     model: 'expenseType',
+//     localField: 'expenseTypeId',
+//     foreignField: 'expenseTypeId',
+//     justOne: true,
+//     select: '-_id expenseTypeId name'
+//   })
+//   .populate({
+//         path: 'approvedBy',
+//         select: 'employeName email' // adjust fields as needed
+//     })
+//     .populate({
+//         path: 'submittedBy',
+//         select: 'employeName email' // adjust fields as needed
+//     })
+//   .populate({
+//         path: 'workflowInstance.workflowId',
+//     model: 'workflow',
+//     localField: 'workflowId',
+//     foreignField: 'workflowId',
+//     justOne: true,
+//     select: '-_id workflowId name'
+//   })
+//   ;            
+//         const total = await expenseSubmissionModel.countDocuments(query);
+        
+//         const result = {
+//             submissions,
+//             pagination: {
+//                 currentPage: parseInt(page),
+//                 totalPages: Math.ceil(total / limit),
+//                 totalItems: total,
+//                 itemsPerPage: parseInt(limit)
+//             }
+//         };
+        
+//         return returnFormatter(true, "Expense submissions retrieved successfully", result);
+//     } catch (error) {
+//         return returnFormatter(false, error.message);
+//     }
+// }
+
+// export async function getAllemployeeExpenseSubmissions(organizationId,Id, filters) {
+//     try {
+//         const { page, limit, status, expenseTypeId, submittedBy, startDate, endDate } = filters;
+//         const skip = (page - 1) * limit;
+        
+//         let query = { organizationId, 
+//             submittedBy: Id,
+//             status: 'Submitted'
+//         };
+        
+//         if (status) query.status = status;
+//         if (expenseTypeId) query.expenseTypeId = expenseTypeId;
+//         if (submittedBy) query.submittedBy = submittedBy;
+        
+//         if (startDate || endDate) {
+//             query.createdAt = {};
+//             if (startDate) query.createdAt.$gte = new Date(startDate);
+//             if (endDate) query.createdAt.$lte = new Date(endDate);
+//         }
+        
+//         const submissions = await expenseSubmissionModel
+//             .find(query)
+//             .select('-__v')
+//             .sort({ createdAt: -1 })
+//             .skip(skip)
+//             .limit(parseInt(limit))
+//   .populate({
+//     path: 'expenseTypeId',
+//     model: 'expenseType',
+//     localField: 'expenseTypeId',
+//     foreignField: 'expenseTypeId',
+//     justOne: true,
+//     select: '-_id expenseTypeId name'
+//   })
+//   .populate({
+//         path: 'approvedBy',
+//         select: 'employeName email' // adjust fields as needed
+//     })
+//     .populate({
+//         path: 'submittedBy',
+//         select: 'employeName email' // adjust fields as needed
+//     })
+//   .populate({
+//         path: 'workflowInstance.workflowId',
+//     model: 'workflow',
+//     localField: 'workflowId',
+//     foreignField: 'workflowId',
+//     justOne: true,
+//     select: '-_id workflowId name'
+//   })
+//   ;   
+  
+//    const formId = submissions.expenseTypeId?.formId;
+
+//     if (formId) {
+//       const dynamicForm = await dynamicFormModel.findOne({
+//         formId,
+//         organizationId,
+//         isActive: true
+//       });
+
+//       if (dynamicForm?.fields?.length > 0) {
+//         const labeledFormData = {};
+
+//         for (const field of dynamicForm.fields) {
+//           const rawValue = submissions.formData?.[field.fieldId];
+//           labeledFormData[field.label] = rawValue ?? null;
+//         }
+
+//         // 🔄 Replace the raw formData with labeled version
+//         submissions._doc.formData = labeledFormData;
+//       }
+//     }
+//         const total = await expenseSubmissionModel.countDocuments(query);
+        
+//         const result = {
+//             submissions,
+//             pagination: {
+//                 currentPage: parseInt(page),
+//                 totalPages: Math.ceil(total / limit),
+//                 totalItems: total,
+//                 itemsPerPage: parseInt(limit)
+//             }
+//         };
+
+
+        
+//         return returnFormatter(true, "Expense submissions retrieved successfully", result);
+//     } catch (error) {
+//         return returnFormatter(false, error.message);
+//     }
+// }
+
+export async function getAllExpenseSubmissions(organizationId,Id, filters) {
+  try {
         const { page, limit, status, expenseTypeId, submittedBy, startDate, endDate } = filters;
-        const skip = (page - 1) * limit;
-        
-        let query = { organizationId };
-        
-        if (status) query.status = status;
-        if (expenseTypeId) query.expenseTypeId = expenseTypeId;
-        if (submittedBy) query.submittedBy = submittedBy;
-        
-        if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
-            if (endDate) query.createdAt.$lte = new Date(endDate);
-        }
-        
-        const submissions = await expenseSubmissionModel
-            .find(query)
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit));
-            
-        const total = await expenseSubmissionModel.countDocuments(query);
-        
-        const result = {
-            submissions,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(total / limit),
-                totalItems: total,
-                itemsPerPage: parseInt(limit)
-            }
-        };
-        
-        return returnFormatter(true, "Expense submissions retrieved successfully", result);
-    } catch (error) {
-        return returnFormatter(false, error.message);
+    const skip = (page - 1) * limit;
+  console.log("Id----------",Id)
+    let query = { organizationId, status: 'Submitted'};
+
+    if (status) query.status = status;
+    if (expenseTypeId) query.expenseTypeId = expenseTypeId;
+    if (submittedBy) query.submittedBy = submittedBy;
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
     }
+
+    let submissions = await expenseSubmissionModel
+      .find(query)
+      .select('-__v')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate({
+        path: 'expenseTypeId',
+        model: 'expenseType',
+        localField: 'expenseTypeId',
+        foreignField: 'expenseTypeId',
+        justOne: true,
+        select: '-_id expenseTypeId name formId'
+      })
+      .populate({
+        path: 'approvedBy',
+        select: 'employeName email'
+      })
+      .populate({
+        path: 'submittedBy',
+        select: 'employeName email'
+      })
+      .populate({
+        path: 'workflowInstance.workflowId',
+        model: 'workflow',
+        localField: 'workflowId',
+        foreignField: 'workflowId',
+        justOne: true,
+        select: '-_id workflowId name'
+      });
+
+    // 💡 Loop through submissions and enrich formData
+    for (const submission of submissions) {
+      const formId = submission.expenseTypeId?.formId;
+
+      if (formId) {
+        const dynamicForm = await dynamicFormModel.findOne({
+          formId,
+          organizationId,
+          isActive: true
+        });
+
+        if (dynamicForm?.fields?.length > 0) {
+          const enrichedFormData = {};
+
+          for (const field of dynamicForm.fields) {
+            const value = submission.formData?.[field.fieldId] ?? null;
+
+            enrichedFormData[field.fieldId] = {
+              type: field.fieldType,
+              name: field.fieldName,
+              value: value
+            };
+          }
+
+          // Replace raw formData with enriched one
+          submission._doc.formData = enrichedFormData;
+        }
+      }
+    }
+
+    const total = await expenseSubmissionModel.countDocuments(query);
+
+    const result = {
+      submissions,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: parseInt(limit)
+      }
+    };
+
+    return returnFormatter(true, "Expense submissions retrieved successfully", result);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
 }
 
-export async function getExpenseSubmissionById(submissionId, organizationId) {
+export async function getAllemployeeExpenseSubmissions(organizationId,Id, filters) {
+  try {
+    const { page, limit, status, expenseTypeId, submittedBy, startDate, endDate } = filters;
+    const skip = (page - 1) * limit;
+  console.log("Id----------",Id)
+    let query = { organizationId,submittedBy:Id };
+
+    if (status) query.status = status;
+    if (expenseTypeId) query.expenseTypeId = expenseTypeId;
+    if (submittedBy) query.submittedBy = submittedBy;
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    let submissions = await expenseSubmissionModel
+      .find(query)
+      .select('-__v')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate({
+        path: 'expenseTypeId',
+        model: 'expenseType',
+        localField: 'expenseTypeId',
+        foreignField: 'expenseTypeId',
+        justOne: true,
+        select: '-_id expenseTypeId name formId'
+      })
+      .populate({
+        path: 'approvedBy',
+        select: 'employeName email'
+      })
+      .populate({
+        path: 'submittedBy',
+        select: 'employeName email'
+      })
+      .populate({
+        path: 'workflowInstance.workflowId',
+        model: 'workflow',
+        localField: 'workflowId',
+        foreignField: 'workflowId',
+        justOne: true,
+        select: '-_id workflowId name'
+      });
+
+    // 💡 Loop through submissions and enrich formData
+    for (const submission of submissions) {
+      const formId = submission.expenseTypeId?.formId;
+
+      if (formId) {
+        const dynamicForm = await dynamicFormModel.findOne({
+          formId,
+          organizationId,
+          isActive: true
+        });
+
+        if (dynamicForm?.fields?.length > 0) {
+          const enrichedFormData = {};
+
+          for (const field of dynamicForm.fields) {
+            const value = submission.formData?.[field.fieldId] ?? null;
+
+            enrichedFormData[field.fieldId] = {
+              type: field.fieldType,
+              name: field.fieldName,
+              value: value
+            };
+          }
+
+          // Replace raw formData with enriched one
+          submission._doc.formData = enrichedFormData;
+        }
+      }
+    }
+
+    const total = await expenseSubmissionModel.countDocuments(query);
+
+    const result = {
+      submissions,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: parseInt(limit)
+      }
+    };
+
+    return returnFormatter(true, "Expense submissions retrieved successfully", result);
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
+
+export async function getExpenseSubmissionById1(submissionId, organizationId) {
     try {
-        const submission = await expenseSubmissionModel.findOne({ 
+        const submission = await expenseSubmissionModel.findOne({
             submissionId, 
-            organizationId 
-        }).select('-__v');
+            organizationId ,
+        }).select('-__v')
+         .populate({
+    path: 'expenseTypeId',
+    model: 'expenseType',
+    localField: 'expenseTypeId',
+    foreignField: 'expenseTypeId',
+    justOne: true,
+    select: '-_id expenseTypeId name'
+  })
+  .populate({
+        path: 'approvedBy',
+        select: 'employeName email' // adjust fields as needed
+    })
+    .populate({
+        path: 'submittedBy',
+        select: 'employeName email' // adjust fields as needed
+    })
+  .populate({
+        path: 'workflowInstance.workflowId',
+    model: 'workflow',
+    localField: 'workflowId',
+    foreignField: 'workflowId',
+    justOne: true,
+    select: '-_id workflowId name'
+  });
         
         if (!submission) {
             return returnFormatter(false, "Expense submission not found");
@@ -93,6 +460,97 @@ export async function getExpenseSubmissionById(submissionId, organizationId) {
         return returnFormatter(false, error.message);
     }
 }
+
+export async function getExpenseSubmissionById(submissionId, organizationId) {
+  try {
+    const submission = await expenseSubmissionModel.findOne({
+      submissionId,
+      organizationId
+    }).select('-__v')
+       .populate({
+    path: 'expenseTypeId',
+    model: 'expenseType',
+    localField: 'expenseTypeId',
+    foreignField: 'expenseTypeId',
+    justOne: true,
+    select: '-_id expenseTypeId name formId'
+  })
+  .populate({
+        path: 'approvedBy',
+        select: 'employeName email' // adjust fields as needed
+    })
+    .populate({
+        path: 'submittedBy',
+        select: 'employeName email' // adjust fields as needed
+    })
+  .populate({
+        path: 'workflowInstance.workflowId',
+    model: 'workflow',
+    localField: 'workflowId',
+    foreignField: 'workflowId',
+    justOne: true,
+    select: '-_id workflowId name'
+  });
+
+    // if (!submission) {
+    //   return returnFormatter(false, "Expense submission not found");
+    // }
+
+    // const formId = submission.expenseTypeId?.formId;
+
+    // if (formId) {
+    //   const dynamicForm = await dynamicFormModel.findOne({
+    //     formId,
+    //     organizationId,
+    //     isActive: true
+    //   });
+
+    //   if (dynamicForm) {
+    //     const enrichedFormData = dynamicForm.fields.map(field => ({
+    //       fieldId: field.fieldId,
+    //       label: field.label,
+    //       fieldType: field.fieldType,
+    //       value: submission.formData?.[field.fieldId] ?? null
+    //     }));
+
+    //     submission._doc.enrichedFormData = enrichedFormData;
+    //   }
+    // }
+    if (!submission) {
+      return returnFormatter(false, "Expense submission not found1");
+    }
+
+    // 👇 Extract formId from populated expenseType
+    const formId = submission.expenseTypeId?.formId;
+
+    if (formId) {
+      const dynamicForm = await dynamicFormModel.findOne({
+        formId,
+        organizationId,
+        isActive: true
+      });
+
+      if (dynamicForm?.fields?.length > 0) {
+        const labeledFormData = {};
+
+        for (const field of dynamicForm.fields) {
+          const rawValue = submission.formData?.[field.fieldId];
+          labeledFormData[field.label] = rawValue ?? null;
+        }
+
+        // 🔄 Replace the raw formData with labeled version
+        submission._doc.formData = labeledFormData;
+      }
+    }
+
+
+    return returnFormatter(true, "Expense submission retrieved successfully", submission);
+
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
+}
+
 
 export async function updateExpenseSubmissionData(submissionId, updateData, organizationId, updatedBy) {
     try {
@@ -172,88 +630,46 @@ export async function deleteExpenseSubmissionData(submissionId, organizationId, 
     }
 }
 
-export async function submitExpenseForApproval(submissionId, organizationId, submittedBy) {
-    try {
-        const submission = await expenseSubmissionModel.findOne({ 
-            submissionId, 
-            organizationId 
-        });
-        
-        if (!submission) {
-            return returnFormatter(false, "Expense submission not found");
-        }
-        
-        if (submission.status !== 'Draft') {
-            return returnFormatter(false, "Submission is not in draft status");
-        }
-        
-        const updatedSubmission = await expenseSubmissionModel.findOneAndUpdate(
-            { submissionId },
-            { 
-                status: 'Submitted',
-                isDraft: false,
-                $push: {
-                    'workflowInstance.stageHistory': {
-                        stageId: submission.workflowInstance.currentStageId,
-                        stageName: submission.workflowInstance.currentStageName,
-                        assignedTo: submission.workflowInstance.currentAssignee,
-                        action: 'Pending',
-                        comments: 'Submitted for approval',
-                        actionDate: new Date()
-                    }
-                }
-            },
-            { new: true }
-        );
-        
-        // Create audit log
-        await createAuditLog({
-            organizationId,
-            entityType: 'ExpenseSubmission',
-            entityId: submissionId,
-            action: 'Submitted',
-            performedBy: submittedBy,
-            performedByName: 'Employee',
-            performedByRole: 'Employee',
-            newValues: updatedSubmission,
-            comments: 'Submitted for approval'
-        });
-        
-        return returnFormatter(true, "Expense submission submitted for approval", updatedSubmission);
-    } catch (error) {
-        return returnFormatter(false, error.message);
-    }
-}
 
-export async function approveExpenseSubmission(submissionId, comments, approvedAmount, organizationId, approvedBy) {
+export async function approveExpenseSubmission(submissionId, comments, approvedAmount, organizationId, approvedBy,status,rejectionReason,rejectedBy) {
     try {
         const submission = await expenseSubmissionModel.findOne({ 
-            submissionId, 
-            organizationId 
+            submissionId,
+            organizationId
         });
         
         if (!submission) {
             return returnFormatter(false, "Expense submission not found");
         }
         
-        if (submission.status !== 'Submitted' && submission.status !== 'In_Review') {
+        if (submission.status !== 'Submitted') {
             return returnFormatter(false, "Invalid submission status for approval");
         }
         
+        const workflow = await workflowModel.findOne({
+            workflowId: submission.workflowInstance.workflowId,
+            organizationId
+        });
+        console.log("Workflow for approval:", workflow);
+        // if (!workflow) {
+        //     return returnFormatter(false, "Workflow not found for this submission");
+        // }
         const updatedSubmission = await expenseSubmissionModel.findOneAndUpdate(
             { submissionId },
             { 
-                status: 'Approved',
+                status: status,
                 approvedAt: new Date(),
                 approvedBy,
                 approvedAmount: approvedAmount || submission.totalAmount,
+                rejectionReason: rejectionReason || "",
+
                 $push: {
                     'workflowInstance.stageHistory': {
                         stageId: submission.workflowInstance.currentStageId,
                         stageName: submission.workflowInstance.currentStageName,
                         assignedTo: submission.workflowInstance.currentAssignee,
-                        action: 'Approved',
-                        comments: comments || 'Approved',
+                        action: status,
+                        comments: comments || status,
                         actionDate: new Date()
                     }
                 }
@@ -275,111 +691,6 @@ export async function approveExpenseSubmission(submissionId, comments, approvedA
         });
         
         return returnFormatter(true, "Expense submission approved", updatedSubmission);
-    } catch (error) {
-        return returnFormatter(false, error.message);
-    }
-}
-
-export async function rejectExpenseSubmission(submissionId, comments, rejectionReason, organizationId, rejectedBy) {
-    try {
-        const submission = await expenseSubmissionModel.findOne({ 
-            submissionId, 
-            organizationId 
-        });
-        
-        if (!submission) {
-            return returnFormatter(false, "Expense submission not found");
-        }
-        
-        if (submission.status !== 'Submitted' && submission.status !== 'In_Review') {
-            return returnFormatter(false, "Invalid submission status for rejection");
-        }
-        
-        const updatedSubmission = await expenseSubmissionModel.findOneAndUpdate(
-            { submissionId },
-            { 
-                status: 'Rejected',
-                rejectionReason: rejectionReason || 'Not specified',
-                $push: {
-                    'workflowInstance.stageHistory': {
-                        stageId: submission.workflowInstance.currentStageId,
-                        stageName: submission.workflowInstance.currentStageName,
-                        assignedTo: submission.workflowInstance.currentAssignee,
-                        action: 'Rejected',
-                        comments: comments || 'Rejected',
-                        actionDate: new Date()
-                    }
-                }
-            },
-            { new: true }
-        );
-        
-        // Create audit log
-        await createAuditLog({
-            organizationId,
-            entityType: 'ExpenseSubmission',
-            entityId: submissionId,
-            action: 'Rejected',
-            performedBy: rejectedBy,
-            performedByName: 'Manager',
-            performedByRole: 'Manager',
-            newValues: updatedSubmission,
-            comments: comments || 'Rejected'
-        });
-        
-        return returnFormatter(true, "Expense submission rejected", updatedSubmission);
-    } catch (error) {
-        return returnFormatter(false, error.message);
-    }
-}
-
-export async function returnExpenseSubmission(submissionId, comments, organizationId, returnedBy) {
-    try {
-        const submission = await expenseSubmissionModel.findOne({ 
-            submissionId, 
-            organizationId 
-        });
-        
-        if (!submission) {
-            return returnFormatter(false, "Expense submission not found");
-        }
-        
-        if (submission.status !== 'Submitted' && submission.status !== 'In_Review') {
-            return returnFormatter(false, "Invalid submission status for return");
-        }
-        
-        const updatedSubmission = await expenseSubmissionModel.findOneAndUpdate(
-            { submissionId },
-            { 
-                status: 'Returned',
-                $push: {
-                    'workflowInstance.stageHistory': {
-                        stageId: submission.workflowInstance.currentStageId,
-                        stageName: submission.workflowInstance.currentStageName,
-                        assignedTo: submission.workflowInstance.currentAssignee,
-                        action: 'Returned',
-                        comments: comments || 'Returned for corrections',
-                        actionDate: new Date()
-                    }
-                }
-            },
-            { new: true }
-        );
-        
-        // Create audit log
-        await createAuditLog({
-            organizationId,
-            entityType: 'ExpenseSubmission',
-            entityId: submissionId,
-            action: 'Returned',
-            performedBy: returnedBy,
-            performedByName: 'Manager',
-            performedByRole: 'Manager',
-            newValues: updatedSubmission,
-            comments: comments || 'Returned for corrections'
-        });
-        
-        return returnFormatter(true, "Expense submission returned", updatedSubmission);
     } catch (error) {
         return returnFormatter(false, error.message);
     }
@@ -643,4 +954,355 @@ export async function calculateTotalAmount(formData) {
     } catch (error) {
         return returnFormatter(false, error.message);
     }
+}
+
+export async function getAllSubmission(employee, queryParams) {
+    try {
+        const organizationId = employee.organizationId;
+        const employeeId = employee.id;
+
+        const {
+            status,
+            allDataShow,
+            page = 1,
+            limit = 10
+        } = queryParams;
+
+        if (!organizationId) {
+            return returnFormatter(false, "Missing organizationId in token");
+        }
+
+        const filter = { organizationId };
+
+        if (allDataShow !== "all") {
+            filter.submittedBy = employeeId;
+        }
+
+        // if (interviewType) {
+        //     filter.interviewType = new RegExp("^" + interviewType + "$", "i");
+        // }
+
+        if (status) {
+            const statusArray = status.split(",").map(s => s.trim().toLowerCase());
+            filter.status = { $in: statusArray };
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const [interviews, total] = await Promise.all([
+            expenseSubmissionModel.find(filter)
+                .select("-__v")
+                .populate({
+                    path: "candidateId",
+                    select: "name emailId mobileNumber position jobPostId"
+                })
+                .populate({
+                    path: "interviewerId",
+                    select: "userName workEmail mobileNo"
+                })
+                .sort({ scheduleDate: -1 })
+                .skip(skip)
+                .limit(parseInt(limit)),
+
+            InterviewDetailModel.countDocuments(filter)
+        ]);
+
+        const totalPages = Math.ceil(total / limit);
+
+        return returnFormatter(true, "Scheduled interviews fetched successfully", {
+            totalRecords: total,
+            totalPages,
+            currentPage: parseInt(page),
+            limit: parseInt(limit),
+            interviews
+        });
+    } catch (error) {
+        return returnFormatter(false, error.message);
+    }
+}
+
+
+// export async function getDashboardData(organizationId, page = 1, limit = 5) {
+//   try {
+//     const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+//     const skip = (page - 1) * limit;
+
+//     const [
+//       totalExpensesAgg,
+//       pendingApprovalsAgg,
+//       budgetUtilAgg,
+//       approvedCount,
+//       rejectedCount,
+//       recentExpensesData,
+//       recentTotalCount,
+//       pendingApprovalsListData,
+//       pendingTotalCount
+//     ] = await Promise.all([
+//       // Total Approved Amount
+//       expenseSubmissionModel.aggregate([
+//         { $match: { organizationId: orgObjectId, isActive: true, status: "Approved" } },
+//         { $group: { _id: null, total: { $sum: "$approvedAmount" } } }
+//       ]),
+
+//       // Pending Approvals Count
+//       expenseSubmissionModel.aggregate([
+//         { $match: { organizationId: orgObjectId, status: "Submitted", isActive: true } },
+//         { $count: "pendingApprovals" }
+//       ]),
+
+//       // Budget Utilization
+//       expenseSubmissionModel.aggregate([
+//         { $match: { organizationId: orgObjectId, isActive: true, status: "Approved" } },
+//         { $group: { _id: null, totalApprovedAmount: { $sum: "$approvedAmount" } } },
+//         { $project: { totalApprovedAmount: 1, _id: 0 } }
+//       ]),
+
+//       // Approved Count
+//       expenseSubmissionModel.countDocuments({
+//         organizationId: orgObjectId,
+//         status: "Approved",
+//         isActive: true
+//       }),
+
+//       // Rejected Count
+//       expenseSubmissionModel.countDocuments({
+//         organizationId: orgObjectId,
+//         status: "Rejected",
+//         isActive: true
+//       }),
+
+//       // Recent Approved/Rejected Expenses (Paginated)
+//       expenseSubmissionModel.find({
+//         organizationId: orgObjectId,
+//         status: { $in: ["Approved", "Rejected"] }
+//       }, {
+//         submissionId: 1,
+//         formData: 1,
+//         status: 1,
+//         approvedAmount: 1,
+//         createdAt: 1
+//       }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+
+//       // Total Count for Recent Expenses
+//       expenseSubmissionModel.countDocuments({
+//         organizationId: orgObjectId,
+//         status: { $in: ["Approved", "Rejected"] }
+//       }),
+
+//       // Pending Approvals List (Paginated)
+//       expenseSubmissionModel.find({
+//         organizationId: orgObjectId,
+//         status: "Submitted"
+//       }).populate("submittedBy", "employeName email").sort({ createdAt: -1 }).skip(skip).limit(limit),
+
+//       // Total Count for Pending Approvals List
+//       expenseSubmissionModel.countDocuments({
+//         organizationId: orgObjectId,
+//         status: "Submitted"
+//       })
+//     ]);
+
+//     return returnFormatter(true, "Dashboard data fetched successfully", {
+//       totalExpenses: totalExpensesAgg[0]?.total || 0,
+//       budgetUtilization: budgetUtilAgg[0]?.totalApprovedAmount || 0,
+//       pendingApprovals: pendingApprovalsAgg[0]?.pendingApprovals || 0,
+//       approvedCount,
+//       rejectedCount,
+
+//       recentExpenses: {
+//          recentExpensesData,
+//         pagination: {
+//           currentPage: parseInt(page),
+//           itemsPerPage: parseInt(limit),
+//           totalItems: recentTotalCount,
+//           totalPages: Math.ceil(recentTotalCount / limit)
+//         }
+//       },
+
+//       pendingApprovalsList: {
+//          pendingApprovalsListData,
+//         pagination: {
+//           currentPage: parseInt(page),
+//           itemsPerPage: parseInt(limit),
+//           totalItems: pendingTotalCount,
+//           totalPages: Math.ceil(pendingTotalCount / limit)
+//         }
+//       }
+//     });
+
+//   } catch (error) {
+//     return returnFormatter(false, error.message);
+//   }
+// }
+
+export const expenseSubmissionPopulates = [
+  {
+    path: 'expenseTypeId',
+    model: 'expenseType',
+    localField: 'expenseTypeId',
+    foreignField: 'expenseTypeId',
+    justOne: true,
+    select: '-_id expenseTypeId name formId'
+  },
+  {
+    path: 'approvedBy',
+    select: 'employeName email'
+  },
+  {
+    path: 'submittedBy',
+    select: 'employeName email'
+  }
+//   {
+//     path: 'workflowInstance.workflowId',
+//     model: 'workflow',
+//     localField: 'workflowId',
+//     foreignField: 'workflowId',
+//     justOne: true,
+//     select: '-_id workflowId name'
+//   }
+];
+
+
+export async function enrichFormDataList(submissions, organizationId) {
+  for (const submission of submissions) {
+    const formId = submission.expenseTypeId?.formId;
+
+    if (formId) {
+      const dynamicForm = await dynamicFormModel.findOne({
+        formId,
+        organizationId,
+        isActive: true
+      });
+
+      if (dynamicForm?.fields?.length > 0) {
+        const enrichedFormData = {};
+
+        for (const field of dynamicForm.fields) {
+          const value = submission.formData?.[field.fieldId] ?? null;
+
+          enrichedFormData[field.fieldId] = {
+            type: field.fieldType,
+            name: field.fieldName,
+            value: value
+          };
+        }
+
+        submission._doc.formData = enrichedFormData;
+      }
+    }
+  }
+
+  return submissions;
+}
+
+
+
+export async function getDashboardData(organizationId, page = 1, limit = 5) {
+  try {
+    const orgObjectId = new mongoose.Types.ObjectId(organizationId);
+    const skip = (page - 1) * limit;
+
+    const [
+      totalExpensesAgg,
+      pendingApprovalsAgg,
+      budgetUtilAgg,
+      approvedCount,
+      rejectedCount,
+      recentExpensesData,
+      recentTotalCount,
+      pendingApprovalsListData,
+      pendingTotalCount
+    ] = await Promise.all([
+      expenseSubmissionModel.aggregate([
+        { $match: { organizationId: orgObjectId, isActive: true, status: "Approved" } },
+        { $group: { _id: null, total: { $sum: "$approvedAmount" } } }
+      ]),
+      expenseSubmissionModel.aggregate([
+        { $match: { organizationId: orgObjectId, status: "Submitted", isActive: true } },
+        { $count: "pendingApprovals" }
+      ]),
+      expenseSubmissionModel.aggregate([
+        { $match: { organizationId: orgObjectId, isActive: true, status: "Approved" } },
+        { $group: { _id: null, totalApprovedAmount: { $sum: "$approvedAmount" } } },
+        { $project: { totalApprovedAmount: 1, _id: 0 } }
+      ]),
+      expenseSubmissionModel.countDocuments({
+        organizationId: orgObjectId,
+        status: "Approved",
+        isActive: true
+      }),
+      expenseSubmissionModel.countDocuments({
+        organizationId: orgObjectId,
+        status: "Rejected",
+        isActive: true
+      }),
+
+      expenseSubmissionModel.find({
+        organizationId: orgObjectId,
+        status: { $in: ["Approved", "Rejected"] }
+      })
+        .select('-__v -isDraft -internalNotes -schemaVersion -rejectionReason -_id -workflowInstance') // ❌ exclude these
+
+      .populate(expenseSubmissionPopulates)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+
+      expenseSubmissionModel.countDocuments({
+        organizationId: orgObjectId,
+        status: { $in: ["Approved", "Rejected"] }
+      }),
+
+      expenseSubmissionModel.find({
+        organizationId: orgObjectId,
+        status: "Submitted"
+      })
+    .select('-__v -isDraft -internalNotes -schemaVersion -rejectionReason -_id -workflowInstance') // ❌ exclude these
+
+      .populate(expenseSubmissionPopulates)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+
+      expenseSubmissionModel.countDocuments({
+        organizationId: orgObjectId,
+        status: "Submitted"
+      })
+    ]);
+
+   
+    await enrichFormDataList(recentExpensesData, organizationId);
+await enrichFormDataList(pendingApprovalsListData, organizationId);
+
+    return returnFormatter(true, "Dashboard data fetched successfully", {
+      totalExpenses: totalExpensesAgg[0]?.total || 0,
+      budgetUtilization: budgetUtilAgg[0]?.totalApprovedAmount || 0,
+      pendingApprovals: pendingApprovalsAgg[0]?.pendingApprovals || 0,
+      approvedCount,
+      rejectedCount,
+
+      recentExpenses: {
+         ...recentExpensesData,
+        pagination: {
+          currentPage: parseInt(page),
+          itemsPerPage: parseInt(limit),
+          totalItems: recentTotalCount,
+          totalPages: Math.ceil(recentTotalCount / limit)
+        },
+      },
+
+      pendingApprovalsList: {
+       ...pendingApprovalsListData,
+        pagination: {
+          currentPage: parseInt(page),
+          itemsPerPage: parseInt(limit),
+          totalItems: pendingTotalCount,
+          totalPages: Math.ceil(pendingTotalCount / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    return returnFormatter(false, error.message);
+  }
 }

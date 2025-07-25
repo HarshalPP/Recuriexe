@@ -1,17 +1,18 @@
 import { mongoose,model, Schema } from 'mongoose';
 
 const stageHistorySchema = new Schema({
-    stageId: {
-        type: String,
-        required: true
-    },
-    stageName: {
-        type: String,
-        required: true
-    },
+    // stageId: {
+    //     type: String,
+    //     required: true
+    // },
+    // stageName: {
+    //     type: String,
+    //     required: true
+    // },
     assignedTo: {
-        type: String,
-        required: true
+         type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'employee'
     },
     action: {
         type: String,
@@ -32,36 +33,36 @@ const stageHistorySchema = new Schema({
     }
 }, { _id: false });
 
-const attachmentSchema = new Schema({
-    attachmentId: {
-        type: String,
-        required: true
-    },
-    fileName: {
-        type: String,
-        required: true
-    },
-    fileUrl: {
-        type: String,
-        required: true
-    },
-    fileType: {
-        type: String,
-        required: true
-    },
-    fileSize: {
-        type: Number,
-        required: true
-    },
-    uploadedBy: {
-        type: String,
-        required: true
-    },
-    uploadedAt: {
-        type: Date,
-        default: Date.now
-    }
-}, { _id: false });
+// const attachmentSchema = new Schema({
+//     attachmentId: {
+//         type: String,
+//         required: true
+//     },
+//     fileName: {
+//         type: String,
+//         required: true
+//     },
+//     fileUrl: {
+//         type: String,
+//         required: true
+//     },
+//     fileType: {
+//         type: String,
+//         required: true
+//     },
+//     fileSize: {
+//         type: Number,
+//         required: true
+//     },
+//     uploadedBy: {
+//         type: String,
+//         required: true
+//     },
+//     uploadedAt: {
+//         type: Date,
+//         default: Date.now
+//     }
+// }, { _id: false });
 
 const expenseSubmissionSchema = new Schema({
     submissionId: {
@@ -85,10 +86,10 @@ const expenseSubmissionSchema = new Schema({
         required: true,
         ref: 'employee'
     },
-    submittedByName: {
-        type: String,
-        required: true
-    },
+    // submittedByName: {
+    //     type: String,
+    //     required: true
+    // },
     department: {
         type: String,
         default: ""
@@ -101,10 +102,10 @@ const expenseSubmissionSchema = new Schema({
         type: Schema.Types.Mixed,
         required: true
     },
-    totalAmount: {
-        type: Number,
-        required: true
-    },
+    // totalAmount: {
+    //     type: Number,
+    //     required: true
+    // },
     currency: {
         type: String,
         default: 'INR'
@@ -117,21 +118,21 @@ const expenseSubmissionSchema = new Schema({
         },
         currentStageId: {
             type: String,
-            required: true
+            // required: true
         },
         currentStageName: {
             type: String,
-            required: true
+            // required: true
         },
         currentAssignee: {
             type: String,
-            required: true
+            // required: true
         },
         stageHistory: [stageHistorySchema]
     },
     status: {
         type: String,
-        enum: ['Draft', 'Submitted', 'In_Review', 'Approved', 'Rejected', 'Returned', 'Withdrawn'],
+        enum: ['Submitted','Approved', 'Rejected', 'Withdrawn'],
         default: 'Draft'
     },
     priority: {
@@ -139,14 +140,15 @@ const expenseSubmissionSchema = new Schema({
         enum: ['Low', 'Normal', 'High', 'Urgent'],
         default: 'Normal'
     },
-    attachments: [attachmentSchema],
+    // attachments: [attachmentSchema],
     approvedAmount: {
         type: Number,
         default: null
     },
     approvedBy: {
-        type: String,
-        default: ""
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'employee'
     },
     approvedAt: {
         type: Date,

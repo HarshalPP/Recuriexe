@@ -274,6 +274,15 @@ const roleSchema = new Schema(
     },
     LeadExe: {
 
+    },
+
+    verificationSuite:{
+
+      setup: {
+        type: Boolean,
+        default: false
+      },
+      
     }
 
   },

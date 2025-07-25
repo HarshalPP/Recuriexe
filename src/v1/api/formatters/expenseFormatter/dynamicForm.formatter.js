@@ -9,13 +9,12 @@ export function formatDynamicForm(formData, organizationId, createdBy) {
         description
     } = formData;
 
-    const amountCount = fields.filter(f => f.fieldName === 'amount').length;
+    // const amountCount = fields.filter(f => f.fieldName === 'amount').length;
+    const amountCount = fields.filter(f => f.fieldName?.toLowerCase() === 'amount').length;
 if (amountCount > 1) {
    throw new Error("Only one 'amount' field is allowed.");
 }
 
-    
-    
     return {
         formId: generateUniqueId('FORM_'),
         organizationId,
@@ -109,6 +108,7 @@ export function formatDynamicFormForUpdate(updateData) {
 
 
 export function formatFormField(fieldData) {
+        const fieldName = fieldData.fieldName?.toLowerCase(); // normalize to lowercase
 
     return {
         fieldId:generateUniqueId('FORMFIELD_'),
@@ -122,7 +122,7 @@ export function formatFormField(fieldData) {
         validation: fieldData.validation || null,
         conditionalLogic: fieldData.conditionalLogic || null,
         displayOrder: fieldData.displayOrder || 0,
-       isEdited: fieldData.fieldName === 'amount' ? false : true
+       isEdited:fieldName === 'amount' ? false : true
     };
 }
 

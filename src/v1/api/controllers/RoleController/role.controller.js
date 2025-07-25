@@ -446,6 +446,7 @@ const DEPENDENCIES = {
     // "hiringFlowSetup",
   ],
   CommandExe: [
+    "CommandExe"
   ],
   expenseManagement: [
     "expenseManagement"
@@ -456,6 +457,12 @@ const DEPENDENCIES = {
     // "expenseRolePermissionSetup",
   ],
   LeadExe: [
+    "LeadExe"
+  ],
+
+  verificationSuite: [
+    "verificationSuite"
+    // "setup"
   ],
   fileManager: [
     "fileManager"
@@ -756,7 +763,11 @@ const updatedPermissions = {
     addAdmin: false,
     service: false
   },
-  LeadExe: {}
+  LeadExe: {},
+  verificationSuite: {
+    setup: false
+  }
+
 };
 
 export const cleanAndUpdateRoles = async (req, res) => {

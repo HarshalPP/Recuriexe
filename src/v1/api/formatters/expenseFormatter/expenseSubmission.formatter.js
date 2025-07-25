@@ -2,7 +2,7 @@ import { generateUniqueId } from '../common.formatter.js';
 
 export function formatExpenseSubmission(submissionData,organizationId,submittedBy) {
     const {
-        submittedByName,
+        // submittedByName,
         expenseTypeId,
         workflowId,
         formData,
@@ -13,12 +13,17 @@ export function formatExpenseSubmission(submissionData,organizationId,submittedB
         attachments,
         priority
     } = submissionData;
+
+    // const formattedAttachments = (attachments || []).map(file => ({
+    //     ...file,
+    //     uploadedBy: submittedBy
+    // }));
     
     return {
         submissionId: generateUniqueId('SUB_'),
         organizationId,
         submittedBy,
-        submittedByName: submittedByName || 'Unknown User',
+        // submittedByName: submittedByName || 'Unknown User',
         expenseTypeId,
         department: department || "",
         project: project || "",
@@ -26,17 +31,14 @@ export function formatExpenseSubmission(submissionData,organizationId,submittedB
         totalAmount: parseFloat(totalAmount) || 0,
         currency: currency || 'INR',
         workflowInstance: {
-            workflowId: workflowId || 'WF_DEFAULT',
-            currentStageId: 'STAGE_1',
-            currentStageName: 'Initial Review',
-            currentAssignee: 'MANAGER_001',
+            workflowId: workflowId ,
             stageHistory: []
         },
-        status: 'Draft',
+        status: 'Submitted',
         priority: priority || 'Normal',
-        attachments: attachments || [],
+        // attachments: formattedAttachments,
         approvedAmount: null,
-        approvedBy: "",
+        approvedBy: submittedBy||null,
         approvedAt: null,
         rejectionReason: "",
         internalNotes: "",

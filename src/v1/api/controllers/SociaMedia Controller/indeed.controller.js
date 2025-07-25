@@ -113,6 +113,7 @@ export const createJobPosting = async (req, res) => {
 
     // Format job data for Indeed API
     const formattedJob = formatJobForIndeed(jobData);
+    console.log("formattedJob:-----",formattedJob);
     
     const result = await createJob(accessToken, formattedJob);
     

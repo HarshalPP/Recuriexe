@@ -161,6 +161,14 @@ import expenseSubmissionRouter from './routes/expenseRoutes/expenseSubmission.ro
 
 import documentValueTemplateRouter from "./routes/documentRoutes/documentFormValueRoutes.js";
 import documentFormTemplateRouter from "./routes/documentRoutes/documentFormTemplateRoutes.js";
+import reportServiceRoute from './routes/reportServiceRoutes/reportService.route.js';
+import reportTypeRouter from './routes/reportTypeRoutes/reportType.routes.js';
+import inputFieldRouter from './routes/inputFieldRoutes/inputField.routes.js';
+import reportFormRouter from './routes/reportFormRoutes/reportForm.routes.js';
+import reportTemplateRouter from './routes/reportTemplateRoutes/reportTemplate.routes.js';
+import reportvariableRouter from './routes/reportvariableroutes/reportvarible.routes.js';
+import casesRoutes from './routes/casesRoutes/cases.routes.js';
+import reportPdfRouter from './routes/reportPdfGenerateroutes/reportPdfGeneareate.route.js';
 
 router.use("/expenseCategory",expenseCategoryRouter)
 // router.use("/expenseType",expenseTypeRouter)
@@ -335,6 +343,17 @@ router.use("/email" ,emailtemplateRouter )
 router.use("/file" , uploadRouter)
 router.use("/dashboard" ,dashboardRouter )
 router.use("/doc" ,docRoute )
+
+// report generator
+router.use("/report-service" , reportServiceRoute)
+router.use("/report-product" , reportTypeRouter)
+router.use("/report-input" , inputFieldRouter)
+router.use("/report-form" , reportFormRouter)
+router.use("/report-template" , reportTemplateRouter)
+router.use("/report-variable" , reportvariableRouter)
+router.use("/report-case" , casesRoutes)
+router.use("/report-pdf" , reportPdfRouter)
+
 
 // document routes 
 router.use("/documentFormTemplate", documentFormTemplateRouter);

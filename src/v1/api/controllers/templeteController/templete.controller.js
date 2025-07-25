@@ -21,7 +21,10 @@ import employeeTypeModel from "../../models/employeeType/employeeType.model.js"
 import EmployeeModel from "../../models/employeemodel/employee.model.js"
 import { badRequest, notFound, serverValidation, success, unknownError } from "../../formatters/globalResponse.js"
 import jobApply from "../../models/jobformModel/jobform.model.js"
-
+import StageModel from "../../models/StageModel/stage.model.js";
+import { createUserCase } from "../../controllers/verificationsuitController/caseinit.controller.js"
+import { sendMailHelper } from "../../controllers/gmailController/gmailController.js"
+import Emailuser from "../../models/UserEmail/user.js";
 
 
 import BranchModel from "../../models/branchModel/branch.model.js";
@@ -685,7 +688,7 @@ export async function updateTemplate(req, res) {
   try {
     // const { templateId } = req.params;
     const { title, content, type, templateId } = req.body;
-       const organizationId = req.employee.organizationId;
+    const organizationId = req.employee.organizationId;
 
     if (!title && !content) {
       return badRequest(res, "Please provide the title and/or content to update");
@@ -1111,7 +1114,7 @@ export async function getAvailablePlaceholders(req, res) {
       return badRequest(res, "Model Type Invalid")
     }
 
-    
+
     return success(res, 'Available placeholders retrieved successfully', placeholders);
   } catch (error) {
     console.error('Placeholder retrieval error:', error);
@@ -1563,15 +1566,15 @@ async function enrichModelDetail(modelId) {
 export async function generateLinkedInPostAndPdfDynamic(req, res) {
   try {
     const { templateName, jobId, generatePdf = false } = req.body;
-   const organizationId = req.employee.organizationId;
-   if(!organizationId){
-    return badRequest(res, "Organization ID is required");
-   }
+    const organizationId = req.employee.organizationId;
+    if (!organizationId) {
+      return badRequest(res, "Organization ID is required");
+    }
     if (!templateName) return badRequest(res, "Template Name Is Required");
     if (!jobId) return badRequest(res, "Please provide the JobId");
 
-    const template = await Template.findOne({title : templateName, organizationId: new ObjectId(organizationId)});
-    
+    const template = await Template.findOne({ title: templateName, organizationId: new ObjectId(organizationId) });
+
     if (!template) return badRequest(res, "Template not found");
 
     const { modelDetail, modelType } = await enrichModelDetail(jobId); // your extended logic
@@ -1611,16 +1614,92 @@ export async function generateLinkedInPostAndPdfDynamic(req, res) {
     }
 
 
-    if(responseData.pdfUrl) {
+    if (responseData.pdfUrl) {
       const Update = await jobApplyModel.findByIdAndUpdate(jobId, {
         $set: {
           offerLetter: responseData.pdfUrl,
-          OfferLetterStatus:'generated'
+          OfferLetterStatus: 'generated'
         }
       }, { new: true });
     }
 
-    return success(res, "Generated successfully", responseData);
+    success(res, "Generated successfully", responseData);
+   // Send offer letter + document verification if PDF was generated
+    if (responseData.pdfUrl) {
+      console.log("1")
+      const stage = await StageModel.findOne({
+        organizationId,
+        stageName: "Offer Letter",
+        status: "active",
+      });
+
+
+      if (!stage) {
+        throw new Error("Stage not found for Offer Letter");
+      }
+
+      const defaultEmailUser = await Emailuser.findOne({
+        organizationId,
+        isDefault: true,
+      }).lean();
+
+      const findOrg = await OrganizationModel.findById(organizationId).lean();
+
+      // Fetch candidate info based on jobApplyForm or your logic
+      const candidate = await jobApplyModel.findOne({ _id: jobId }).lean(); // or use candidateId if available
+
+      if (candidate && defaultEmailUser) {
+        // Send Document Verification Email
+        const mailData = {
+          to: candidate.emailId,
+          subject: "Document Verification Required - Action Needed",
+          message: `
+            <p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333;">
+              Dear <strong>${candidate.name}</strong>,
+            </p>
+
+            <p>
+              To proceed with the next steps in our hiring process, please complete your 
+              <strong>Document Verification</strong> by uploading the required documents using the secure link below:
+            </p>
+
+            <p style="text-align: center; margin: 20px 0;">
+              <a href="${process.env.INTERVIEW_URL}/CandidateVerification?reportId=${candidate.ReportId}&candidateId=${candidate._id}" 
+                 style="background-color: #0a66c2; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                🔗 Complete Document Verification
+              </a>
+            </p>
+
+            <p style="color: #d9534f;">
+              ⚠️ Ensure that your documents are clear, valid, and authentic to avoid any delays.
+            </p>
+
+            <p>
+              If you have already submitted your documents, you may kindly ignore this message.
+            </p>
+
+            <p>
+              Best regards,<br/>
+              <strong>HR Team</strong><br/>
+              <em>${findOrg?.name}</em>
+            </p>
+          `,
+          userId: defaultEmailUser._id,
+          organizationId,
+        };
+
+        await sendMailHelper(mailData);
+
+        // Update Report Request status
+        await jobApplyModel.findByIdAndUpdate(candidate._id, {
+          $set: {
+            ReportRequest: "requested",
+          },
+        });
+      }
+
+    }
+
   } catch (error) {
     console.error('LinkedIn post and PDF generation error:', error);
     return unknownError(res, error.message || error);

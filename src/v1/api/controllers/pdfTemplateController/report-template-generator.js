@@ -1,4 +1,4 @@
-export const generateReportTemplate = (reportData, reportName, organizationInfo = {}) => {
+export const generateReportTemplate = (reportData, reportName, candidateData) => {
   const currentDate = new Date().toLocaleDateString("en-IN", {
     year: "numeric",
     month: "long",
@@ -193,6 +193,155 @@ export const generateReportTemplate = (reportData, reportName, organizationInfo 
     `
   }
 
+
+  // Helper function to render Uan verification details
+
+
+  const renderUanVerification = (data) => {
+  if (data.error) {
+    return `
+      <div class="verification-section">
+        <h3>📂 UAN Documentation</h3>
+        <div class="error-message">
+          <strong>Error:</strong> ${data.error}
+        </div>
+      </div>
+    `
+  }
+
+  return `
+    <div class="verification-section">
+      <h3>📂 UAN Documentation ${getStatusBadge(false)}</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="label">UAN:</span>
+          <span class="value">${data.uan || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Name:</span>
+          <span class="value">${data.name || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Father's Name:</span>
+          <span class="value">${data.father_name || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Date of Birth:</span>
+          <span class="value">${data.dob || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Mobile Number:</span>
+          <span class="value">${data.mobile_number || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Gender:</span>
+          <span class="value">${data.gender || "N/A"}</span>
+        </div>
+      </div>
+      <div class="verification-status">
+        <strong>Status:</strong> ${data.message || "Verified Successfully"}
+      </div>
+    </div>
+  `
+}
+
+// Helper function to render voterId verification details
+const renderVoterIdVerification = (data) => {
+  if (data.error) {
+    return `
+      <div class="verification-section">
+        <h3>🗳️ Voter ID Documentation</h3>
+        <div class="error-message">
+          <strong>Error:</strong> ${data.error}
+        </div>
+      </div>
+    `
+  }
+
+  return `
+    <div class="verification-section">
+      <h3>🗳️ Voter ID Documentation ${getStatusBadge(false)}</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="label">Voter ID:</span>
+          <span class="value">${data.voter_id || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Name:</span>
+          <span class="value">${data.name || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Gender:</span>
+          <span class="value">${data.gender || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Date of Birth:</span>
+          <span class="value">${data.dob || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">District:</span>
+          <span class="value">${data.district || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">State:</span>
+          <span class="value">${data.state || "N/A"}</span>
+        </div>
+      </div>
+      <div class="verification-status">
+        <strong>Status:</strong> ${data.message || "Verified Successfully"}
+      </div>
+    </div>
+  `
+}
+
+// Helper function to fetchGstinDetailedService details //
+
+const renderGstinVerification = (data) => {
+  if (data.error) {
+    return `
+      <div class="verification-section">
+        <h3>🏢 GSTIN Documentation</h3>
+        <div class="error-message">
+          <strong>Error:</strong> ${data.error}
+        </div>
+      </div>
+    `
+  }
+
+  const gstinData = data.gstin_data || {}
+  return `
+    <div class="verification-section">
+      <h3>🏢 GSTIN Documentation ${getStatusBadge(false)}</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="label">GSTIN:</span>
+          <span class="value">${gstinData.gstin || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Legal Name:</span>
+          <span class="value">${gstinData.legal_name || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Trade Name:</span>
+          <span class="value">${gstinData.trade_name || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">State Code:</span>
+          <span class="value">${gstinData.state_code || "N/A"}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">GSTIN Status:</span>
+          <span class="value">${gstinData.status || "N/A"}</span>
+        </div>
+      </div>
+      <div class="verification-status">
+        <strong>Status:</strong> ${data.message || "Verified Successfully"}
+      </div>
+    </div>
+  `
+}
+
+
   // Generate verification sections based on available data
   let verificationsHtml = ""
 
@@ -200,14 +349,24 @@ export const generateReportTemplate = (reportData, reportName, organizationInfo 
     verificationsHtml += renderPanVerification(reportData.verifypanServices)
   }
 
-  if (reportData.bankVerification) {
-    verificationsHtml += renderBankVerification(reportData.bankVerification)
+  if (reportData.verifyBankAccountService) {
+    verificationsHtml += renderBankVerification(reportData.verifyBankAccountService)
   }
 
   if (reportData.drivingLicense) {
     verificationsHtml += renderDrivingLicenseVerification(reportData.drivingLicense)
   }
 
+  if (reportData.fetchUanService) {
+    verificationsHtml += renderUanVerification(reportData.fetchUanService)
+  }
+
+
+  if (reportData.voterIdVerification) {
+    verificationsHtml += renderVoterIdVerification(reportData.voterIdVerification)
+  }
+
+  
   // Count successful and failed verifications
   const totalVerifications = Object.keys(reportData).length
   const failedVerifications = Object.values(reportData).filter((item) => item.error).length
@@ -505,10 +664,31 @@ export const generateReportTemplate = (reportData, reportName, organizationInfo 
                         <span class="info-label">Generated At</span>
                         <span class="info-value">${currentTime}</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">Organization</span>
-                        <span class="info-value">${organizationInfo.name || "N/A"}</span>
+
+
+                              <div class="info-item">
+                        <span class="info-label">candidate UniqueId</span>
+                        <span class="info-value">${candidateData.candidateUniqueId || "N/A"}</span>
                     </div>
+
+                           <div class="info-item">
+                        <span class="info-label">Candidate Name</span>
+                        <span class="info-value">${candidateData.name || "N/A"}</span>
+                    </div>
+
+                    
+                              <div class="info-item">
+                        <span class="info-label">Candidate Number</span>
+                        <span class="info-value">${candidateData.mobileNumber || "N/A"}</span>
+                    </div>
+
+
+                                  <div class="info-item">
+                        <span class="info-label">Candidate Email</span>
+                        <span class="info-value">${candidateData.emailId || "N/A"}</span>
+                    </div>
+
+
                 </div>
             </div>
 

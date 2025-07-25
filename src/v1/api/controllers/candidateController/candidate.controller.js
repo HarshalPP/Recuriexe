@@ -19,6 +19,10 @@ import mailSwitchModel from "../../models/mailModel/mailSwitch.model.js"
 import {jobApplyToGoogleSheet} from "../../controllers/googleSheet/jobApplyGoogleSheet.js"
 import StageModel from "../../models/StageModel/stage.model.js";
 import {createUserCase} from "../../controllers/verificationsuitController/caseinit.controller.js"
+import {sendMailHelper} from "../../controllers/gmailController/gmailController.js"
+import Emailuser from "../../models/UserEmail/user.js";
+import organizationModel from "../../models/organizationModel/organization.model.js";
+import jobApply from "../../models/jobformModel/jobform.model.js";
   // Schdeule Interview //
 
   export const scheduleHrInterview = async (req, res) => {
@@ -355,11 +359,11 @@ export const jobApplyFormStatusChange = async (req, res) => {
 
 
 // Resume Shortlisted //
-
 export const changeResumeShortlistedStatus = async (req, res) => {
   try {
     const errors = validationResult(req);
     const organizationId = req.employee.organizationId;
+
     if (!errors.isEmpty()) {
       return serverValidation(res, {
         errorName: "serverValidation",
@@ -367,7 +371,7 @@ export const changeResumeShortlistedStatus = async (req, res) => {
       });
     }
 
-    const { ids, resumeShortlisted , Remark} = req.body;
+    const { ids, resumeShortlisted, Remark } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return badRequest(res, "IDs should be a non-empty array");
@@ -398,51 +402,129 @@ export const changeResumeShortlistedStatus = async (req, res) => {
         update: {
           $set: {
             resumeShortlisted,
-            Remark
+            Remark,
           },
         },
       },
     }));
 
     await jobApplyFormModel.bulkWrite(bulkOps);
-
     const updatedCandidates = await jobApplyFormModel.find({ _id: { $in: ids } });
 
-     success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
+    success(res, `Resume shortlisted status updated to '${resumeShortlisted}'`, updatedCandidates);
 
-
-     // Define here the Stage // 
-  // ✅ Only trigger case initiation when status is "shortlisted"
-    if (resumeShortlisted == "shortlisted") {
-      const stage = await StageModel.findOne({ 
-        organizationId, 
-        stageName: "Resume Shortlising", 
-        status: "active" 
+    // Proceed if status is "shortlisted"
+    if (resumeShortlisted === "shortlisted") {
+      const stage = await StageModel.findOne({
+        organizationId,
+        stageName: "Resume Shortlisting",
+        status: "active",
       });
 
-      if (stage) {
-        for (const candidate of updatedCandidates) {
-          await createUserCase({
-            candidateId: candidate._id,
-            organizationId,
-            stageId: stage._id,
-            StageName: "Resume Shortlisting",
-            ReportId:candidate.ReportId || null,
+      if (!stage) {
+        throw new Error("Stage not found for Resume Shortlisting");
+      }
+
+      const defaultEmailUser = await Emailuser.findOne({
+        organizationId,
+        isDefault: true,
+      }).lean();
+
+      const findOrg = await organizationModel.findById(organizationId).lean();
+
+      for (const candidate of updatedCandidates) {
+        // Send Document Verification Email
+if (defaultEmailUser) {
+  const mailData = {
+    to: candidate.emailId,
+    subject: "Document Verification Required - Action Needed",
+    message: `
+<p style="font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333;">
+  Dear <strong>${candidate.name}</strong>,
+</p>
+
+<p>
+  Congratulations! Your resume has been <strong>shortlisted</strong> for the position of 
+  <strong style="color: #0a66c2;">${candidate.position}</strong> at 
+  <strong style="color: #0a66c2;">${findOrg.name}</strong>.
+</p>
+
+<p>
+  To proceed with the next steps in our hiring process, please complete your 
+  <strong>Document Verification</strong> by uploading the required documents using the secure link below:
+</p>
+
+<p style="text-align: center; margin: 20px 0;">
+  <a href="${process.env.INTERVIEW_URL}/CandidateVerification?reportId=${candidate.ReportId}&candidateId=${candidate._id}" 
+     style="background-color: #0a66c2; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+    🔗 Complete Document Verification
+  </a>
+</p>
+
+<p style="color: #d9534f;">
+  ⚠️ Ensure that your documents are clear, valid, and authentic to avoid any delays.
+</p>
+
+<p>
+  If you have already submitted your documents, you may kindly ignore this message.
+</p>
+
+<p>
+  Best regards,<br/>
+  <strong>HR Team</strong><br/>
+  <em>${findOrg.name}</em>
+</p>
+    `,
+    userId: defaultEmailUser._id,
+    organizationId,
+  };
+
+  await sendMailHelper(mailData);
+}
+
+
+        // Push stage and document request
+        if (stage) {
+            console.log("Stage found, creating user case...");
+          // await createUserCase({
+          //   candidateId: candidate._id,
+          //   organizationId,
+          //   stageId: stage._id,
+          //   StageName: "Resume Shortlisting",
+          //   ReportId: candidate.ReportId || null,
+          // });
+
+          await jobApplyFormModel.findByIdAndUpdate(candidate._id, {
+             $set:{
+              ReportRequest: "requested",
+             }
           });
+
+          const shortlistMail = {
+            to: candidate.emailId,
+            subject: "Resume Shortlisted",
+            message: `Dear ${candidate.name},\n\nYour resume has been shortlisted for the position of ${candidate.position} at ${findOrg.name}.\n\nBest regards,\nHR Team`,
+            userId: defaultEmailUser._id,
+            organizationId,
+          };
+          console.log("shortlistMail" , shortlistMail)
+
+          await sendMailHelper(shortlistMail);
         }
       }
     }
 
-    // End of the stage here //
-     
-         for (const candidate of updatedCandidates) {
+    // Push to Google Sheet
+    for (const candidate of updatedCandidates) {
       await jobApplyToGoogleSheet(candidate._id);
     }
 
   } catch (error) {
+    console.log(error)
     return unknownError(res, error);
   }
 };
+
 
   //  Reschdeule Interview
 

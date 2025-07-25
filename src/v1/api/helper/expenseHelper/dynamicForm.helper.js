@@ -6,6 +6,7 @@ import { createAuditLog } from "../../helper/expenseHelper/auditLog.helper.js";
 export async function createDynamicForm(formData, organizationId, Id) {
     try {
         const createdBy = Id;
+
         const formattedData = formatDynamicForm(formData, organizationId, createdBy);
         const newForm = new dynamicFormModel(formattedData);
         const savedForm = await newForm.save();

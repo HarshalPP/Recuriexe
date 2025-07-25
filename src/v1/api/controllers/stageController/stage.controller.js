@@ -41,7 +41,8 @@ export const createStage = async (req, res) => {
 // ✅ GET ALL
 export const getAllStages = async (req, res) => {
   try {
-    const stages = await StageModel.find({ status: "active" })
+    const organizationId = req.employee.organizationId;
+    const stages = await StageModel.find({ status: "active" , organizationId })
       .sort({ sequence: 1 , createdAt: -1 });
 
     return success(res, "Stages fetched successfully", stages);

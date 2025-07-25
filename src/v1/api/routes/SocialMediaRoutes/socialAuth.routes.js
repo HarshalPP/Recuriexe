@@ -88,7 +88,7 @@ router.post("/indeed/createPost", createJobPosting);
 // Draft Routes
 router.post("/draft",verifyEmployeeToken, saveSocialMediaDraft); // Save new draft
 router.get("/all/drafts", verifyEmployeeToken,getSocialMediaDrafts); // Get all drafts
-router.put("/draft/:draftId", editSocialMediaDraft); // Edit draft
+router.put("/draft/:draftId", verifyEmployeeToken,editSocialMediaDraft); // Edit draft
 router.delete("/draft/:draftId", deleteSocialMediaDraft); // Delete draft
 router.post("/draft/:draftId/publish", publishDraft); // Publish draft
 router.get("/scheduled-posts",verifyEmployeeToken, getScheduledPostsByOrganization);

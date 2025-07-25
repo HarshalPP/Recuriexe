@@ -42,8 +42,8 @@ export const redirectToLinkedIn = asyncHandler(async (req, res) => {
   if (!org) return badRequest(res, "Organization not found");
 
   const state = orgId;
-  const scope = "openid profile email w_member_social w_organization_social";
-
+  const scope = "openid profile email w_member_social ";
+// w_organization_social
   const authURL = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
     org.linkedinClientId
   }&redirect_uri=${encodeURIComponent(
@@ -64,9 +64,9 @@ export const handleCallback = asyncHandler(async (req, res) => {
   }
 
   // Get access token and user info from LinkedIn
-  const { accessToken, memberId, name, email, picture,linkedInPages,} =
+  const { accessToken, memberId, name, email, picture,} =
     await linkedinService.exchangeCodeForToken(org, code);
-
+  // w_organization_social
   // Check for existing LinkedIn account with same name and memberId
   const duplicateOrg = await LinkedInOrganization.findOne({
     linkedinName: name,
@@ -91,7 +91,7 @@ export const handleCallback = asyncHandler(async (req, res) => {
   org.linkedinName = name;
   org.linkedinEmail = email;
   org.linkedinProfilePic = picture;
-  org.LinkedInorganizationPages = linkedInPages; // Save pages
+  // org.LinkedInorganizationPages = linkedInPages; // Save pages
   await org.save();
 
   // res.status(200).json(new ApiResponse(200, null, "LinkedIn connected successfully"));

@@ -1,6 +1,6 @@
 
 // controllers/gridlines/dlVerification.controller.js
-import { verifyDLService , verifypanServices } from "../../services/grindlineservices/drivinglicence.service.js"
+import { verifyDLService , verifypanServices } from "../../services/grindlineservices/employment.service.js"
 import { success, badRequest } from "../../formatters/globalResponse.js";
 // import { DLErrorMessages } from "../../Utils/errorhandler.js"
 // import {  trackApiUsage  } from "../../controllers/authcontrollers/auth.controller.js"

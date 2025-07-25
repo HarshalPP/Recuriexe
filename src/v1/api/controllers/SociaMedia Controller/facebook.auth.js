@@ -830,39 +830,152 @@ export const getSocialMediaDrafts = asyncHandler(async (req, res) => {
   return success(res, "Social media drafts fetched successfully", drafts);
 });
 
+// export const editSocialMediaDraft = asyncHandler(async (req, res) => {
+//   const { draftId } = req.params;
+//   const { message, mediaUrls, accountIds } = req.body;
+//   const mediaFiles = req.files || [];
+//   const organizationId = req.employee.organizationId;
+
+//   // 1. Find the existing draft and ensure it belongs to the user's organization
+//   const draft = await SocialMediaContent.findOne({
+//     _id: draftId,
+//     status: "draft",
+//     organizationId,
+//   });
+
+//   if (!draft) {
+//     return notFound(res, "Draft post not found or has already been processed");
+//   }
+
+//   // 2. Validate that the update doesn't leave the draft empty
+//   const hasContent =
+//     message !== undefined ||
+//     (mediaUrls && mediaUrls.length > 0) ||
+//     mediaFiles.length > 0;
+
+//   if (
+//     !hasContent &&
+//     (!draft.message && draft.mediaUrls.length === 0)
+//   ) {
+//     return badRequest(res, "Draft must contain a message or media.");
+//   }
+
+//   // 3. Update basic fields if they are provided in the request
+//   if (message !== undefined) {
+//     draft.message = message;
+//   }
+//   if (mediaUrls !== undefined) {
+//     // Note: Assumes frontend sends the full array of URLs on update
+//     draft.mediaUrls = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
+//   }
+
+//   // 4. If accountIds are provided, update platform-specific data
+//   if (accountIds) {
+//     if (!Array.isArray(accountIds) || accountIds.length === 0) {
+//       return badRequest(
+//         res,
+//         "At least one social media account ID is required when updating accounts."
+//       );
+//     }
+
+//     const accounts = await SocialMediaAccount.find({
+//       _id: { $in: accountIds },
+//       organizationId, // Ensure accounts belong to the same organization
+//     });
+
+//     if (accounts.length !== accountIds.length) {
+//       return badRequest(res, "One or more account IDs are invalid.");
+//     }
+
+//     // Reset platform data and recalculate based on new accounts
+//     let platforms = [];
+//     let facebookPageId = null;
+//     let instagramUserId = null;
+//     let facebookPageName = null;
+//     let instagramAccountName = null;
+
+//     accounts.forEach((account) => {
+//       if (account.provider === "facebook_page") {
+//         platforms.push("facebook_page");
+//         facebookPageId = account.facebookPageId;
+//         facebookPageName = account.facebookPageName;
+//       } else if (account.provider === "instagram_business") {
+//         platforms.push("instagram_business");
+//         instagramUserId = account.igAccountId;
+//         instagramAccountName = account.instagramUsername;
+//       }
+//     });
+
+//     // Update draft with the new platform information
+//     draft.platforms = platforms;
+//     draft.facebookPageId = facebookPageId;
+//     draft.facebookPageName = facebookPageName;
+//     draft.instagramUserId = instagramUserId;
+//     draft.instagramAccountName = instagramAccountName;
+//   }
+
+//   try {
+//     const updatedDraft = await draft.save();
+//     return success(res, "Draft updated successfully", updatedDraft);
+//   } catch (error) {
+//     console.error("Error updating social media draft:", error);
+//     return badRequest(res, "Failed to update draft");
+//   }
+// });
+
 export const editSocialMediaDraft = asyncHandler(async (req, res) => {
   const { draftId } = req.params;
-  const { message, platforms, mediaUrls, facebookPageId, instagramUserId } =
-    req.body;
+  const { message, mediaUrls } = req.body;
   const mediaFiles = req.files || [];
+  const organizationId = req.employee.organizationId;
 
+  // 1. Find the existing draft that belongs to the organization
   const draft = await SocialMediaContent.findOne({
     _id: draftId,
     status: "draft",
+    organizationId,
   });
 
   if (!draft) {
-    return notFound(res, "Draft post not found or already published");
+    return notFound(res, "Draft post not found or already processed");
   }
 
-  // Update text and platforms
-  if (message !== undefined) draft.message = message;
-  if (platforms && Array.isArray(platforms)) draft.platforms = platforms;
+  // 2. Ensure at least message or media is present
+  const hasContent =
+    message !== undefined ||
+    (mediaUrls && mediaUrls.length > 0) ||
+    mediaFiles.length > 0;
 
-  // Platform-specific IDs
-  if (facebookPageId !== undefined) draft.facebookPageId = facebookPageId;
-  if (instagramUserId !== undefined) draft.instagramUserId = instagramUserId;
+  if (
+    !hasContent &&
+    (!draft.message && draft.mediaUrls.length === 0)
+  ) {
+    return badRequest(res, "Draft must contain a message or media.");
+  }
 
-  // Media URLs
+  // 3. Update message if provided
+  if (message !== undefined) {
+    draft.message = message;
+  }
+
+  // 4. Update media URLs if provided
   if (mediaUrls !== undefined) {
     draft.mediaUrls = Array.isArray(mediaUrls) ? mediaUrls : [mediaUrls];
   }
 
-  await draft.save();
+  // (Optional) 5. Handle uploaded files here if needed
+  // If you're storing uploaded media and appending to mediaUrls
+  // draft.mediaUrls.push(...newUploadedFileUrls);
 
-  return success(res, "Draft updated successfully", draft);
+  try {
+    const updatedDraft = await draft.save();
+    return success(res, "Draft updated successfully", updatedDraft);
+  } catch (error) {
+    console.error("Error updating social media draft:", error);
+    return badRequest(res, "Failed to update draft");
+  }
 });
-
+ 
 export const deleteSocialMediaDraft = asyncHandler(async (req, res) => {
   const { draftId } = req.params;
 
