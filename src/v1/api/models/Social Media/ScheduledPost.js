@@ -4,7 +4,7 @@ const scheduledPostSchema = new mongoose.Schema(
   {
     platform: {
       type: String,
-      enum: ["facebook_page", "instagram_business"],
+      enum: ["facebook_page", "instagram_business","instagram_basic"],
       required: true,
     },
     accountId: {

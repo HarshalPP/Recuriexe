@@ -1290,11 +1290,28 @@ ${resume}
       { new: true }
     );
 
+
     // Upsert operation: update if exists, else create
     await CandidateAIScreeningModel.findOneAndUpdate(filter, updateData, {
       new: true,
       upsert: true,
     });
+
+    // CheckAuto Resume Shortlising // 
+    const CheckAutoResumeShortlisting = await screenai.findOne({
+      organizationId:orgainizationId
+    })
+
+    if(CheckAutoResumeShortlisting && CheckAutoResumeShortlisting.autoResumeShortlisting==true){
+         const UpdateResumeShortlisting = await jobApply.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(candidateId) }
+      ,{
+        resumeShortlisted:"shortlisted"
+      },
+
+      { new: true }
+    );
+    }
 
     //  await jobApplyToGoogleSheet(jobApplyForm._id)
   } catch (error) {
@@ -1604,6 +1621,7 @@ Respond ONLY with a JSON object in this exact format:
         },
         { new: true }
       );
+      
 
       // Save rejection details
       await CandidateAIScreeningModel.findOneAndUpdate(
@@ -2041,6 +2059,22 @@ ${resume}
     const CreditRules = await AICreditRule.findOne({
       actionType: "AI_SCREENING",
     });
+
+    //Auto ResumeShortlisting //
+      const CheckAutoResumeShortlisting = await screenai.findOne({
+      organizationId:organizationId
+    })
+
+    if(CheckAutoResumeShortlisting && CheckAutoResumeShortlisting.autoResumeShortlisting==true){
+         const UpdateResumeShortlisting = await jobApply.findOneAndUpdate(
+      { _id: new mongoose.Types.ObjectId(candidateId) }
+      ,{
+        resumeShortlisted:"shortlisted"
+      },
+
+      { new: true }
+    );
+    }
 
     // if (!CreditRules) {
     //   return badRequest(res, "No credit rule found for DESIGNATION_AI");

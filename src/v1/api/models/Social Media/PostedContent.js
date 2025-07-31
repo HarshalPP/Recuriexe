@@ -14,7 +14,7 @@ const postedContentSchema = new mongoose.Schema(
     ],
     platforms: {
       type: [String],
-      enum: ["facebook_page", "instagram_business"],
+      enum: ["facebook_page", "instagram_business","instagram_basic"],
       required: true,
     },
     status: {

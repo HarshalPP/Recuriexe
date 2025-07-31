@@ -160,7 +160,8 @@ export const updateAiScreening = async (req, res) => {
             coreSettings,
             scoringWeights,
             screeningCriteria,
-            autoScreening
+            autoScreening,
+            autoResumeShortlisting
         } = req.body;
 
         if (!id) {
@@ -178,6 +179,7 @@ export const updateAiScreening = async (req, res) => {
         if (coreSettings) screening.coreSettings = coreSettings;
         if (scoringWeights) screening.scoringWeights = scoringWeights;
         if (typeof autoScreening == 'boolean') screening.autoScreening = autoScreening;
+        if(typeof autoResumeShortlisting=='boolean')  screening.autoResumeShortlisting =autoResumeShortlisting;
 
         // Handle screeningCriteria updates
         if (Array.isArray(screeningCriteria)) {

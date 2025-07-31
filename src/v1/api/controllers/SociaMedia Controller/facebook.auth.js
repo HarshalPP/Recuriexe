@@ -19,7 +19,8 @@ import {
 import SocialMediaContent from "../../models/Social Media/PostedContent.js";
 import { asyncHandler } from "../../Utils/LinkedIn/asyncHandler.js";
 import SocialPostSchedule from "../../models/Social Media/ScheduledPost.js";
-
+import { format } from "date-fns"; // ✅ Add this line
+import { ObjectId } from 'mongodb';
 // Redirect to Facebook OAuth with Instagram scopes
 
 // export const redirectToFacebookInstagram = (req, res) => {
@@ -56,7 +57,7 @@ export const redirectToFacebookPages = (req, res) => {
       "pages_show_list",
       "pages_read_engagement",
       "pages_manage_posts",
-      "business_management"
+      "business_management",
     ].join(",");
 
     const redirectUri = process.env.FACEBOOK_REDIRECT_URI;
@@ -75,7 +76,6 @@ export const redirectToFacebookPages = (req, res) => {
     return unknownError(res, error);
   }
 };
-
 
 // Handle Facebook OAuth Callback
 
@@ -420,7 +420,6 @@ export const getAllConnectedAccounts = async (req, res) => {
   }
 };
 
-
 // Disconnect and revoke token for a social media account
 
 export const disconnectAccount = async (req, res) => {
@@ -618,6 +617,7 @@ export const postToFacebookPage = async (req, res) => {
   try {
     const { pageId, message, mediaUrl, scheduleTimes } = req.body; // scheduleTimes is now an array
     const files = req.files || [];
+    const organizationId = req.employee.organizationId;
 
     if (!pageId || !message)
       return badRequest(res, "Both pageId and message are required");
@@ -638,7 +638,8 @@ export const postToFacebookPage = async (req, res) => {
         scheduleTimes,
         req.user?._id,
         account.facebookPageName,
-        null
+        null,
+        organizationId
       );
       return success(res, "Post scheduled successfully", {
         scheduledPostId: scheduledPost._id,
@@ -657,7 +658,8 @@ export const postToFacebookPage = async (req, res) => {
       null,
       req.user?._id,
       account.facebookPageName,
-      null
+      null,
+      organizationId
     );
 
     return success(res, "Posted to Facebook successfully", {
@@ -674,6 +676,7 @@ export const postToInstagramAccount = async (req, res) => {
   try {
     const { igUserId, caption, mediaUrl, scheduleTimes } = req.body; // scheduleTimes is now an array
     const files = req.files || [];
+    const organizationId = req.employee.organizationId;
 
     if (!igUserId || !caption || !mediaUrl)
       return badRequest(res, "igUserId, caption, and mediaUrl are required");
@@ -692,7 +695,8 @@ export const postToInstagramAccount = async (req, res) => {
         scheduleTimes,
         req.user?._id,
         null,
-        account.instagramUsername
+        account.instagramUsername,
+        organizationId
       );
       return success(res, "Post scheduled successfully", {
         scheduledPostId: scheduledPost._id,
@@ -711,7 +715,8 @@ export const postToInstagramAccount = async (req, res) => {
       result.id,
       req.user?._id,
       null,
-      account.instagramUsername
+      account.instagramUsername,
+      organizationId
     );
     console.log("postedContent", postedContent);
 
@@ -725,10 +730,36 @@ export const postToInstagramAccount = async (req, res) => {
   }
 };
 
+// export const postToInstagramDirectly = async (req, res) => {
+//   try {
+//     const { igUserId, caption, mediaUrl } = req.body;
+//     const files = req.files || [];
+
+//     if (!igUserId || !caption || !mediaUrl) {
+//       return badRequest(res, "igUserId, caption, and mediaUrl are required");
+//     }
+
+//     const account = await SocialMediaAccount.findOne({ userId: igUserId });
+//     if (!account || !account.accessToken) {
+//       return badRequest(res, "Invalid or unconnected Instagram account");
+//     }
+
+//     const result = await postToInstagramDirect(account, caption, mediaUrl);
+
+//     return success(res, "Posted to Instagram successfully", {
+//       mediaId: result.id,
+//     });
+//   } catch (error) {
+//     console.error("[postToInstagram][ERROR]", error.message);
+//     return unknownError(res, error);
+//   }
+// };
+
 export const postToInstagramDirectly = async (req, res) => {
   try {
-    const { igUserId, caption, mediaUrl } = req.body;
+    const { igUserId, caption, mediaUrl, scheduleTimes } = req.body; // scheduleTimes is now an array
     const files = req.files || [];
+    const organizationId = req.employee.organizationId;
 
     if (!igUserId || !caption || !mediaUrl) {
       return badRequest(res, "igUserId, caption, and mediaUrl are required");
@@ -739,13 +770,49 @@ export const postToInstagramDirectly = async (req, res) => {
       return badRequest(res, "Invalid or unconnected Instagram account");
     }
 
+    // Scheduling
+    if (scheduleTimes && scheduleTimes.length > 0) {
+      const scheduledPost = await scheduleNewPost(
+        "instagram_basic",
+        account._id,
+        caption,
+        mediaUrl ? [mediaUrl] : [],
+        files,
+        scheduleTimes,
+        req.user?._id,
+        null,
+        account.username,
+        organizationId
+      );
+      return success(res, "Post scheduled successfully", {
+        scheduledPostId: scheduledPost._id,
+        scheduledTimes: scheduledPost.scheduleTimes,
+      });
+    }
+
+    // Immediate posting
     const result = await postToInstagramDirect(account, caption, mediaUrl);
+    const postedContent = await savePostedContent(
+      "instagram_basic",
+      account._id,
+      caption,
+      mediaUrl ? [mediaUrl] : [],
+      files,
+      null,
+      result.id,
+      req.user?._id,
+      null,
+      account.instagramUsername,
+      organizationId
+    );
+    console.log("postedContent", postedContent);
 
     return success(res, "Posted to Instagram successfully", {
       mediaId: result.id,
+      contentId: postedContent._id,
     });
   } catch (error) {
-    console.error("[postToInstagram][ERROR]", error.message);
+    console.error("[postToInstagramDirectly][ERROR]", error.message);
     return unknownError(res, error);
   }
 };
@@ -946,10 +1013,7 @@ export const editSocialMediaDraft = asyncHandler(async (req, res) => {
     (mediaUrls && mediaUrls.length > 0) ||
     mediaFiles.length > 0;
 
-  if (
-    !hasContent &&
-    (!draft.message && draft.mediaUrls.length === 0)
-  ) {
+  if (!hasContent && !draft.message && draft.mediaUrls.length === 0) {
     return badRequest(res, "Draft must contain a message or media.");
   }
 
@@ -975,7 +1039,7 @@ export const editSocialMediaDraft = asyncHandler(async (req, res) => {
     return badRequest(res, "Failed to update draft");
   }
 });
- 
+
 export const deleteSocialMediaDraft = asyncHandler(async (req, res) => {
   const { draftId } = req.params;
 
@@ -1075,14 +1139,15 @@ export const getScheduledPostsByOrganization = async (req, res) => {
     }
 
     const scheduledPosts = await SocialPostSchedule.find({
-      organizationId,
+      organizationId: new ObjectId(organizationId),
+      status: "scheduled",
     }).sort({ scheduleTime: 1 });
 
     if (!scheduledPosts || scheduledPosts.length === 0) {
       return notFound(res, "No scheduled posts found for this organization");
     }
 
-    return success(res, scheduledPosts, "Scheduled posts fetched successfully");
+    return success(res, "Scheduled posts fetched successfully", scheduledPosts);
   } catch (error) {
     console.error("Error fetching scheduled posts:", error);
     return unknownError(res, error);
@@ -1117,7 +1182,7 @@ export const cancelScheduledPost = asyncHandler(async (req, res) => {
   }
 
   // Update DB status to cancelled
-  scheduledPost.status = "cancelled";
+  scheduledPost.status = "canceled";
   await scheduledPost.save();
 
   // Clean up saved files
@@ -1140,9 +1205,7 @@ export const reschedulePost = asyncHandler(async (req, res) => {
   const { scheduledPostId } = req.params;
   const { newScheduleTime } = req.body;
 
-  if (!newScheduleTime) {
-    return badRequest(res, "newScheduleTime is required");
-  }
+  if (!newScheduleTime) return badRequest(res, "newScheduleTime is required");
 
   const scheduledPost = await SocialPostSchedule.findById(scheduledPostId);
   if (!scheduledPost) {
@@ -1198,9 +1261,7 @@ export const reschedulePost = asyncHandler(async (req, res) => {
   ];
   await scheduledPost.save();
 
-  const displayTime = format(newScheduleDate, "yyyy-MM-dd'T'HH:mm:ss'Z'", {
-    timeZone: "UTC",
-  });
+  const displayTime = format(newScheduleDate, "yyyy-MM-dd'T'HH:mm:ss'Z'"); // ✅ Now works
 
   return success(res, `Post rescheduled for ${displayTime}`, {
     scheduledPostId: scheduledPost._id,

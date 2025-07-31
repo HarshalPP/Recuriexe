@@ -89,7 +89,7 @@ async function postToInstagram(account, caption, mediaUrl) {
   const uploadUrl = `https://graph.facebook.com/${FACEBOOK_API_VERSION}/${account.igAccountId}/media`;
   const publishUrl = `https://graph.facebook.com/${FACEBOOK_API_VERSION}/${account.igAccountId}/media_publish`;
 
-
+  
   const uploadResponse = await axios.post(
     uploadUrl,
     new URLSearchParams({
@@ -103,8 +103,6 @@ async function postToInstagram(account, caption, mediaUrl) {
   );
 
   const creationId = uploadResponse.data.id;
-
-  console.log("creationId",creationId);
   
 
   const publishResponse = await axios.post(
@@ -146,12 +144,14 @@ async function postToInstagramDirect(account, caption, mediaUrl) {
         },
       }
     );
-    console.log("uploadResponse:-----", uploadResponse);
 
     const creationId = uploadResponse.data.id;
 
     // Step 2: Publish Media
     const publishUrl = `https://graph.instagram.com/${INSTAGRAM_API_VERSION}/${userId}/media_publish`;
+
+    console.log("publishUrl",publishUrl);
+    
 
     const publishResponse = await axios.post(
       publishUrl,
@@ -166,6 +166,8 @@ async function postToInstagramDirect(account, caption, mediaUrl) {
       }
     );
 
+    console.log("publishResponse.data",publishResponse.data);
+    
     return publishResponse.data;
   } catch (error) {
     console.error("Failed to post to Instagram:", error.message);
@@ -184,7 +186,8 @@ async function savePostedContent(
   igMediaId,
   userId,
   fbAccName,
-  igAccName
+  igAccName,
+  organizationId,
 ) {
   return PostedContent.create({
     message,
@@ -204,6 +207,7 @@ async function savePostedContent(
     accountId,
     facebookPageName: fbAccName,
     instagramAccountName: igAccName,
+    organizationId:organizationId,
   });
 }
 
@@ -329,7 +333,8 @@ async function scheduleNewPost(
   scheduleTimes, // Array of Date strings or Date objects
   userId,
   fbAccName,
-  igAccName
+  igAccName,
+  organizationId,
 ) {
   const tempFilePaths = [];
 
@@ -370,6 +375,7 @@ async function scheduleNewPost(
     userId,
     facebookPageName: fbAccName,
     instagramAccountName: igAccName,
+    organizationId: organizationId,
   });
 
   const jobNames = [];
@@ -404,13 +410,102 @@ async function scheduleNewPost(
 }
 
 // Execute scheduled post
+// async function executeScheduledPost(scheduledPostId, scheduledTime) {
+//   const scheduledPost = await ScheduledPost.findById(scheduledPostId);
+//   if (!scheduledPost) return;
+
+//   // Find the index of the scheduled time in scheduleStatuses
+//   const index = scheduledPost.scheduleStatuses.findIndex(
+//     (status) => status.time.getTime() === new Date(scheduledTime).getTime()
+//   );
+
+//   if (index === -1) {
+//     console.warn(`Scheduled time not found for post ${scheduledPostId}`);
+//     return;
+//   }
+
+//   const { platform, accountId, message, mediaUrls, mediaFiles } = scheduledPost;
+
+//   let result = null,
+//     fbPostId = null,
+//     igMediaId = null;
+    
+
+//   try {
+//     const account = await SocialMediaAccount.findById(accountId);
+//     if (!account || !account.accessToken) throw new Error("Invalid account");
+
+//     if (platform === "facebook_page") {
+//       result = await postToFacebook(account, message, mediaUrls[0]);
+//       fbPostId = result.id;
+//     } else if (platform === "instagram_business") {
+//       result = await postToInstagram(account, message, mediaUrls[0]);
+//       igMediaId = result.id;
+//     }
+
+//     await savePostedContent(
+//       platform,
+//       accountId,
+//       message,
+//       mediaUrls,
+//       mediaFiles,
+//       fbPostId,
+//       igMediaId,
+//       scheduledPost.userId
+//     );
+
+//     // Update the status of the specific scheduled time
+//     scheduledPost.scheduleStatuses[index].status = "posted";
+//     scheduledPost.updatedAt = new Date();
+
+//     // If all scheduled times are posted, update the overall status
+//     if (
+//       scheduledPost.scheduleStatuses.every(
+//         (status) => status.status === "posted"
+//       )
+//     ) {
+//       scheduledPost.status = "posted";
+//       scheduledPost.postedAt = new Date();
+//     }
+
+//     await scheduledPost.save();
+
+//     // Delete temp files
+//     if (mediaFiles?.length) {
+//       await Promise.all(
+//         mediaFiles.map(async (f) => {
+//           try {
+//             await fs.unlink(f.path);
+//           } catch (err) {
+//             console.error("Error deleting file:", err);
+//           }
+//         })
+//       );
+//     }
+
+//     // Remove all job references from memory
+//     scheduledPost.jobNames.forEach((jobName) => {
+//       scheduledJobs.delete(`${scheduledPostId}-${jobName}`);
+//     });
+//   } catch (error) {
+//     console.error("Failed to execute scheduled post:", error.message);
+
+//     // Update the status of the specific scheduled time to "failed"
+//     scheduledPost.scheduleStatuses[index].status = "failed";
+//     scheduledPost.scheduleStatuses[index].error = error.message;
+//     scheduledPost.updatedAt = new Date();
+
+//     await scheduledPost.save();
+//   }
+// }
+
+
 async function executeScheduledPost(scheduledPostId, scheduledTime) {
   const scheduledPost = await ScheduledPost.findById(scheduledPostId);
   if (!scheduledPost) return;
 
-  // Find the index of the scheduled time in scheduleStatuses
   const index = scheduledPost.scheduleStatuses.findIndex(
-    (status) => status.time.getTime() === new Date(scheduledTime).getTime()
+    (status) => new Date(status.time).getTime() === new Date(scheduledTime).getTime()
   );
 
   if (index === -1) {
@@ -418,22 +513,32 @@ async function executeScheduledPost(scheduledPostId, scheduledTime) {
     return;
   }
 
-  const { platform, accountId, message, mediaUrls, mediaFiles } = scheduledPost;
+  const {
+    platform,
+    accountId,
+    message,
+    mediaUrls,
+    mediaFiles,
+  } = scheduledPost;
 
   let result = null,
-    fbPostId = null,
-    igMediaId = null;
-    
+      fbPostId = null,
+      igMediaId = null;
 
   try {
     const account = await SocialMediaAccount.findById(accountId);
-    if (!account || !account.accessToken) throw new Error("Invalid account");
+    if (!account || !account.accessToken) {
+      throw new Error("Invalid or disconnected social media account");
+    }
 
     if (platform === "facebook_page") {
       result = await postToFacebook(account, message, mediaUrls[0]);
       fbPostId = result.id;
     } else if (platform === "instagram_business") {
       result = await postToInstagram(account, message, mediaUrls[0]);
+      igMediaId = result.id;
+    } else if (platform === "instagram_basic") {
+      result = await postToInstagramDirect(account, message, mediaUrls[0]);
       igMediaId = result.id;
     }
 
@@ -448,43 +553,38 @@ async function executeScheduledPost(scheduledPostId, scheduledTime) {
       scheduledPost.userId
     );
 
-    // Update the status of the specific scheduled time
     scheduledPost.scheduleStatuses[index].status = "posted";
     scheduledPost.updatedAt = new Date();
 
-    // If all scheduled times are posted, update the overall status
-    if (
-      scheduledPost.scheduleStatuses.every(
-        (status) => status.status === "posted"
-      )
-    ) {
+    const allPosted = scheduledPost.scheduleStatuses.every(
+      (status) => status.status === "posted"
+    );
+    if (allPosted) {
       scheduledPost.status = "posted";
       scheduledPost.postedAt = new Date();
     }
 
     await scheduledPost.save();
 
-    // Delete temp files
-    if (mediaFiles?.length) {
-      await Promise.all(
-        mediaFiles.map(async (f) => {
-          try {
-            await fs.unlink(f.path);
-          } catch (err) {
-            console.error("Error deleting file:", err);
-          }
-        })
-      );
+    // Clean up media files 
+    if (mediaFiles?.length > 0) {
+      for (const f of mediaFiles) {
+        try {
+          await fs.unlink(f.path);
+        } catch (err) {
+          console.error("Error deleting file:", err.message);
+        }
+      }
     }
 
-    // Remove all job references from memory
+    // Clear job references from memory
     scheduledPost.jobNames.forEach((jobName) => {
       scheduledJobs.delete(`${scheduledPostId}-${jobName}`);
     });
+
   } catch (error) {
     console.error("Failed to execute scheduled post:", error.message);
 
-    // Update the status of the specific scheduled time to "failed"
     scheduledPost.scheduleStatuses[index].status = "failed";
     scheduledPost.scheduleStatuses[index].error = error.message;
     scheduledPost.updatedAt = new Date();
@@ -492,6 +592,7 @@ async function executeScheduledPost(scheduledPostId, scheduledTime) {
     await scheduledPost.save();
   }
 }
+
 
 // Rehydrate existing scheduled jobs on server restart
 async function restoreScheduledJobs() {

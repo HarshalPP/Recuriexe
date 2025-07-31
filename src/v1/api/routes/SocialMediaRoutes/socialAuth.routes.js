@@ -62,9 +62,9 @@ router.get("/accounts", getAllConnectedAccounts); // Get all connected accounts
 router.delete("/accounts/:accountId", disconnectAccount); // Revoke token + delete account
 
 // posting to accounts
-router.post("/facebook/post", postToFacebookPage);
-router.post("/instagram/post", postToInstagramAccount);
-router.post("/instagram/direct/post", postToInstagramDirectly);
+router.post("/facebook/post", verifyEmployeeToken,postToFacebookPage);
+router.post("/instagram/post",verifyEmployeeToken, postToInstagramAccount);
+router.post("/instagram/direct/post",verifyEmployeeToken, postToInstagramDirectly);
 
 // auth.routes.js or app.js
 
@@ -90,11 +90,11 @@ router.post("/draft",verifyEmployeeToken, saveSocialMediaDraft); // Save new dra
 router.get("/all/drafts", verifyEmployeeToken,getSocialMediaDrafts); // Get all drafts
 router.put("/draft/:draftId", verifyEmployeeToken,editSocialMediaDraft); // Edit draft
 router.delete("/draft/:draftId", deleteSocialMediaDraft); // Delete draft
-router.post("/draft/:draftId/publish", publishDraft); // Publish draft
+router.post("/draft/:draftId/publish",verifyEmployeeToken, publishDraft); // Publish draft
 router.get("/scheduled-posts",verifyEmployeeToken, getScheduledPostsByOrganization);
 
-router.post("/api/social/cancel-scheduled-post/:scheduledPostId", cancelScheduledPost);
-router.post("/api/social/reschedule-post/:scheduledPostId", reschedulePost);
+router.delete("/cancel-scheduled-post/:scheduledPostId", cancelScheduledPost);
+router.post("/reschedule-post/:scheduledPostId", reschedulePost);
 
 export default router;
 

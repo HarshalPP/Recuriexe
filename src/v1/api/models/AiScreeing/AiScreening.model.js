@@ -23,22 +23,28 @@ const ScreeningCriteriaSchema = new Schema({
     experience: {
         type: String,
     }
-},{
-    _id:true, // Ensure each criteria has its own unique ID
+}, {
+    _id: true, // Ensure each criteria has its own unique ID
 });
 
 // Main AI Screening Schema
 const AiScreeningSchema = new Schema({
 
     organizationId: {
-      type: ObjectId,
-      ref: 'Organization',
-      default: null
+        type: ObjectId,
+        ref: 'Organization',
+        default: null
     },
 
-    autoScreening:{
-        type:Boolean,
-        default:true
+    autoScreening: {
+        type: Boolean,
+        default: true
+    },
+
+
+    autoResumeShortlisting: {
+        type: Boolean,
+        default: false
     },
 
     name: {
@@ -60,6 +66,7 @@ const AiScreeningSchema = new Schema({
             type: Boolean,
             default: false,
         },
+
     },
 
     // Custom Screening Criteria (embedded subdocuments)

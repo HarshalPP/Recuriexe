@@ -14,6 +14,7 @@ export const formatAiScreening = (screening) => ({
   id: screening._id,
   name: screening.name,
   autoScreening:screening.autoScreening,
+  autoResumeShortlisting:screening.autoResumeShortlisting,
   description: screening.description,
   coreSettings: screening.coreSettings,
   screeningCriteria: screening.screeningCriteria.map(formatScreeningCriteria),

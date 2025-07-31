@@ -37,6 +37,7 @@ export const redirectToFacebookInsta = (req, res) => {
       "instagram_basic",
       "pages_show_list",
       "instagram_content_publish",
+      "manage_pages",
     ].join(",");
     const redirectUri = process.env.FACEBOOKTOINSTA_REDIRECT_URI;
 
@@ -83,7 +84,6 @@ export const redirectToFacebookInsta = (req, res) => {
 //         params: { access_token: accessToken },
 //       }
 //     );
-
 
 //     const facebookPages = pagesRes.data.data.map((page) => ({
 //       pageId: page.id,
@@ -258,7 +258,6 @@ export const handleFacebookPageCallback = async (req, res) => {
 //   }
 // };
 
-
 export const handleFacebookInstagramCallback = async (req, res) => {
   try {
     const { code } = req.query;
@@ -278,6 +277,7 @@ export const handleFacebookInstagramCallback = async (req, res) => {
     );
 
     const shortLivedToken = tokenRes.data.access_token;
+    console.log("shortLivedToken:--", shortLivedToken);
 
     // Step 2: Exchange short-lived token for long-lived token
     const longLivedTokenRes = await axios.get(
@@ -293,6 +293,14 @@ export const handleFacebookInstagramCallback = async (req, res) => {
     );
 
     const longLivedToken = longLivedTokenRes.data.access_token;
+    console.log("longLivedToken:--", longLivedToken);
+
+    // Add this before the pages call
+const userRes = await axios.get("https://graph.facebook.com/v23.0/me", {
+  params: { access_token: longLivedToken }
+});
+console.log("User info:", userRes.data);
+
 
     // Step 3: Get user's pages using long-lived token
     const pagesRes = await axios.get(
@@ -303,6 +311,12 @@ export const handleFacebookInstagramCallback = async (req, res) => {
         },
       }
     );
+    console.log("pagesRes",pagesRes);
+    
+    // Check if data exists
+    if (!pagesRes.data || !pagesRes.data.data) {
+      return badRequest(res, "No pages found or insufficient permissions");
+    }
 
     const eligiblePages = [];
 
@@ -333,6 +347,7 @@ export const handleFacebookInstagramCallback = async (req, res) => {
         );
 
         const igAccountData = igAccountRes.data;
+        console.log("igAccountData:---", igAccountData);
 
         eligiblePages.push({
           pageId: page.id,
