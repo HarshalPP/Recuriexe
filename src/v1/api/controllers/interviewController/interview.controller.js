@@ -736,7 +736,7 @@ export const hrByApproveAndReject = async (req, res) => {
 
     const normalizedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
-    return success(res, `Candidate ${normalizedStatus}`);
+    return success(res, `Candidate ${normalizedStatus}` , hrByApprove);
   } catch (err) {
     console.error("detailInterview:", err);
     return unknownError(res, err);

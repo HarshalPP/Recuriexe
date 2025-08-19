@@ -51,7 +51,8 @@ export const getUserTableConfig = async (req, res) => {
     const defaultKeys = [
       "Checkbox selection", "ID", "Candidate Name", "Contact", "Email",
       "Locations", "Department", "Sub-Department", "Position",
-      "Qualification", "Last Organisation", "Applied Date", "Resume" , "Expected CTC" , "Remark" , "Resume Decision" , "Schedule" , "Document Status" , "Request Document" , "Offer Letter Status" , "Offer Letter" , "Generate Offer Letter" , "Verification Status" , "Verification Report"
+      "Qualification", "Last Organisation", "Applied Date", "Resume" , "Expected CTC" , 
+      // "Remark" , "Resume Decision" , "Schedule" , "Document Status" , "Request Document" , "Offer Letter Status" , "Offer Letter" , "Generate Offer Letter" , "Verification Status" , "Verification Report"
     ];
 
     const createDefaultConfig = async (configType) => {

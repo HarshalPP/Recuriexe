@@ -175,6 +175,7 @@ export const jobPostAddDirect = async (req, res) => {
   try {
     req.body.organizationId = req.employee.organizationId;
     req.body.createdByHrId = req.employee.id;
+    req.body.ReportId=null;
 
   const ReportName = req.body.reportName;
   const categories = req.body.categories
