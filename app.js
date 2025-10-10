@@ -6,7 +6,7 @@ import path from 'path';
 
 
 import "./src/v1/api/config/gmailpassport.js"
-import  passport  from 'passport';
+import passport from 'passport';
 import session from 'express-session';
 
 
@@ -78,7 +78,7 @@ app.get('/', (req, res) => {
 
 // LiknedIn Routes
 
-app.use("/api/auth" , linkedInRoutes)
+app.use("/api/auth", linkedInRoutes)
 // app.use("/api/googleAuth" , google)
 // signDocumentWithSignzy()
 
@@ -106,7 +106,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use("/v1/api",authRoutes)
+app.use("/v1/api", authRoutes)
 
 
 // >>>>>>>>>
@@ -116,7 +116,7 @@ app.use('/v1/api', Routerlocation);
 
 // Handle 404 for all unmatched API routes
 app.all('*', (req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' , status: 404 });
+  res.status(404).json({ success: false, message: 'Route not found', status: 404 });
 });
 
 // Centralized error handler
