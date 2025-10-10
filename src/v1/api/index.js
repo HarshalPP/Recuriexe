@@ -85,7 +85,7 @@ import fileShareDetail from './routes/fileShareRoutes/finalFileShareRoutes.js'
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"
 
-import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
+import mailSwitchRouter from "./routes/mailRoutes/mail.router.js"
 
 import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
@@ -138,7 +138,7 @@ import { bulkJobApplyToGoogleSheet } from "./controllers/googleSheet/jobApplyGoo
 import valueRouter from "./routes/dynamicCarrer/value.router.js";
 import formRouter from "./routes/dynamicCarrer/form.route.js";
 import inputRouter from "./routes/dynamicCarrer/input.route.js";
-import templateRouter from "./routes/pdfTemplateRoutes/template.routes.js"
+import templateRouter from "./routes/pdfTemplateRoutes/template.router.js"
 import variableRouter from "./routes/pdfTemplateRoutes/variableSetUp.router.js"
 import interviewRouter from "./routes/interviewRoutes/interview.routes.js"
 //expense
