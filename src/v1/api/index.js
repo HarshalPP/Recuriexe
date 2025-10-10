@@ -85,7 +85,7 @@ import fileShareDetail from './routes/fileShareRoutes/finalFileShareRoutes.js'
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"
 
-// import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
+import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
 
 import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
@@ -128,11 +128,11 @@ import socialMediaRoutes from "./routes/SocialMediaRoutes/socialAuth.routes.js"
 
 // gmail send Routes 
 
-// import emailRoutes from "./routes/GmailRoute/mail.routes.js"
+import emailRoutes from "./routes/GmailRoute/mail.routes.js"
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
-import {bulkJobApplyToGoogleSheet} from "./controllers/googleSheet/jobApplyGoogleSheet.js"
+import { bulkJobApplyToGoogleSheet } from "./controllers/googleSheet/jobApplyGoogleSheet.js"
 
 // Dynamic Career Form Routes //
 import valueRouter from "./routes/dynamicCarrer/value.router.js";
@@ -170,23 +170,23 @@ import reportvariableRouter from './routes/reportvariableroutes/reportvarible.ro
 import casesRoutes from './routes/casesRoutes/cases.routes.js';
 import reportPdfRouter from './routes/reportPdfGenerateroutes/reportPdfGeneareate.route.js';
 
-router.use("/expenseCategory",expenseCategoryRouter)
+router.use("/expenseCategory", expenseCategoryRouter)
 // router.use("/expenseType",expenseTypeRouter)
-router.use("/field",fieldRouter)
-router.use("/trip",tripRouter)
-router.use("/expense",expenseRouter)
+router.use("/field", fieldRouter)
+router.use("/trip", tripRouter)
+router.use("/expense", expenseRouter)
 router.use("/report", reportRouter)
-router.use("/advance",advanceRoute)
-router.use("/purchase",purchaseRoute)
-router.use("/tripValue",tripValueRoute)
-router.use("/merchant",merchantRoute)
-router.use("/policy",policyRoute)
-router.use("/expenseRole",expenseRoleRoute)
-router.use("/userExpense",userExpenseRoute)
-router.use('/favorite',favoriteRouter)
-router.use("/templete" , templete)
-router.use("/demo" , Bookdemo)
-router.use("/Agency" , Agency)
+router.use("/advance", advanceRoute)
+router.use("/purchase", purchaseRoute)
+router.use("/tripValue", tripValueRoute)
+router.use("/merchant", merchantRoute)
+router.use("/policy", policyRoute)
+router.use("/expenseRole", expenseRoleRoute)
+router.use("/userExpense", userExpenseRoute)
+router.use('/favorite', favoriteRouter)
+router.use("/templete", templete)
+router.use("/demo", Bookdemo)
+router.use("/Agency", Agency)
 
 
 
@@ -202,126 +202,126 @@ router.use("/allocated", Allocated);
 
 // Employee setUp //
 
-router.use("/branch" , branch)
-router.use("/workLocation" , worklocation)
-router.use("/newdepartment" , department)
-router.use("/designation" , designation)
-router.use("/employeType" , employmentType)
-router.use("/employmentType" , employmentTypes)
-router.use("/costcenter" , costcenter)
-router.use("/role" , Role)
-router.use("/company" , company)
-router.use("/targetCompany",targetCompany)
-router.use("/org" , organization)
-router.use("/AISetUp" , AIsetUp)
-router.use("/shift" , shift)
-router.use("/qualification" , Qualification)
-router.use("/PortalsetUp" , PortalsetUp)
-router.use("/pinCode" , pinCodeRouter)
-router.use("/formStageset" , formStagesetUP)
+router.use("/branch", branch)
+router.use("/workLocation", worklocation)
+router.use("/newdepartment", department)
+router.use("/designation", designation)
+router.use("/employeType", employmentType)
+router.use("/employmentType", employmentTypes)
+router.use("/costcenter", costcenter)
+router.use("/role", Role)
+router.use("/company", company)
+router.use("/targetCompany", targetCompany)
+router.use("/org", organization)
+router.use("/AISetUp", AIsetUp)
+router.use("/shift", shift)
+router.use("/qualification", Qualification)
+router.use("/PortalsetUp", PortalsetUp)
+router.use("/pinCode", pinCodeRouter)
+router.use("/formStageset", formStagesetUP)
 router.use("/masterPlan", PlanRouter)
-router.use("/userConfig" , userConfig)
+router.use("/userConfig", userConfig)
 
 // --------- Tracking Routes ----------- //
-router.use("/tracking" ,tracking)
-// router.use("/mail" ,  mailSwitchRouter)
-router.use("/masterDropDown",masterDropDownRouter)
-router.use('/template',templateRouter)
-router.use('/variable',variableRouter)
-router.use('/service',serviceCommonRouter)
+router.use("/tracking", tracking)
+router.use("/mail", mailSwitchRouter)
+router.use("/masterDropDown", masterDropDownRouter)
+router.use('/template', templateRouter)
+router.use('/variable', variableRouter)
+router.use('/service', serviceCommonRouter)
 router.use('/interview', interviewRouter)
 
 // Job description setUp //
 
-router.use("/jobdescription" , jobdescription)
+router.use("/jobdescription", jobdescription)
 
 
 // vacency request setUp //
 
-router.use("/vacencyRequest" , vacancyRequest)
+router.use("/vacencyRequest", vacancyRequest)
 
 
 // Job Post Request //
 
-router.use("/jobPost" , JobRequest)
+router.use("/jobPost", JobRequest)
 
 
 // job save router //
-router.use("/jobSave",jobSaveRouter)
+router.use("/jobSave", jobSaveRouter)
 
 
 // Job Apply Request //
 
-router.use("/job" , jobApplyRequest)
+router.use("/job", jobApplyRequest)
 
 
 // Candidate Request //
 
-router.use("/candidate" , candidateRequest)
+router.use("/candidate", candidateRequest)
 
 
 // Upload image //
 
-router.use("/upload" , Upload)
+router.use("/upload", Upload)
 
 
 // setting Routes //
 
-router.use("/setting" , setting)
+router.use("/setting", setting)
 
 
 // Leave Routes //
 
-router.use("/leavetype" , leavetypeRequest)
+router.use("/leavetype", leavetypeRequest)
 
 
 // Calender Request //
 
-router.use("/calender" , calenderRequest)
+router.use("/calender", calenderRequest)
 
 // Task Request //
-router.use("/task",taskDetail)
+router.use("/task", taskDetail)
 
 router.use("/notes", notesDetail)
 
-router.use('/fileShare',fileShareDetail)
+router.use('/fileShare', fileShareDetail)
 
 // Budged Request //
 
-router.use("/Budged" , Budged)
+router.use("/Budged", Budged)
 
 
 // Subscription Plan //
-router.use("/subscription" , Subscription)
+router.use("/subscription", Subscription)
 
 
 // verify Docs
 
-router.use("/verifyDocs" ,  verifyDocs)
+router.use("/verifyDocs", verifyDocs)
 
 // LinkedIn Posting
 router.use('/post', postRoutes);
 router.use('/linkedin', linkedinRoutes);
 router.use("/organizations", organizationRoutes);
-router.use("/socialmedia", socialMedia );
+router.use("/socialmedia", socialMedia);
 
 //Social Media
 
 router.use("/socialMedia", socialMediaRoutes);
 
-router.get("/googlesheet",bulkJobApplyToGoogleSheet)
+router.get("/googlesheet", bulkJobApplyToGoogleSheet)
 
 
 // verification suit router 
 router.use("/apis", apiRouter)
 
-router.use("/input",inputRouter);
-router.use("/form",formRouter);
-router.use("/value",valueRouter);
+router.use("/input", inputRouter);
+router.use("/form", formRouter);
+router.use("/value", valueRouter);
 router.use("/finalFileShare", fileShareDetail);
 
 // gmail routes 
-// router.use("/mail",emailRoutes)
+router.use("/mail", emailRoutes)
 
 //airphone routes
 router.use("/airphone", airphoneRouter);
@@ -329,41 +329,41 @@ router.use("/airphone", airphoneRouter);
 
 // commandexe routes
 
-router.use("/user-service" , serviceproviderRoute)
-router.use("/userproduct" , userProductRouter)
-router.use("/request" , requestRouter)
-router.use("/form-library" , formLibraryRoute)
-router.use("/varibale" , varibleRouter)
-router.use("/pdf" ,pdfRouter )
-router.use("/init" ,initRouter )
-router.use("/initFields" ,initFieldRouter )
-router.use("/vendor-template" ,templateRoute )
-router.use("/job" ,jobRouter )
-router.use("/email" ,emailtemplateRouter )
-router.use("/file" , uploadRouter)
-router.use("/dashboard" ,dashboardRouter )
-router.use("/doc" ,docRoute )
+router.use("/user-service", serviceproviderRoute)
+router.use("/userproduct", userProductRouter)
+router.use("/request", requestRouter)
+router.use("/form-library", formLibraryRoute)
+router.use("/varibale", varibleRouter)
+router.use("/pdf", pdfRouter)
+router.use("/init", initRouter)
+router.use("/initFields", initFieldRouter)
+router.use("/vendor-template", templateRoute)
+router.use("/job", jobRouter)
+router.use("/email", emailtemplateRouter)
+router.use("/file", uploadRouter)
+router.use("/dashboard", dashboardRouter)
+router.use("/doc", docRoute)
 
 // report generator
-router.use("/report-service" , reportServiceRoute)
-router.use("/report-product" , reportTypeRouter)
-router.use("/report-input" , inputFieldRouter)
-router.use("/report-form" , reportFormRouter)
-router.use("/report-template" , reportTemplateRouter)
-router.use("/report-variable" , reportvariableRouter)
-router.use("/report-case" , casesRoutes)
-router.use("/report-pdf" , reportPdfRouter)
+router.use("/report-service", reportServiceRoute)
+router.use("/report-product", reportTypeRouter)
+router.use("/report-input", inputFieldRouter)
+router.use("/report-form", reportFormRouter)
+router.use("/report-template", reportTemplateRouter)
+router.use("/report-variable", reportvariableRouter)
+router.use("/report-case", casesRoutes)
+router.use("/report-pdf", reportPdfRouter)
 
 
 // document routes 
 router.use("/documentFormTemplate", documentFormTemplateRouter);
 router.use("/documentValueTemplate", documentValueTemplateRouter);
 //expenseRoutes
-router.use("/systemCategory",systemCategoryRoute)
-router.use("/subCategory",subcategoryRoutes)
-router.use("/dynamicForm",dynamicFormRouter)
-router.use("/expenseType",expenseType)
-router.use("/workFlow",workflowRouter)
+router.use("/systemCategory", systemCategoryRoute)
+router.use("/subCategory", subcategoryRoutes)
+router.use("/dynamicForm", dynamicFormRouter)
+router.use("/expenseType", expenseType)
+router.use("/workFlow", workflowRouter)
 router.use("/vendor", vendorRouter);
 router.use("/expenseSubmission", expenseSubmissionRouter);
 
