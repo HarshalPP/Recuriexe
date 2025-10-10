@@ -99,7 +99,7 @@ export const sendMailHelper = async (mailData) => {
     const { token } = await oAuth2Client.getAccessToken();
 
     const data = await sendGmail(token, to, subject, message, normalizedPath);
-    console.log("data" , data)
+    console.log("data", data)
 
     const emailDoc = new Email({
       userId,
