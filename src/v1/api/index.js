@@ -85,7 +85,7 @@ import fileShareDetail from './routes/fileShareRoutes/finalFileShareRoutes.js'
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"
 
-import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
+// import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
 
 import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
@@ -128,7 +128,7 @@ import socialMediaRoutes from "./routes/SocialMediaRoutes/socialAuth.routes.js"
 
 // gmail send Routes 
 
-import emailRoutes from "./routes/GmailRoute/mail.routes.js"
+// import emailRoutes from "./routes/GmailRoute/mail.routes.js"
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"
@@ -224,7 +224,7 @@ router.use("/userConfig" , userConfig)
 
 // --------- Tracking Routes ----------- //
 router.use("/tracking" ,tracking)
-router.use("/mail" ,  mailSwitchRouter)
+// router.use("/mail" ,  mailSwitchRouter)
 router.use("/masterDropDown",masterDropDownRouter)
 router.use('/template',templateRouter)
 router.use('/variable',variableRouter)
@@ -321,7 +321,7 @@ router.use("/value",valueRouter);
 router.use("/finalFileShare", fileShareDetail);
 
 // gmail routes 
-router.use("/mail",emailRoutes)
+// router.use("/mail",emailRoutes)
 
 //airphone routes
 router.use("/airphone", airphoneRouter);
