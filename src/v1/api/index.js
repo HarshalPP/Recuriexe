@@ -85,7 +85,7 @@ import fileShareDetail from './routes/fileShareRoutes/finalFileShareRoutes.js'
 
 import tracking from "./routes/trackingRoutes/tracking.routes.js"
 
-import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
+// import mailSwitchRouter from "./routes/mailRoutes/mail.routes.js"
 
 import pinCodeRouter from "./routes/pinCodeRoutes/pinCode.routes.js"
 
@@ -224,7 +224,7 @@ router.use("/userConfig" , userConfig)
 
 // --------- Tracking Routes ----------- //
 router.use("/tracking" ,tracking)
-router.use("/mail" ,  mailSwitchRouter)
+// router.use("/mail" ,  mailSwitchRouter)
 router.use("/masterDropDown",masterDropDownRouter)
 router.use('/template',templateRouter)
 router.use('/variable',variableRouter)
