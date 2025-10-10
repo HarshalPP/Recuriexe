@@ -128,7 +128,7 @@ import socialMediaRoutes from "./routes/SocialMediaRoutes/socialAuth.routes.js"
 
 // gmail send Routes 
 
-import emailRoutes from "./routes/GmailRoute/mail.routes.js"
+import emailRoutes from "./routes/GmailRoute/mail.router.js"
 
 // verification suit router
 import apiRouter from "./routes/verificationsuitRoutes/apiReport.routes.js"

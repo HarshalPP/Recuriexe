@@ -23,7 +23,7 @@ import addExpenses from "./src/v1/api/script/expense/expenseType.script.js"
 // import {expirePlansScheduler} from "./src/v1/api/controllers/PlanController/planController.js"
 
 //Gmail routes
-import authRoutes from "./src/v1/api/routes/GmailRoute/auth.routes.js"
+import authRoutes from "./src/v1/api/routes/GmailRoute/auth.router.js"
 
 
 
