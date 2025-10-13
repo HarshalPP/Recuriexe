@@ -1,35 +1,25 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import "../config/db.js"; // Ensure file path is correct and uses .js extension for ESM
+import "../config/db.js";
 
+const apiKey = process.env.GEMINI_KEY; // ensure this is set
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// const geminiConfig = {
-//   temperature: 0.9,
-//   topP: 1,
-//   topK: 1,
-//   maxOutputTokens: 4096,
-// };
-
-const geminiApiKey = process.env.GEMINI_KEY;
-const googleAI = new GoogleGenerativeAI(geminiApiKey);
-
-const geminiConfig = {
-temperature: 0.3, // Lower temperature for faster, more consistent responses
-  topP: 0.8,        // Reduced for faster processing
-  topK: 10,         // Reduced significantly for speed
+// shared config
+const generationConfig = {
+  temperature: 0.3,
+  topP: 0.8,
+  topK: 10,
   maxOutputTokens: 4096,
 };
 
-// GEMINI FLASH MODEL
-const geminiModel = googleAI.getGenerativeModel({
-  // model: "gemini-1.5-flash",
-  model: "gemini-1.5-flash",
-  ...geminiConfig,
+// Flash: best price/latency
+export const geminiModel = genAI.getGenerativeModel({
+  model: "gemini-2.5-flash",
+  generationConfig,
 });
 
-// GEMINI PRO MODEL (for file input like images/PDFs)
-const geminiFileModel = googleAI.getGenerativeModel({
-  model: "gemini-1.5-pro",
-  ...geminiConfig,
+// Pro: use this when you need long context or to send PDFs/images
+export const geminiFileModel = genAI.getGenerativeModel({
+  model: "gemini-2.5-pro",
+  generationConfig,
 });
-
-export { geminiModel, geminiFileModel };
