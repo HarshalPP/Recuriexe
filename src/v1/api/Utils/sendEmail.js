@@ -39,24 +39,24 @@ const transporter = nodemailer.createTransport({
 
 
 //old email //
-// export const sendEmail = async (options) => {
-//   try {
-//     const mailOptions = {
-//       from: process.env.CLIENT_EMAIL,
-//       to: options.to,
-//       subject: options.subject,
-//       html: options.html,
-//       attachments: options.Attachments || [],
-//     };
+export const sendEmail = async (options) => {
+  try {
+    const mailOptions = {
+      from: process.env.CLIENT_EMAIL,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      attachments: options.Attachments || [],
+    };
 
-//     const info = await transporter.sendMail(mailOptions);
-//     console.log('Email sent: %s', info.messageId);
-//     return info;
-//   } catch (error) {
-//     console.error('Error sending email:', error);
-//     throw new Error('Failed to send email');
-//   }
-// };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent: %s', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw new Error('Failed to send email');
+  }
+};
 
 
 
@@ -127,58 +127,58 @@ const token = "Zoho-enczapikey PHtE6r1cS+nqizR58hUDtve6EM+tMNkrq7hiK1VPsotLW/YLS
 
 const client = new SendMailClient({ url, token });
 
-export const sendEmail = async (options) => {
-  try {
-    if (!options.to) {
-      throw new Error("Recipient email is required");
-    }
+// export const sendEmail = async (options) => {
+//   try {
+//     if (!options.to) {
+//       throw new Error("Recipient email is required");
+//     }
 
-    const toRecipients = (Array.isArray(options.to) ? options.to : [options.to]).map((email) => ({
-      email_address: {
-        address: email,
-        name: "", // optional
-      },
-    }));
+//     const toRecipients = (Array.isArray(options.to) ? options.to : [options.to]).map((email) => ({
+//       email_address: {
+//         address: email,
+//         name: "", // optional
+//       },
+//     }));
 
-    const ccRecipients = options.cc
-      ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
-          email_address: { address: email, name: "" },
-        }))
-      : [];
+//     const ccRecipients = options.cc
+//       ? (Array.isArray(options.cc) ? options.cc : [options.cc]).map((email) => ({
+//           email_address: { address: email, name: "" },
+//         }))
+//       : [];
 
-    const bccRecipients = options.bcc
-      ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
-          email_address: { address: email, name: "" },
-        }))
-      : [];
+//     const bccRecipients = options.bcc
+//       ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]).map((email) => ({
+//           email_address: { address: email, name: "" },
+//         }))
+//       : [];
 
-    const mailData = {
-      from: {
-        address: "noreply@fincooperstech.com",
-        name: "noreply",
-      },
-      to: toRecipients,
-      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
-      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
-      subject: options.subject || "No Subject",
-      htmlbody: options.html || "<p>No Content</p>",
-      attachments: options.Attachments?.length
-        ? options.Attachments.map((att) => ({
-            content: att.content, // base64 string
-            name: att.filename || "attachment",
-            content_type: att.contentType || "application/octet-stream",
-          }))
-        : undefined,
-    };
+//     const mailData = {
+//       from: {
+//         address: "noreply@fincooperstech.com",
+//         name: "noreply",
+//       },
+//       to: toRecipients,
+//       cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+//       bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+//       subject: options.subject || "No Subject",
+//       htmlbody: options.html || "<p>No Content</p>",
+//       attachments: options.Attachments?.length
+//         ? options.Attachments.map((att) => ({
+//             content: att.content, // base64 string
+//             name: att.filename || "attachment",
+//             content_type: att.contentType || "application/octet-stream",
+//           }))
+//         : undefined,
+//     };
 
-    const response = await client.sendMail(mailData);
-    console.log("ZeptoMail sent:", response.data?.message || "Success");
-    return response.data;
-  } catch (error) {
-    console.error("ZeptoMail error:", error.response?.data || error.message || error);
-    throw new Error("Failed to send email via ZeptoMail");
-  }
-};
+//     const response = await client.sendMail(mailData);
+//     console.log("ZeptoMail sent:", response.data?.message || "Success");
+//     return response.data;
+//   } catch (error) {
+//     console.error("ZeptoMail error:", error.response?.data || error.message || error);
+//     throw new Error("Failed to send email via ZeptoMail");
+//   }
+// };
 
 
 export const sendEmail1 = async (options) => {
